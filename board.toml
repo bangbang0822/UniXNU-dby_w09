@@ -5,6 +5,12 @@
 # （profiles/os/ipados-17.7.11-21H461/profile.toml）已经给出的值，这里一律不再重写：
 # [ipsw] + [ipsw.sha256]、整个 [kernel.prelink]（tool/kernel/slide/early_security_init/
 # kernelcache_sha256/31 项 roots）、[payload] trust_cache_sha256 与 text_fixups、
+# The two trust bundles this board accepts, pinned before the addon exists on the device:
+# the owner bundle carries the plugin/daemon CDHashes, the original one is the donor's
+# unchanged static+System pair. payload.py skips this allow-list when --owner-trust-cache
+# is used, so the pin lives here and is checked by work/verify/pack-gates.py.
+owner_trust_cache_sha256 = "54dd82de82c5ac099f731a71c359eacccb2fc42818f29de6665ee08103217381"
+original_trust_cache_sha256 = "7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7"
 # 以及 ADT 的 iPad7,1/J120 身份、/chosen 安全状态、/defaults kern.maxvnodes。
 # 逐键对拍结果（SAME/DIFF）记在 porting.toml 的 os-profile 区，删的每一行都以那次对拍为据。
 # 保留的只有本板实测值，并在旁边写明来源。
@@ -24,7 +30,7 @@ kit = "dby_w09"                # 本仓 package/ 在构建树里出现为 kits/d
 # 是未移植项，不是省略。ShengHidInput/ShengNovatekTouch/QcomGeniSpi 已经在
 # porting.toml 的 input area 里记为 device-verified（真机触摸与按键可用）。QcomXnuUsbDebug 不在这里，但并不是没接：core 的 components.toml 里还没有这条 spec，而 components.toml 只从 core 软链，设备仓不能添加组件规格。它的归档走 [kernel] archives 的脚本位（scripts/build-qcom-usb-debug.py），模块放在本仓 package/ 里 （构建树里的 kits/dby_w09/QcomXnuUsbDebug，和 DbyTouch 同一层：components.py:resolve 只保留 refer/patch/package/script 加目录选中的组件，设备仓 drivers/ 下没有目录规格的模块会被丢掉），补丁走 [kernel] patch_series 的第五条 device:patches/xnu/series-usb。
 [components]
-include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi"]
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "Sm8250Platform", "AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K", "ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi"]
 
 # ---------------------------------------------------------------------------
 # userdata：已取证（9008 完整备份 gpt_main0.bin，LUN 0）。
@@ -125,7 +131,8 @@ archives = [
   "component:RamBlock",
   "build-storage-bindings.py --component NativeRamBlock --archive libRamBlock.a --directory build/ram-block --subset",
   # payload 的 native-ufs-root 硬门要求内核里有 _sheng_pmgr_run。
-  "build-platform-power.py",
+  "build-platform-power-linux.py",
+  "build-verified-root-archive.py --component os",
   # 双卷（OS + SystemOS）verified-root policy bundle，喂给
   # CONFIG_XNU_VERIFIED_ROOT_ARCHIVE。
   # libVerifiedRootProbe.a 按官方形状自备进构建树（docs/guide/build-kernel.md:108「an archive that no
@@ -141,20 +148,67 @@ archives = [
   # libBootProgress.a：BOOT_PROGRESS 走全局 EXTRA_CFLAGS，同时是屏幕上有
   # 阶段带/pulse 条的开关。它引用的 sheng 专属计数器由下面的 link-stubs 给零值定义。
   "build-boot-progress.py",
+  # CPU 频率探针（官方 CpuFreqProbe 的本板移植，源为 alioth 的 SM8250 版）。产
+  # build/cpufreq/libCpuFreqProbe.a，由 defconfig 的 CONFIG_XNU_EXTRA_LD_ARCHIVES 以
+  # -Wl,-force_load 送进链接：LinkStubs.c:96-99 有 sheng_cpufreq_probe 的 weak 空桩且
+  # libLinkStubs.a 排在前面，普通归档路径永远不会被拉取，探针会静默不运行。
+  # 缺省（不传 sheng-cpufreq=）是只读普查：映射三个 EPSS 窗口、打印 enable/domain_state/LUT 解码，
+  # 不写任何寄存器。依据 work/tracks/cpu-freq/SPEC.md。
+  "build-cpufreq.py",
+  # 最小 GPU SMMU 探针：**只读两三个寄存器**，清掉 GPU 的入场门（G-1）。
+  # 当时（2026-11-03）完整 A650 驱动在本树编不出来，原因后来查明是两个缺失类型让
+  # RecordDecl 无效、clang-24 的错误恢复断言崩在 NativeAdrenoService.cpp:95（不是编译器
+  # 缺陷；2026-11-05 已修好，见下面 build-adreno650.py 那条）。G-1 仍值得单独读一次：
+  # input_bits ≤ 32 时驱动 publish 会拒绝所有非内核客户端（e00002be）。
+  # 默认不动作，只有传 dby-gpu-smmu=1 才读（SMMU 背后的 GPUCC 时钟可能没开，未应答读会 SError）。
+  # 阶梯探针：默认不动作，只有传 dby-gpu-smmu=1 / dby-gpu-power=N 才跑那段只读寄存器序列。
+  # 2026-11-06 起它不再自带 ArmSmmu4K/AdrenoFirmware/AdrenoPM4 的 12 个 TU（那些在
+  # build/adreno-kits/libAdrenoKits.a 里，见上面 --kits-only 那条）；否则它与 A650 归档
+  # 同时 force_load 会重现 41 个重复符号。
+  "build-gpu-smmu-probe.py", "build-gpu-power-probe.py",
   "build-link-stubs.py",
   "build-libpthread-kernel.py",
   "component:ShengHidInput",
   "component:AppleKeyStoreState",
   # legacy 显示后端：NativeLegacyDisplay + NativeGOPPresenter + 板级 probe。
   # 必须在驱动配方之后，因为它读它们的编译记录。
+  "seed-mobile-graphics-record.py",
+  "build-gop-legacy-display-linux.py",
+  # GPU（A650）：产 {tree}/build/adreno740/libAdreno740.a，只有在
+  # CONFIG_XNU_NATIVE_ADRENO=y 时 build-xnu-4k-baseline.sh:644-650 才 force_load 它。
+  # 名字是 libAdreno740 而不是 libAdreno650，因为那个脚本把路径写死成
+  # build/adreno740/libAdreno740.a，不读 CONFIG_XNU_NATIVE_ADRENO_ARCHIVE。
+  # 2026-11-05 复查推翻了 2026-11-03 的“编译器级阻塞”结论：clang-24 在
+  # drivers/Adreno740/NativeAdrenoService.cpp:95 的断言是**错误恢复**——两个缺失的类型
+  # （NativeAdrenoGmuConfig.h:6 的 ShengGmu.h、NativeAdrenoSmmuMemory.h:16 的
+  # ArmSmmu4KTablePages）让 RecordDecl 变成 invalid，XNU 的 type-signature 补丁在无效
+  # decl 上求 layout 才崩（RecordLayoutBuilder.cpp:3439），与 flag 无关。
+  # 真正的卡点是 kits/ArmSmmu4K 子模块落后 4 个提交（3ba9245 -> 目录 pin 83969cd，含
+  # "feat(smmu): allocate page tables on demand"）；切过去后 28 个对象归档成功，
+  # 1672432 字节，sha256 85a7bfee9bff615ed50fec095eb0f6cdda022cbd11dfb80c34f345cefe58c116
+  # （evidence/gpu-archive-r1/build-report.json）。work/verify/verify-h1.py 复现
+  # w0/w1 崩、w2 不崩。接线与三轮计划见 work/tracks/adreno-build-path/REPORT.md。
+  # G0 只链接：命令行不带 pipa-gpu，本板也还没有调用方，所以这份归档进内核不改变一次启动。
+  # GPU kit 归档（2026-11-06）：ArmSmmu4K / AdrenoFirmware / AdrenoHfi / AdrenoPM4 的 13 个
+  # TU 编成 build/adreno-kits/libAdrenoKits.a，**不 force_load**，放在
+  # CONFIG_XNU_EXTRA_LD_ARCHIVES 的最末尾：ld64 按顺序解析归档，A650 驱动归档在
+  # build-xnu-4k-baseline.sh:626 先被 force_load 并引入这些 kit 符号，随后这个普通归档
+  # 满足它们，于是驱动和阶梯探针共用同一份 kit（否则 41 个重复符号）。
+  "build-adreno650.py --kits-only",
+  "build-adreno650.py",
+        # 暂存 AGXAccelerator（NativeAdrenoAccelerator.cpp）。必须排在上面那条之后：
+        # build-adreno650.py 会 unlink 整个归档再只写入自己的对象，先加进去的成员会被删掉。
+        # 缺归档时这个配方直接失败（不静默跳过），因为探针非弱引用它导出的三个符号。
+        "build-adreno650-accelerator.py",
   # 触摸生产者：真机验证过的 DbyTouch（同一型号机子上跑通的实现），产出 build/dby-touch/libDbyTouch.a。
   # 它走 defconfig 的 CONFIG_XNU_EXTRA_LD_ARCHIVES 普通路径，不是 force_load：BootProgress.c 里
   # dby_touch_probe_entry() 是强引用，链接器按未定义符号一定会把它拉进来。
+  # 调用点是板级 package/BootProgress.c 的 boot_progress_poll()（一次性守卫，失败可重试）；
+  # 驱动自身由内核参数 dby-touch=<stage> 门控，缺省 0 = 在 mapWindows() 之前直接返回。
   "build-dby-touch.py",
   # 手电筒生产者：DbyTorch（PM8150L flash-v2，SM8250 v5 SPMI arbiter），产出 build/dby-torch/libDbyTorch.a。
   # 同样走 defconfig 的 CONFIG_XNU_EXTRA_LD_ARCHIVES 普通路径：BootProgress.c 里 dby_torch_start() 是强引用。
   "build-dby-torch.py",
-  "build-gop-legacy-display.py",
   # CDC-ACM 控制台归档：官方入口是组件目录 spec（components.toml:513-534）调模块自己的
   # scripts/build.py，本 core 没有这条 spec 且 components.toml 只从 core 软链（tree.py:assemble），
   # 所以同一条命令放在设备层脚本位。它读 bootstrap pass 留下的 pe_kprintf.o.json。
@@ -175,13 +229,26 @@ include_dirs = ["soc:dts"]
 # firmware：uefi-sheng/UniXNUPkg 派生的 Mu-Silicium 移植（Platforms/Huawei/dby_w09Pkg）。
 # 我们的 UEFI 编译链目前在 VM 里手动跑，所以 [firmware] 只是把产物路径写对，
 # unixnu build firmware 还不是本板的构建入口——这一点记在 porting.toml 里。
+#
+# patches 必须与作者 canonical 路径一致：build_uefi.py:489/510 固定应用 5 个 Mu_Basecore
+# 补丁（AsmMacroLib / Auth-Service / Boot-Manager / Timer / Usb-Bus），本板另有第 6 个
+# Gic-Spurious（该文件在 Resources/MuPatches，但不在 build_uefi.py 的清单里）。此前这里只
+# 列了 Gic-Spurious，导致 unixnu build firmware 产出比作者少 5 个补丁的 FD 且不报错。
+# 顺序照 build_uefi.py 的 5 个在前、板级的 Gic 在后。
 # ---------------------------------------------------------------------------
 [firmware]
 config = "dby_w09"                 # Resources/Configs/dby_w09.toml
 dsc = "Platforms/Huawei/dby_w09Pkg/dby_w09.dsc"
 fd = "Build/dby_w09Pkg/{target}_CLANGPDB/FV/SILICIUM_UEFI.fd"
 preflight = ["scripts/check-dby_w09.py"]
-patches = ["Resources/MuPatches/Gic-Spurious.patch"]
+patches = [
+  "Resources/MuPatches/AsmMacroLib.patch",
+  "Resources/MuPatches/Auth-Service.patch",
+  "Resources/MuPatches/Boot-Manager.patch",
+  "Resources/MuPatches/Timer.patch",
+  "Resources/MuPatches/Usb-Bus.patch",
+  "Resources/MuPatches/Gic-Spurious.patch",
+]
 packages = [
   "{uefi}",
   "{uefi}/Platforms/Huawei",
@@ -307,28 +374,27 @@ kernel_args = [
   # this row had no reader left. Its 21 bytes are also the reserve for qcom-usb-ctl=1, which is
   # the documented next step and would otherwise not fit under the 1000-byte gate
   # (payload.py:35, DarwinBoot's 1024-byte command-line buffer).
+  # Mode 26 again, now with dby-gpu-zap=1: the secure-mode exit on the path that actually publishes the GPU and runs the
+  # Turnip test. evidence/edl-log-s126 proved this board can do the exit at all (mode 15: GPU ZAP st=0 step=7
+  # init/mem/auth 0/0 sec=0 tr=1 - PAS 13 through qcom_scm, the device's own a650_zap.elf, and CP_SET_SECURE_MODE(0)
+  # returning 0), but every boot that published the GPU so far ran without it, because dbyGpuZapStart() is reachable only from mode 15 (mode 16 returns earlier) and was never on the mode-26 path
+  # 15. The reference board of this project runs the exit at its mode 10, before its Metal/Turnip mode 12
+  # (research/repos/UniXNU-alioth/package/GpuProbe.cpp mode ladder). a6xx powers on in secure mode, which restricts what
+  # memory it can write to - the shape of our evidence exactly: CP (a privileged client) stores land, every engine store
+  # is refused with UCHE_OOB_ACCESS, and the CP reports no error. Verdict is [gpu zap] plus [gpu latch] bit 24 plus
+  # [metal gpu8]: v1024 c1024 g512/0 would be the engine writing.
+  # 2026-11-10 rebase: dby-gpu-zap is NOT passed any more -- the secure-mode exit now runs unconditionally, so the
+  # 'now with dby-gpu-zap=1' clause above describes the pre-rebase boot; mode 26 and the rest of the evidence stand.
+  "dby-gpu-power=26",
+  # dropped 2026-11-10 to fit the 1000-byte cap: sheng-autoreset
   "offline-apfs-load=1",
   "offline-mobile-graphics-load=1",
   "-apfs_shared_datavolume",
-  # NativeUfs 默认 stream 0x60 是 sheng 的板子；SM8250 走 0x0e0 / 0x4e0。
   "native-ufs-stream=0xe0",
   "native-ufs-stream2=0x4e0",
-  # 根设备发布门（NativeUfs.cpp start()：`if (rootMode && !probe) return startRoot(provider)`）。
-  # probe=10 是只读取证，和 root 互斥，所以必须用 root=1，否则永远不发布 IOMedia。
   "native-ufs-root=1",
-  # AMFI 硬门：payload.py 见到 native-ufs-root=1 就要求恰好一个 sheng-pmgr=2，
-  # 且内核里链了 _sheng_pmgr_run，否则原封不动的目标 AMFI 会 panic "No PMGR"。
   "sheng-pmgr=2",
-  # watchdogd 因 Data 卷没有 role 而 BRK #1，com.apple.watchdogd.plist 的 _PanicOnCrash
-  # 会把这一下升级成内核 panic。Data 挂载门还没开，所以先按官方 bring-up 做法抑制，
-  # 好让 initproc 之后的失败可读。
   "panic_on_crash_disabled=1",
-  # 以下每一项都对应本轮从官方 core 补进树里的补丁，参数本身由补丁里的代码读取：
-  #  zzyb-native-cryptex-os-view.patch -> 提供 SystemOS cryptex 视图，配合 -apfs_shared_datavolume
-  #  zzyc-owner-skip-launch-constraints.patch -> 放宽 launch constraints，让原始 iPadOS 用户态可 exec
-  # sheng-staged-apps 关闭：官方 UniXNU-sheng 只有 disable-watchdogd / disable-jobs / data-persist。
-  # 开它内核会把 OS 卷约 25 MiB 的 staged_system_apps 复制进 Data 种子，容器放不下，
-  # BootWatchdogPolicy.c 写 disabled.plist 得到 ENOSPC 28，内核在 kern_exec.c:8201 panic。
   "kt_fixed_zones=120",
   # offline-legacy-unit-scale=1 发布 /chosen display-scale，SpringBoard 的
   # -[FBSDisplayMode _initWithWidth:height:preferredScale:] 读的就是它。缺它 preferredScale=0，
@@ -349,8 +415,6 @@ kernel_args = [
   "offline-hid-home=1",
   "offline-hid-input=1",
   "offline-key-events=1",
-  # sheng-aks=1 让 AppleKeyStoreState 的 user client 如实回答状态查询（无钥匙串、未锁定）。
-  # 绝不加 offline-keystore=1：两者互斥，KeyStoreProbe.cpp:91 在它存在时直接放弃替身。
   "sheng-aks=1",
   # 2026-11-06 删 boot-ui-focus=launchd 与 boot-ui-focus4=SpringBoard（共 47 字节）。
   # 两条都是重复采样：BootProcessProbe.c:36 的默认表已经是
@@ -369,7 +433,9 @@ kernel_args = [
   # 2 = 同时要求 Setup。传 1 与不传绝不等价。删掉它以后，之前几十次开机攒下的 overlay 被重新
   # apply；persist=2 的 direct 模式里一次 store 写失败就永久停止所有写入（NativeRamBlock.cpp:11-13），
   # 用户态再也写不成任何东西，面板永远停在苹果标，而内核照常只剩 timer 行。
-  "sheng-data-reset=1",
+  # sheng-data-reset=1 is deliberately NOT passed: every successful boot of this device so far ran
+  # with sheng-data-persist=2 alone, and a Data-writing argument is the last variable to add
+  # to a stability measurement. Upstream keeps it for their own Data state.
   # 2026-11-06 这四条是我自己今天删的（和这位维护者无关）：为了给 armcpu-self-ipi=1 与
   # qcom-usb-debug=1 挤进 DarwinBoot.c:542 的 1024 字节命令行缓冲而删掉了本来就有的参数。
   # 现在原样加回来，字节改从我自己新加的那条还（见下面 armcpu-self-ipi 的撤销）。
@@ -393,7 +459,20 @@ kernel_args = [
   # 注释提到它）。可读的日志优先于面板上重复的一行，这条次序是 owner 在 2026-11-05 就定下的。
   "sheng-data-persist=2",
   "sheng-disable-watchdogd=1",
-  "sheng-disable-jobs=com.apple.identityservicesd,com.apple.locationd,com.apple.CommCenter,com.apple.bluetoothd",
+  # dropped 2026-11-10 to fit the 1000-byte cap: sheng-disable-jobs
+  # UCHE_GMEM_RANGE_MIN/MAX read 0:0 on this unit (evidence/edl-log-s125) while the UCHE raises UCHE_OOB_ACCESS (bit 24
+  # of RBBM_INT_0_STATUS) and every engine store is lost. A window experiment was built and WITHDRAWN: Linux guards the
+  # pair with `if (!(adreno_is_a650_family(...) || a702 || a730))`, so upstream programs no GMEM range on this chip at
+  # all, and the value the vendor tree does write is 1 MiB (`a6xx_gpu.c:359-365`, `0x00100000 + gmem - 1`) - not 0, not
+  # 16 MiB, which is the a740/a722 base. The 1 MiB window [0x100000, 0x11FFFF] also encloses this port's own SQE
+  # (DbyGpuFirmware.h puts it at 0x100000, 0x13000 bytes), which the vendor avoids by starting driver IOVAs at SZ_16M
+  # (adreno_gpu.c:718); a CP fetch inside the window would hang that boot with no way back, and the restart hook is not
+  # installed. So the pair is left untouched until the kernel buffers move out of the first 16 MiB or a source shows the
+  # window cannot shadow them. DBY_GPU_GMEM_BASE stays DBY_GPU_TODO_MEASURE in DbyGpuRegs.h.
+  # The keep-wait control (pipa-gpu-keep-wait=1) is OUT: both control boots that used it died at 40 s, 21 rounds, before
+  # the self-test ever ran (evidence/edl-log-s120, s121; work/tracks/gpu-presentation/CONTROL-2026-11-09.md), so it cannot
+  # answer "is the drop's stale query value what makes metal2vulkan believe work completed". This boot is s116's
+  # configuration plus the [gpu tgt] readback, and s116 survived to run the self-test (evidence/edl-log-s116).
   "sheng-adsp=2",
   # boot-diag-resume dropped 2026-11-05: with the live banner off by default the panel is never
   # painted after the hand-off, so there is nothing left to take back. The argument being absent
@@ -504,6 +583,53 @@ kernel_args = [
   # 命名规范同一规则）。字节预算：加这条前实测 48 个参数拼接 984 字节，加完 996/1000（payload.py:35）。
   "dby-audio=2",
   "qcom-usb-debug=1",
+  # Metal path switch (official boot-arguments: sheng-gpu-metal=1 enables it). Its plugin needs the
+  # AdrenoMetal archive, which is blocked by the clang-24 ICE at NativeAdrenoService.cpp:95.
+  "sheng-gpu-metal=1",
+  # The GPU restart hook (package/DbyGpuPowerProbe.cpp dbyGpuRestart) is installed only when dby-gpu-restart=1 is
+  # passed, because the hook cannot power-cycle the GX domain and so may not pull a CP out of an IB
+  # (evidence/edl-log-s114: status=e00002d6, kIOReturnTimeout). It is left OUT here: stage 2 no longer hangs
+  # (evidence/edl-log-s116). Pass it in place of another argument when a boot has to exercise the recovery path.
+  # Stage 3/4 gate: sheng-fb-gpu=1 is what creates the GOP presenter. LegacyDisplayProbe.cpp:562-566 parses it and,
+  # because board.toml also sets offline-legacy-phase=4 (:559 is `if(started && phase==4)`), calls
+  # native_gop_presenter_create(), recording native_legacy_gop_gate[0]=arg and [1]=7 on success (:578);
+  # native_legacy_gpu_offer() (:259-260) stays false while gpuHandoffPresenter is null. NativeGOPPresenter.cpp:94
+  # parses the same argument into gpuMode and :97 registers gHandoff only then, which is the only condition
+  # handoffCall (:213) tests before answering kIOReturnNotReady. s118/s119 already ran with this switch and both
+  # printed "[gop] arg=1 step=7" (presenter live), but their Metal self-test still failed (s119: M s0 c999 r64 i4096,
+  # secure mode), so serveScanout never ran and no "[gop call]" row existed. s130 is the first boot with both a
+  # passing Metal self-test ("M s0 c0 r0 i0 q167 k4/11 p15/8 F0") and MODE actually being called:
+  # "[gop call] mode=5/e00002d8 present=0/0 wait=0/0 complete=0/0". That kIOReturnNotReady is exactly this missing
+  # switch, so it is the next single variable, and it is now ON.
+  # It is NOT what killed s120: s121 ran without it and died identically (rounds=21 uptime=40), so the death was the
+  # kept CP_WAIT_REG_MEM (work/tracks/gpu-presentation/CONTROL-2026-11-09.md:10-11,29-30).
+  # What it does NOT do: it does not remove this board's CPU framebuffer copy. transfer()'s gpuMode refusal
+  # (NativeGOPPresenter.cpp:109) guards the presenter's own user client, and nothing in the tree sends
+  # NGP_METHOD_PRESENT, so that guard is already on a dead path. The copy is NativeLegacyDisplay.cpp:445+, entered
+  # while native_legacy_gpu_offer() refuses; offer() accepts only online && gpuClient && !swap.offered (:134) and
+  # gpuClient is set by waitSwap (:150) - "wait=0" today, so every frame is refused and the CPU copy paints. Once the
+  # userspace client gets past MODE and starts calling waitSwap, accepted frames skip the CPU copy and refused or
+  # failed ones fall back to it, which is the documented fail-safe (NativeLegacyDisplay.cpp:38,
+  # NativeGOPPresenter.cpp:187-200). The screen is therefore not lost if the present path fails.
+  # Headroom: the joined command line is 990 of the 1000-byte cap (scripts/unixnu/payload.py:34-36), so the next
+  # argument needs one removed first.
+  # 2026-11-10 rebase: that 990 was before THEIRS' touch/console/audio/torch arguments joined this list. The resolved
+  # file is 54 arguments and 1067 bytes against the same 1000-byte gate, so payload packing fails until the owner
+  # removes 67 bytes. Nothing was dropped here to make it fit; the trim is a deliberate choice, not a merge move.
+  # Expected next boot: "[gop] arg=1 step=7" (BootLog.c:456-459), "[gop call] mode=N/0 present=N/0 wait=N/e00002d6 complete=N/0"
+  # (BootLog.c:492-499), and "[scanout wait]" (BootLog.c:1255).
+  "sheng-fb-gpu=1",
+  # Boot arguments that are deliberately NOT passed, so a later reader does not add them back blindly.
+  # Dropped by this rebase to fit the 1000-byte cap (scripts/unixnu/payload.py:34-36); the merged list
+  # had reached 1067 bytes with 54 arguments and the owner chose these two:
+  #   sheng-autoreset=60      this board's boot loader ignores the reset marker, so it never took effect;
+  #   sheng-disable-jobs=...  upstream's own list carried it, but it is the only single argument large
+  #                           enough (109 B) to pay for the GPU arguments the panel path needs.
+  # Already deleted upstream before this rebase, with their reasons in the blocks above; recorded here
+  # because our line still carried them and their absence changes behaviour:
+  #   boot-ui-focus=launchd / boot-ui-focus4=SpringBoard  upstream removed the whole boot-ui-focus block;
+  #   armcpu-diagnostics=1, boot-diag-resume=3600, -no_slto_panic  upstream removed these with the
+  #   diagnostics notes they left in their place.
 ]
 
 # ---------------------------------------------------------------------------

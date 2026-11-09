@@ -24,6 +24,10 @@ extern int native_ufs_log_sync(void) __attribute__((weak_import));
 extern unsigned native_ufs_store_gpt_check(void) __attribute__((weak_import));
 extern uint32_t cs_text_fixup_parsed __attribute__((weak_import));
 extern uint32_t cs_text_fixup_applied __attribute__((weak_import));
+// 49 rows, not 48: row 48 carries the HID verdict line (TOUCH HID started/driver/touch-reports/
+// key-reports). It is captured by BootProgress.c but never drawn, so this archive is the only place it
+// can be read. The array in BootProgress.c is [49][BP_COLS] with BP_COLS == 120 (BootProgressCore.h:5),
+// so the stride here must stay 120.
 extern char boot_progress_page_text[49][120] __attribute__((weak_import));
 extern char boot_progress_banner_text[49][120] __attribute__((weak_import));
 extern volatile unsigned boot_progress_banner_rows __attribute__((weak_import));
@@ -75,8 +79,8 @@ extern unsigned boot_ui_trace_hot_rows(char [][120], unsigned) __attribute__((we
 extern unsigned long vm_kernel_slide;
 extern volatile uint64_t native_gop_wait_stats[7] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_fence_wait[8] __attribute__((weak_import));
-extern volatile uint32_t native_adreno_stall[24] __attribute__((weak_import));
-extern volatile uint32_t native_adreno_stall_mem[59] __attribute__((weak_import));
+extern volatile uint32_t native_adreno_stall[28] __attribute__((weak_import));
+extern volatile uint32_t native_adreno_stall_mem[76] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_unstick[15] __attribute__((weak_import));
 extern volatile uint64_t native_adreno_wait_outer[4] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_export_stats[4] __attribute__((weak_import));
@@ -119,6 +123,17 @@ extern volatile uint32_t native_adreno_map_fail[7][2] __attribute__((weak_import
 extern volatile uint32_t native_adreno_pool_stats[8] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_wc_audit[6] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_submit_ibs[4] __attribute__((weak_import));
+extern volatile uint32_t native_adreno_wait_try[4] __attribute__((weak_import));
+extern volatile uint32_t native_adreno_wait_dropped __attribute__((weak_import));
+extern volatile uint32_t native_adreno_wait_hops __attribute__((weak_import));
+extern volatile uint32_t native_adreno_tgt[8] __attribute__((weak_import));
+extern volatile uint32_t native_adreno_wait_last __attribute__((weak_import));
+extern volatile uint32_t native_adreno_recovery[8] __attribute__((weak_import));
+extern volatile uint32_t native_adreno_recover_trace[4] __attribute__((weak_import));
+extern volatile uint32_t native_legacy_gop_gate[2] __attribute__((weak_import));
+extern volatile uint32_t native_adreno_handoff_stats[4][3] __attribute__((weak_import));
+extern const char *native_adreno_metal_report_line(uint32_t) __attribute__((weak_import));
+extern uint32_t native_adreno_metal_marks_dump(uint32_t *, uint32_t) __attribute__((weak_import));
 extern volatile uint32_t native_touch_edge_stats[4] __attribute__((weak_import));
 extern volatile uint32_t native_touch_hid_multi[3] __attribute__((weak_import));
 extern volatile int32_t native_backlight_request[6] __attribute__((weak_import));
@@ -142,6 +157,19 @@ extern volatile uint64_t native_gpu_idle_spins __attribute__((weak_import));
 extern volatile uint32_t native_adreno_coherent_skips[4] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_io_coherent __attribute__((weak_import));
 extern char native_cpufreq_row[120] __attribute__((weak_import));
+/* The rich per-domain census from package/CpuFreqProbe.cpp: 24 rows of 120 bytes, only the first
+ * native_cpufreq_census_rows of which are used.  Weak, so it disappears when the probe is not linked. */
+extern char native_cpufreq_census[24][120] __attribute__((weak_import));
+/* The GPU SMMU probe's rows: two used, six reserved (package/DbyGpuSmmuProbe.cpp). */
+extern char native_gpusmmu_census[6][120] __attribute__((weak_import));
+/* The GPU power/clock probe's rows (package/DbyGpuPowerProbe.cpp): six, all used. */
+extern char native_gpupower_rows[6][120] __attribute__((weak_import));
+extern uint32_t native_gpu_gx_status[4] __attribute__((weak_import));
+extern volatile uint32_t native_gpu_zap[5] __attribute__((weak_import));
+extern uint32_t native_gpu_hwcg[4] __attribute__((weak_import));
+extern volatile uint32_t native_gpu_latch[10] __attribute__((weak_import));
+extern volatile uint32_t native_gpu_uche[13] __attribute__((weak_import));
+extern int (*native_gpu_latch_poll)(void) __attribute__((weak_import));
 extern uint32_t native_gpu_perf_vote[2] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_pool_status __attribute__((weak_import));
 extern volatile uint32_t native_adreno_pool_wc __attribute__((weak_import));
@@ -150,8 +178,12 @@ extern int (*native_adreno_dram_read32)(uint64_t, uint32_t *) __attribute__((wea
 extern int (*native_adreno_cached_read32)(uint64_t, uint32_t *) __attribute__((weak_import));
 extern volatile uint32_t native_adreno_ring_log[4][4 + 112] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_ring_log_count __attribute__((weak_import));
-extern volatile uint32_t native_adreno_ib_log[4][4 + 28] __attribute__((weak_import));
+// The width must be the driver's own (NativeAdrenoSubmit.cpp:119 `[4][6+96+96+2+16+80]`): an extern declaration's size is not diagnosed,
+// so a narrower one here makes the three slots after the first read at the wrong stride and prints another submission's words as this
+// one's (s113 carried `[ib] fence=162` from a boot that made 30 submissions).
+extern volatile uint32_t native_adreno_ib_log[4][6 + 96 + 96 + 2 + 16 + 80] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_ib_log_count __attribute__((weak_import));
+extern volatile uint32_t native_adreno_ib_chain[2 + 4 * 3 + 4 * 3] __attribute__((weak_import));
 extern unsigned native_legacy_properties_now(char *, unsigned) __attribute__((weak_import));
 extern unsigned native_legacy_clients_dump(char *, unsigned) __attribute__((weak_import));
 extern unsigned native_legacy_swap_timeline(char *, unsigned) __attribute__((weak_import));
@@ -193,6 +225,11 @@ struct boot_log_header {
 };
 // Writer state for the board page: 0 off, 1 waiting for the window, 2 writing, 3 stopped after errors, 4 stopped (GPT changed).
 volatile uint32_t boot_log_state, boot_log_rounds, boot_log_errors;
+/* Rounds that genuinely landed: incremented only when the slot, the message buffer, the header AND the
+ * sync all succeeded (see the end of the writer round). boot_log_rounds cannot serve that purpose - it
+ * is bumped before the header write, so a reader can see it mid-round. Probes that touch hardware on the
+ * strength of "the log is up" must wait for THIS counter (review 2026-11-03 15:30). */
+volatile uint32_t boot_log_slots_ok;
 volatile uint64_t boot_log_first_lba;
 static int boot_log_started;
 static uint8_t *boot_log_buffer;   // LogMsgBlocks blocks: the message buffer, then reused for a slot and the header
@@ -314,6 +351,8 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
   at = put(out, at, cap, head, sizeof head);
   if (&boot_progress_page_text) {
     at = put(out, at, cap, "[page]", 8);
+    // 49, not 48: row 48 is captured-only by BootProgress.c and holds the TOUCH HID verdict. A slot is
+    // 16 blocks (64 KiB) and this adds at most 120 bytes, so the window still fits with room to spare.
     for (unsigned i = 0; i < 49; ++i) if (boot_progress_page_text[i][0]) at = put(out, at, cap, boot_progress_page_text[i], 120);
   }
   if (&boot_progress_banner_text && &boot_progress_banner_rows) {
@@ -424,6 +463,54 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
     native_legacy_prepare_report(row, sizeof row);
     at = put(out, at, cap, "[scanout prepare]", 18); at = put(out, at, cap, row, sizeof row);
   }
+  // The GPU presenter gate (package/LegacyDisplayProbe.cpp:562-580): [0] the sheng-fb-gpu argument as parsed, [1] how far the
+  // presenter got - 0 not reached, 1 creating, 2 create returned null, 3 no resource service, 4 init refused, 5 attach refused,
+  // 6 start refused, 7 live. The SWAP row's "gpu offers=0" cannot separate "no presenter" from "every offer refused".
+  if (&native_legacy_gop_gate && (native_legacy_gop_gate[0] || native_legacy_gop_gate[1])) {
+    char row[80];
+    snprintf(row, sizeof row, "[gop] arg=%u step=%u", native_legacy_gop_gate[0], native_legacy_gop_gate[1]);
+    at = put(out, at, cap, row, sizeof row);
+  }
+  // The plugin's own verdict, which nothing else in this log carries: the Metal bridge streams its result line as progress markers
+  // (NativeAdrenoPublish.cpp:895-905, 0x7ffe + characters) into report, and its Turnip phase into report2. The line starts "M s<stage>"
+  // and ends "F0" when the frontend ran, "Fx"/"F<n>" when it did not - and that verdict is exactly the gate that starts the GPU scanout
+  // client (research/repos/AdrenoMetal/NativeMetalBridgePhase.h:189), so "gpu offers=0" cannot be explained without it.
+  if (&native_adreno_metal_report_line) {
+    char row[96], text[64];
+    for (unsigned which = 0; which < 2; ++which) {
+      const char *line = native_adreno_metal_report_line(which);
+      if (!line || !line[0]) continue;
+      text[63] = 0;
+      strncpy(text, line, 63);
+      snprintf(row, sizeof row, "[metal %s] %s", which ? "gpu8" : "gpu7", text);
+      at = put(out, at, cap, row, sizeof row);
+    }
+  }
+  // The marker ring: the plugin sends an IOServiceOpen of type 0x4147xxxx before and after each step, so the newest 16 values are its
+  // progress trail even when a sandbox refuses everything else. Values are the plugin's own (0x6700 open, 0x6701 probe, 0x6710-0x6715
+  // the scanout client's steps, 0x6730 a frame offered, 0x65xx the self-test's).
+  if (&native_adreno_metal_marks_dump) {
+    uint32_t marks[16] = {0};
+    const uint32_t total = native_adreno_metal_marks_dump(marks, 16);
+    if (total) {
+      char row[200];
+      int n = snprintf(row, sizeof row, "[metal marks] n=%u", total);
+      for (unsigned i = 0; i < 16 && n > 0 && (size_t)n < sizeof row; ++i) n += snprintf(row + n, sizeof row - n, " %x", marks[i]);
+      at = put(out, at, cap, row, sizeof row);
+    }
+  }
+  // The hand-off's own methods as the userspace scanout client calls them (NativeAdrenoPublish.cpp:55, 751-766): op 0 mode, 1 present,
+  // 2 wait for a frame, 3 complete it, each as calls/last status. mode=0 means the client never started; the SWAP row's offers=0 cannot
+  // say that, because that counter only moves once a frame is accepted (NativeGOPPresenter.cpp:134-138).
+  if (&native_adreno_handoff_stats && (native_adreno_handoff_stats[0][0] || native_adreno_handoff_stats[2][0])) {
+    char row[200];
+    snprintf(row, sizeof row, "[gop call] mode=%u/%x present=%u/%x wait=%u/%x complete=%u/%x",
+             native_adreno_handoff_stats[0][0], native_adreno_handoff_stats[0][2],
+             native_adreno_handoff_stats[1][0], native_adreno_handoff_stats[1][2],
+             native_adreno_handoff_stats[2][0], native_adreno_handoff_stats[2][2],
+             native_adreno_handoff_stats[3][0], native_adreno_handoff_stats[3][2]);
+    at = put(out, at, cap, row, sizeof row);
+  }
   if (&native_legacy_swap_timeline) {
     static char timeline[4096];
     if (native_legacy_swap_timeline(timeline, sizeof timeline)) {
@@ -502,9 +589,11 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
       char row[130];
       snprintf(row, sizeof row, "[ib] fence=%u iova=%x%08x bytes=%u", r[0], r[2], r[1], r[3]);
       at = put(out, at, cap, row, sizeof row);
-      for (uint32_t i = 0; i < 28; i += 8) {
+      // The first 32 dwords of the buffer the driver read, from word 0: the slot holds the mapping base at [4..5] and the head at
+      // [6..101] (NativeAdrenoSubmit.cpp:412-420), so starting at r[4] printed two base words as if they were packets.
+      for (uint32_t i = 0; i < 32; i += 8) {
         int n = snprintf(row, sizeof row, "I%02x", i);
-        for (uint32_t k = i; k < i + 8 && k < 28 && n > 0 && n < 110; ++k) n += snprintf(row + n, sizeof row - n, " %08x", r[4 + k]);
+        for (uint32_t k = i; k < i + 8 && k < 32 && n > 0 && n < 110; ++k) n += snprintf(row + n, sizeof row - n, " %08x", r[6 + k]);
         at = put(out, at, cap, row, sizeof row);
       }
     }
@@ -611,6 +700,122 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
              native_touch_hid_multi[2]);
     at = put(out, at, cap, row, sizeof row);
   }
+  // a6xx_set_hwcg ran, and what it left behind (DbyGpuPowerProbe.cpp native_gpu_hwcg): clk= RBBM_CLOCK_CNTL (0x000AE)
+  // as found >after the table, which must be 8aa8aa82 once the step has run, and sptp= the SPTPRAC clock control (GMU
+  // core dword 0x80) before > after, whose bit 0 is the SP clock the sequence takes off and puts back. This is the step
+  // the board skipped until now; the reference board records the failing Turnip row ("v512 c0 g0/4096") as its state
+  // before it and "v1024 c1024 g512/0" after. clk=ffffffff means hw_init never reached the step.
+  if (&native_gpu_hwcg && native_gpu_hwcg[0] != 0xFFFFFFFFu) {
+    char row[140];
+    snprintf(row, sizeof row, "[gpu hwcg] clk=%x>%x sptp=%x>%x", native_gpu_hwcg[0], native_gpu_hwcg[1],
+             native_gpu_hwcg[2], native_gpu_hwcg[3]);
+    at = put(out, at, cap, row, sizeof row);
+  }
+  // The GPU's error state (DbyGpuPowerProbe.cpp native_gpu_latch). irq= is a STICKY OR of every RBBM_INT_0_STATUS the
+  // probe's interrupt handler saw - this board enables the GPU interrupts (kEnableA6xx = 0x03d0e242, which includes
+  // UCHE_OOB and UCHE_TRAP) and the handler clears the register within milliseconds, so reading it here would almost
+  // always return 0, including right after a refused shader access. last= the most recent one, n= polls taken (0 means
+  // the poll never ran, so the three CP latches were never read), cpi= CP_INTERRUPT_STATUS (0x0823), prot=
+  // CP_PROTECT_STATUS (0x0824), fault= CP_HW_FAULT (0x0821) - those three are latched by the CP and cleared by nothing.
+  // A slot of ffffffff is a refused read, not a value. lcpi= and lprot= are the same two CP words as the interrupt handler
+  // latched them when a CP error actually fired, so unlike cpi/prot they never go stale; n= caps at 64 rounds, after which
+  // cpi/prot/fault keep the value of the last poll. irq= is non-zero on any submitting boot even when nothing was refused,
+  // because the fence's own CP_CACHE_FLUSH_TS (bit 20) is in it - read the UCHE bits (24/25) to answer that question.
+  // The reference board's identical failing Turnip row ended in UCHE_OOB_ACCESS, which appears in irq=. st3= and pf= are
+  // RBBM_STATUS3 (0x0213) and UCHE_CLIENT_PF (0x0E19) read after the interrupt handler acknowledged the event, and both
+  // are WEAK: neither is latched, so st3=0 means only "no stalled translation visible then" and pf&7 is attributable only
+  // on the SMMU-fault path. A set st3 bit 24 (0x01000000, SMMU_STALLED_ON_FAULT) is the one reading that redirects the
+  // search to the SMMU. cccccccc means "not captured" (bit 24 never fired in an interrupt); a real value of 0 is printed
+  // as 0. Time bases differ: irq/lcpi/lprot accumulate over the boot (and freeze for the rest of it after a GPU restart,
+  // which leaves the interrupt mask at 0), st3/pf are from the last bit-24 interrupt, and last= may belong to a later
+  // fence.
+  if (&native_gpu_latch && &native_gpu_latch_poll && native_gpu_latch_poll) {
+    char row[176];
+    (void)native_gpu_latch_poll();
+    snprintf(row, sizeof row, "[gpu latch] irq=%x last=%x n=%u cpi=%x prot=%x fault=%x lcpi=%x lprot=%x st3=%x pf=%x",
+             native_gpu_latch[0], native_gpu_latch[1], native_gpu_latch[5], native_gpu_latch[2], native_gpu_latch[3],
+             native_gpu_latch[4], native_gpu_latch[6], native_gpu_latch[7], native_gpu_latch[8], native_gpu_latch[9]);
+    at = put(out, at, cap, row, sizeof row);
+  }
+  // The UCHE's windows, from the same bounded poll (DbyGpuPowerProbe.cpp native_gpu_uche). UCHE_OOB_ACCESS is raised by
+  // one of these windows refusing an access, so this row says which one is wrong. Every 64-bit register is printed
+  // HI:LO, i.e. w=1ffff:ffffffc0 is WRITE_RANGE_MAX = 0x0001ffffffffffc0 (the value hw_init writes), and reading it the
+  // other way round would give 0xffffffc00001ffff. Expect w=1ffff:ffffffc0 wt=1ffff:fffff000 t=1ffff:fffff000.
+  // m= UCHE_MODE_CNTL
+  // (0xE01), w= WRITE_RANGE_MAX (0xE05 lo / 0xE06 hi), wt= WRITE_THRU_BASE (0xE07 lo / 0xE08 hi), t= TRAP_BASE (0xE09
+  // lo / 0xE0A hi), gmin=/gmax= UCHE_GMEM_RANGE_MIN/MAX (0xE0B/C and 0xE0D/E - the pair this tree never programs, and
+  // Turnip renders through GMEM because TU_DEBUG has no "sysmem"), e12= UCHE_UNKNOWN_0E12 (both headers call it unknown,
+  // so nothing may be concluded from it), pf= UCHE_CLIENT_PF (0xE19). That one is a live PERFSEL field: hw_init writes 1,
+  // but mainline v6.6 also writes 1 and still decodes the faulting client from the same register, so a read here is a
+  // live value whose meaning is ambiguous on the poll path and must not be taken as "the client that faulted". n= polls
+  // taken; the row
+  // stops updating after the same 64 polls as [gpu latch]. A slot of ffffffff is not a refusal here - these offsets are
+  // inside the mapped window, so a single all-ones slot is a real value; only all thirteen at once means the window was
+  // never mapped.
+  if (&native_gpu_uche && &native_gpu_latch_poll && native_gpu_latch_poll) {
+    char row[176];
+    snprintf(row, sizeof row, "[gpu uche] m=%x w=%x:%x wt=%x:%x t=%x:%x gmin=%x:%x gmax=%x:%x e12=%x pf=%x n=%u",
+             native_gpu_uche[0], native_gpu_uche[2], native_gpu_uche[1], native_gpu_uche[4], native_gpu_uche[3],
+             native_gpu_uche[6], native_gpu_uche[5], native_gpu_uche[8], native_gpu_uche[7], native_gpu_uche[10],
+             native_gpu_uche[9], native_gpu_uche[11], native_gpu_uche[12], native_gpu_latch[5]);
+    at = put(out, at, cap, row, sizeof row);
+  }
+  // Did the published path take the GPU out of secure mode (DbyGpuPowerProbe.cpp native_gpu_zap, only when dby-gpu-zap=1)?
+  // The row appears as soon as the step is asked for, because step= is written BEFORE the work: 20 = about to try,
+  // 21 = the archive ring never started so the exit was skipped, 30 = the exit returned. That way a hang inside the exit
+  // still leaves a row naming where it stopped. st= the exit status, sec= the CP_SET_SECURE_MODE(0) fence result
+  // (ffffffff = the packet was never submitted), tr= RBBM_SECVID_TRUST_CNTL (0xF400) as it read BEFORE the exit. The
+  // healthy shape is st=0 sec=0 with tr=1. No row at all means the boot did not ask for the exit.
+  if (&native_gpu_zap && native_gpu_zap[1] != 0u) {
+    char row[140];
+    snprintf(row, sizeof row, "[gpu zap] st=%x step=%u sec=%x tr=%x ld=%x", native_gpu_zap[0], native_gpu_zap[1],
+             native_gpu_zap[2], native_gpu_zap[3], native_gpu_zap[4]);
+    at = put(out, at, cap, row, sizeof row);
+  }
+  // Was the SPTPRAC domain ever powered (DbyGpuPowerProbe.cpp native_gpu_gx_status)? SP, TP and RAC are the blocks a
+  // shader writes memory through, and the CP is not in that domain, so this is the one power state that can let CP stores
+  // land while every engine store is dropped. sp= is GMU_SPTPRAC_PWR_CLK_STATUS (0x50d0) read after this board's own GX
+  // vote, bf= the same before it, on= the GX_HM-only verdict (1 while SPTPRAC can still be off), up= the (v & 0x38) == 0x28
+  // test. Careful: the 0x778000 write that up= checks for belongs to Linux's a6xx_sptprac_enable, which returns early for
+  // a non-legacy GMU (a6xx_gmu.c:359-377), and this board's GMU is not legacy - so up=0 is the expected reading and not a
+  // fault. st=ffffffff means the probe never reached its GX step.
+  if (&native_gpu_gx_status && native_gpu_gx_status[0] != 0xFFFFFFFFu) {
+    char row[140];
+    snprintf(row, sizeof row, "[gpu gx] st=%x sp=%x bf=%x on=%u up=%u", native_gpu_gx_status[0], native_gpu_gx_status[2],
+             native_gpu_gx_status[1], native_gpu_gx_status[3],
+             (unsigned)((native_gpu_gx_status[2] & 0x38u) == 0x28u));
+    at = put(out, at, cap, row, sizeof row);
+  }
+  // Does a CP store reach a client BO (NativeAdrenoSubmit.cpp native_adreno_tgt): the userspace self-test writes three markers into its
+  // own target page with CP_MEM_WRITE packets (0adc0de1, feed0002, 600d0003 over a 0xdeadbeef page) and the driver reads that page once,
+  // after the fence of the submission that carried the packets. Four 0xdeadbeef dwords mean even a CP store does not arrive, which is the
+  // VM/memory path; the three markers present puts the fault in the engine, whose own self-tests read their sentinels unchanged, and would
+  // mean the client's own read of the same page is what fails. "unreadable" means the address was captured but its page table refused the
+  // read. No row at all means the run was never captured - the three-packet shape with the self-test's own data words was not in a
+  // submitted IB's first 96 dwords, or the fence's job had already been retired by another client before the wait arrived - and is NOT
+  // evidence that a store did not land. f<n> names the fence whose page was read, so the row cannot be attributed to another run.
+  if (&native_adreno_tgt && native_adreno_tgt[0]) {
+    char row[140];
+    if (native_adreno_tgt[0] == 2)
+      snprintf(row, sizeof row, "[gpu tgt] @%x%08x f%u unreadable", native_adreno_tgt[2], native_adreno_tgt[1],
+               native_adreno_tgt[7]);
+    else
+      snprintf(row, sizeof row, "[gpu tgt] @%x%08x f%u: %x %x %x %x", native_adreno_tgt[2], native_adreno_tgt[1],
+               native_adreno_tgt[7], native_adreno_tgt[3], native_adreno_tgt[4], native_adreno_tgt[5], native_adreno_tgt[6]);
+    at = put(out, at, cap, row, sizeof row);
+  }
+  // The all-ones CP_WAIT_REG_MEM drop (drivers/Adreno740 NativeAdrenoVm::dropAllOnesWaits): buffers handed to it, the bytes
+  // they cover, packets replaced, of those how many were in a buffer reached through CP_INDIRECT_BUFFER, refusals that were not a
+  // bad argument, refusals that were, and the last status. calls=0 means the drop never ran; dropped=0 with calls>0 means it ran
+  // and the packet is not in a submitted IB or in one hop from it; dropped>0 with [gpu stall] rows still present means the
+  // replacement did not reach the CP.
+  if (&native_adreno_wait_try && &native_adreno_wait_dropped && &native_adreno_wait_last && &native_adreno_wait_hops) {
+    char row[180];
+    snprintf(row, sizeof row, "[gpu dropwait] calls=%u bytes=%u dropped=%u hops=%u fail=%u badarg=%u last=%x",
+             native_adreno_wait_try[0], native_adreno_wait_try[3], native_adreno_wait_dropped,
+             native_adreno_wait_hops, native_adreno_wait_try[1], native_adreno_wait_try[2], native_adreno_wait_last);
+    at = put(out, at, cap, row, sizeof row);
+  }
   // IBs per GPU submission: submissions, IBs, the most in one, and those with more than 16 (a frame used to be split at 16).
   if (&native_adreno_submit_ibs) {
     char row[120];
@@ -637,6 +842,32 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
     snprintf(row, sizeof row, "[clocks] %.118s | gpu perf %u bw %u", native_cpufreq_row, &native_gpu_perf_vote ? native_gpu_perf_vote[0] : 0,
              &native_gpu_perf_vote ? native_gpu_perf_vote[1] : 0);
     at = put(out, at, cap, row, sizeof row);
+  }
+  // The rich CPU-frequency census (package/CpuFreqProbe.cpp, upstream CpuFreqProbe's shape): one line
+  // per domain plus the decoded LUT rows.  The page row above is 120 bytes and cannot carry it, and this
+  // board has no console, so the persistent log is the only place the decode is readable.  Weak: with the
+  // probe absent the symbol is a null pointer and this block does nothing.
+  if (&native_cpufreq_census) {
+    for (unsigned q = 0; q < 24; ++q) {
+      if (native_cpufreq_census[q][0]) at = put(out, at, cap, native_cpufreq_census[q], sizeof native_cpufreq_census[q]);
+    }
+  }
+  // The GPU SMMU probe's two lines (package/DbyGpuSmmuProbe.cpp): ID0/ID1/ID2 and the decoded
+  // input_bits, which is the GPU's entry gate.  Opt-in via dby-gpu-smmu=1, so without the argument this
+  // prints the single "skipped" line and nothing else.  Weak: absent when the archive is not linked.
+  if (&native_gpusmmu_census) {
+    for (unsigned q = 0; q < 6; ++q) {
+      if (native_gpusmmu_census[q][0]) at = put(out, at, cap, native_gpusmmu_census[q], sizeof native_gpusmmu_census[q]);
+    }
+  }
+  // GPU power/clock rows from package/DbyGpuPowerProbe.cpp, which drives the upstream SM8250 kit:
+  // GCC branches, the cfg_ahb write, CX GDSC + the SMMU vote clock, then the SMMU identity read that
+  // only happens once that gate passes.  Opt-in via dby-gpu-power=<1|2|3>; weak, so absent when the
+  // archive is not linked.
+  if (&native_gpupower_rows) {
+    for (unsigned q = 0; q < 6; ++q) {
+      if (native_gpupower_rows[q][0]) at = put(out, at, cap, native_gpupower_rows[q], sizeof native_gpupower_rows[q]);
+    }
   }
   if (&native_adreno_export_stats && (native_adreno_export_stats[0] || native_adreno_export_stats[1])) {
     char row[120];
@@ -867,11 +1098,13 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
              native_audio_stats[12], native_audio_stats[13], native_audio_stats[14], native_audio_stats[15]);
     at = put(out, at, cap, row, sizeof row);
   }
-  // Touch strokes as the digitizer published them, in this panel's own pixels: where each finger came down and lifted, how long and
-  // over how many frames, and the extent of every contact so far (edge gestures need the outer pixels). The spans come from the
-  // producer next to the coordinates themselves - on this board the devicetree's thp_input_dev abs_max_x 1600 x abs_max_y 2560
-  // (b01.dts:10101-10102). This row used to divide by ten and call the space 3048x2032, which is the other board's axis pair counted
-  // in 0.1 px; the producer publishes px now, so the quotient made a swipe across the whole panel look like a tenth of one.
+  // Touch strokes as the digitizer published them, in this panel's own pixels. y is bottom-up since 2026-11-03 12:16 (published Y is
+  // mirrored to match the official producer, work/refs/sheng/TouchProbe.cpp:351), so 0 is the BOTTOM edge - before that change it was
+  // the panel's top-down row and 0 was the top. Where each finger came down and lifted, how long and over how many frames, and the
+  // extent of every contact so far (edge gestures need the outer pixels). The spans come from the producer next to the coordinates
+  // themselves - on this board the devicetree's thp_input_dev abs_max_x 1600 x abs_max_y 2560 (b01.dts:10101-10102). This row used to
+  // divide by ten and call the space 3048x2032, which is the other board's axis pair counted in 0.1 px; the producer publishes px now,
+  // so the quotient made a swipe across the whole panel look like a tenth of one. Weak-guarded: with no stroke captured the row is absent.
   if (&native_touch_stroke_count && &native_touch_strokes && &native_touch_extent && native_touch_stroke_count) {
     char row[160];
     const uint32_t n = native_touch_stroke_count;
@@ -943,26 +1176,98 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
              native_adreno_unstick[11], native_adreno_unstick[12], native_adreno_unstick[13]);
     at = put(out, at, cap, row, sizeof row);
   }
+  // The driver's hangcheck and the board's restart hook (NativeAdrenoPublish.cpp:191-193, 204-237): hangs counted, restarts run, restarts
+  // that failed, the last hung fence, the last restart's IOReturn, submissions replayed, hangs with a guilty job, hangs of the kernel's VM,
+  // then where the last recover() stopped (1 fence read, 2 restart hook, 3 table write, 4 nop encode, 5 replay vm, 6 replay submit) and
+  // The value there. restarts=0 with hangs>0 is the shape this board had before it installed a hook: the CP stays stopped.
+  // Both weak symbols are tested: they live in the same archive today, but the row dereferences the second one too.
+  if (&native_adreno_recovery && &native_adreno_recover_trace && native_adreno_recovery[0]) {
+    char row[200];
+    snprintf(row, sizeof row, "[gpu recovery] hangs=%u restarts=%u failed=%u fence=%u status=%x replayed=%u guilty=%u kernel=%u | stop=%u at=%x",
+             native_adreno_recovery[0], native_adreno_recovery[1], native_adreno_recovery[2], native_adreno_recovery[3],
+             native_adreno_recovery[4], native_adreno_recovery[5], native_adreno_recovery[6], native_adreno_recovery[7],
+             native_adreno_recover_trace[0], native_adreno_recover_trace[1]);
+    at = put(out, at, cap, row, sizeof row);
+  }
   if (&native_adreno_stall && native_adreno_stall[0]) {
     char row[240];
     int n = snprintf(row, sizeof row, "[gpu stall] fence=%u n=%u", native_adreno_stall[0], native_adreno_stall[1]);
     for (unsigned k = 2; k < 24 && n > 0 && (size_t)n < sizeof row; ++k) n += snprintf(row + n, sizeof row - n, " %x", native_adreno_stall[k]);
     at = put(out, at, cap, row, sizeof row);
-    // SMMU FSR, FAR lo/hi, FSYNR0, then for the BR IB1, BV IB1 and BV IB2: the dword index in the IB where the 16 words start
-    // (ffff00NN: NN words before the fetch address, the IB start being unknown), then 16 words; deadbeef = not readable.
+    // What the CP is executing. The export stores driver word i at native_adreno_stall[2 + i]
+    // (NativeAdrenoSubmit.cpp:549), so the four appended words are: word 22 roq -> [24], word 23 int -> [25],
+    // word 24 sel -> [26], word 25 data -> [27].
+    //   sel   = 1, written into CP_SQE_STAT's selector by the driver before reading; 0xffffffff = the selection
+    //           or the read failed and the row is inconclusive.
+    //   data  = the word the SQE holds for that index. 0x70268000 is *derived*, not guessed: this tree's own
+    //           encoder (AdrenoPM4.c:5-13, :25-32) gives odd_bit(0)=1 (so bit 15 is set), odd_bit(0x26)=0 (so
+    //           bit 23 is clear), and 0x70000000|0x8000|0x260000 lands exactly on 0x70268000 — opcode 0x26,
+    //           count 0, i.e. CP_WAIT_FOR_IDLE with no payload. One payload dword would encode as 0x70260001.
+    //   roq   = read from 0x0949 and *called* CP_ROQ_AVAIL_IB1; the vendor A6xx header defines no such symbol,
+    //           so only the "fetched but not consumed" reading of [31:16] is used.
+    //   int   = CP_INTERRUPT_STATUS, the register that names a CP error. It is latched by the CP, so it can be read
+    //           long after the event even though the board's own interrupt handler (dbyPubIrqHandler, kEnableA6xx =
+    //           0x03d0e242) clears RBBM_INT_0_STATUS as it reads it. CP_IB1_REM_SIZE alone is a fetch counter and
+    //           cannot say where execution stopped.
+    snprintf(row, sizeof row, "[gpu stall] sqe sel=%x data=%x roq=%x int=%x",
+             native_adreno_stall[26], native_adreno_stall[27], native_adreno_stall[24], native_adreno_stall[25]);
+    at = put(out, at, cap, row, sizeof row);
+    // SMMU FSR, FAR lo/hi, FSYNR0, then for the BR IB1, BV IB1 and the held packet: where the 16 words that follow
+    // begin, then the words; deadbeef = not readable. Marker 0 = the 16 words start at the IB's first dword (either
+    // the ring packet before the read pointer named the IB and the CP is within 12 dwords of its start, or only
+    // CP_IB1_BASE was known; the marker does not tell which). ffff000N = N words before the fetch address.
+    // The third slot is not the BV IB2 any more on this core: a generation-6 part has no BV thread, so the driver
+    // fills it with the packet CP_SQE_STAT says the SQE holds. Its marker packs two things: the top nibble says
+    // where the packet was found (0 = the BR IB1 itself; 1 = the newest CP_INDIRECT_BUFFER target at or before the
+    // cursor, 2..3 = the ones before it counted backwards, which is the case when the BR IB1's own fetched part
+    // holds no such packet; 4 = IB2, CP_IB2_BASE), and the low bits are
+    // the dword it starts at. ffffffff means it was not found: no ring record for the buffer, a buffer of one
+    // dword or over 256, an unreadable buffer, a failed CP_SQE_STAT read, a wait beyond the fetched dword, or more
+    // than three chained buffers. A packet started within 16 dwords of the buffer's end prints deadbeef after it.
+    // The fifth slot is the word the held packet polls when it is a CP_WAIT_REG_MEM whose POLL kind is memory: its
+    // marker is that IOVA (ffffffff when the packet is not such a wait, or the read was refused) and the four words
+    // after it are what the buffer holds there, which is what separates "the value never appears" from "this
+    // comparison could never hold". The next three are the same question asked over time: word[4] is the first word
+    // at the previous snapshot of this stall (ffffffff when there is none), word[5] is 1 if it moved since then and
+    // 0 if it did not (ffffffff with nothing to compare), word[6] counts the snapshots this fence has taken before
+    // this one. word[7] is 1 when the opt-in pipa-gpu-force-poll experiment wrote that word from the CPU for this
+    // fence and deadbeef otherwise (the experiment is off unless the boot argument is passed). Up to two snapshots
+    // are taken per stalling fence, so "0" over that interval means no producer is coming and "1" means the producer
+    // runs and the comparison or the value is what is wrong.
     if (&native_adreno_stall_mem)
-      for (unsigned part = 0; part < 4; ++part) {
-        static const char *const names[4] = {"smmu", "br ib1", "bv ib1", "bv ib2"};
+      for (unsigned part = 0; part < 5; ++part) {
+        static const char *const names[5] = {"smmu", "br ib1", "bv ib1", "held", "poll"};
         n = snprintf(row, sizeof row, "[gpu stall] %s", names[part]);
         if (part) n += snprintf(row + n, sizeof row - n, " @%x:", native_adreno_stall_mem[4 + 17 * (part - 1)]);
-        const unsigned first = part ? 5 + 17 * (part - 1) : 0, count = part ? 16 : 4;
+        // The poll window is 15 words: six words of the query (start, accumulator, stop), the previous stop and whether it
+        // moved, the snapshot count, the force-poll flag, and the scan of the searched buffer. It was 9 while the window
+        // only read four words and never reached the polled one.
+        const unsigned first = part ? 5 + 17 * (part - 1) : 0, count = part == 4 ? 15 : part ? 16 : 4;
         for (unsigned k = first; k < first + count && n > 0 && (size_t)n < sizeof row; ++k) n += snprintf(row + n, sizeof row - n, " %x", native_adreno_stall_mem[k]);
         at = put(out, at, cap, row, sizeof row);
       }
     // Map handles: next at the stalled job's submission, then under the BR IB1, BV IB1, BV IB2 (>= the first: mapped after it).
     if (&native_adreno_stall_mem) {
-      snprintf(row, sizeof row, "[gpu stall] handles job>=%u br=%u bv=%u bv2=%u", native_adreno_stall_mem[55], native_adreno_stall_mem[56],
-               native_adreno_stall_mem[57], native_adreno_stall_mem[58]);
+      snprintf(row, sizeof row, "[gpu stall] handles job>=%u br=%u bv=%u bv2=%u", native_adreno_stall_mem[72], native_adreno_stall_mem[73],
+               native_adreno_stall_mem[74], native_adreno_stall_mem[75]);
+      at = put(out, at, cap, row, sizeof row);
+    }
+    // What the stalled submission handed the CP, and what those buffers chain to: each entry is iova/dwords-scanned/waits-found.
+    // A wait found in neither group is outside the set the all-ones drop scans, which is the case the fix has to answer.
+    if (&native_adreno_ib_chain && native_adreno_ib_chain[0]) {
+      char row[200];
+      int n = snprintf(row, sizeof row, "[gpu ibchain] sub n=%u", native_adreno_ib_chain[0]);
+      for (unsigned k = 0; k < 4 && k < native_adreno_ib_chain[0] && n > 0 && (size_t)n < sizeof row; ++k)
+        n += snprintf(row + n, sizeof row - n, " %x/%u/%u", native_adreno_ib_chain[2 + k * 3], native_adreno_ib_chain[3 + k * 3],
+                      native_adreno_ib_chain[4 + k * 3]);
+      at = put(out, at, cap, row, sizeof row);
+    }
+    if (&native_adreno_ib_chain && native_adreno_ib_chain[1]) {
+      char row[200];
+      int n = snprintf(row, sizeof row, "[gpu ibchain] hop n=%u", native_adreno_ib_chain[1]);
+      for (unsigned k = 0; k < 4 && k < native_adreno_ib_chain[1] && n > 0 && (size_t)n < sizeof row; ++k)
+        n += snprintf(row + n, sizeof row - n, " %x/%u/%u", native_adreno_ib_chain[14 + k * 3], native_adreno_ib_chain[15 + k * 3],
+                      native_adreno_ib_chain[16 + k * 3]);
       at = put(out, at, cap, row, sizeof row);
     }
   }
@@ -1144,7 +1449,7 @@ static void writer(void *arg, wait_result_t result) {
     memcpy(boot_log_buffer, &h, sizeof h);
     ok &= native_ufs_log_write(0, 1, boot_log_buffer);
     ok &= native_ufs_log_sync();
-    if (!ok) {boot_log_errors = ++errors;} else errors = 0;
+    if (!ok) {boot_log_errors = ++errors;} else {errors = 0; ++boot_log_slots_ok;}
     if (errors >= LogMaxErrors) {boot_log_state = 3; return;}
     if (h.gpt_last != h.gpt_open) {boot_log_state = 4; return;}
     if (autoreset && now >= autoreset && !reset_tried && ok) {

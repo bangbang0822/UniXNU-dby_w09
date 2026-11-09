@@ -56,3 +56,31 @@
 // Not enabled, with a reason recorded in porting.toml rather than silence:
 //   gpu / gpu_smmu    - no catalog component provides the A650 (Adreno 650) path yet.
 //   qupv3_id_0        - the touch panel's serial engine; the input component is not ported.
+
+// Pin controller.
+//
+// Why it exists: 2026-10-31 the touch driver's census read all six GPIO_CFG words as 0x00000000
+// (`PINS n=6 g039=00000000 g098=00000000 ...` on the diagnostics page and in the archived page
+// slots), i.e. the window it maps carries no hardware. Only nodes that carry `unixnu,adt-name`
+// are exported to the ADT (scripts/unixnu/devicetree.py:368), and the board described no pin
+// controller at all, so it is the first thing to give the path a described window. UFS works
+// because ufshc@1d84000 is described; this gives the pin path the same footing.
+//
+// Address: kona exposes three pin windows (0x0F100000 west, 0x0F500000 south, 0x0F900000 north).
+// Only the west window is described here for now; if a pin the touch path needs (39/98/43/40/41/42)
+// turns out to live in the south or north window, its node has to be added and the driver's linear
+// `base + pin * 0x1000` model replaced by a per-window lookup.
+//
+// The QUPv3 wrapper (0x8C0000) and SE14 (0x880000) are deliberately NOT described yet: exporting a
+// window below 16 MiB moves the arm-io base from 0x01000000 down to 0x00800000 and shifts every
+// arm-io child offset (porting.toml records that base+offset still resolves, but every existing
+// offset needs a re-check), and the serial engine must not be poked before its clock votes land.
+/ {
+    soc {
+        tlmm: pinctrl@f100000 {
+            compatible = "qcom,sm8250-pinctrl";
+            unixnu,adt-name = "tlmm";
+            reg = <0 0x0f100000 0 0x300000>;
+        };
+    };
+};

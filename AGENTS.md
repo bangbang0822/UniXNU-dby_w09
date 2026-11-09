@@ -51,3 +51,50 @@ defconfig text, is what the kernel build reads.
 
 Update the affected `porting.toml` area's findings or evidence with every code change, and report
 commands, outputs, missing inputs and hardware observations separately. Write concise English here.
+
+## Working discipline (2026-11-01, standing instruction from the board owner)
+
+Two rules, both written after breaking them on this board:
+
+### 1. No code reaches the device without an independent review
+
+A change is "reviewed" only when a separate agent has read the *current* file and answered per item.
+The loop is: **edit -> compile -> review -> fix what the review found -> review again if the fixes were
+substantial -> build -> flash**. Flashing before the review returns is how a payload that resets the
+board every 270 s reached the device, twice.
+
+What a review request must contain, because generic "please review" gets generic answers:
+
+- the observed evidence (the exact row/register values, with where they were read from);
+- the change as it now stands on disk, quoted, not as it was intended;
+- the specific questions, one per item: is the sequence correct, is the gate closed, what happens on
+  the failure path, does the width fit, can this hang the interconnect;
+- the file's line count and mtime, so a reviewer notices it changed underneath (this happened twice:
+  two reviews were invalidated because another agent was editing the same file);
+- the decision you need back: "may this be built and flashed, Y/N".
+
+Reviews override convenience. A `Y` with must-fix items is not a pass: apply them, and re-review when
+the fixes touched the same logic.
+
+### 2. When the answer is not in the repository, dispatch a research agent; do not guess
+
+Guessing is what produced `kSdamPpid = 0x071` (an SM8550 constant) and `0x0F100000 + pin * 0x1000`
+(the wrong pin tile): both looked plausible, both were wrong, and each cost a flash cycle.
+
+A research agent is expected to read **primary sources** in this order of preference:
+
+1. the board's own vendor kernel tree (`_dby/robyy10__DBY-W09.tar/DBY-W09-main`) - the kernel this
+   tablet actually runs;
+2. the repositories the official docs point at (UniXNU, UniXNU-sheng, QcomGeniSpi,
+   ShengNovatekTouch, ShengHidInput) and the docs under <https://unixnu.com/zh/>;
+3. mainline Linux, only when 1 and 2 have nothing;
+4. the device itself, through a read-only measurement.
+
+Its report goes to `work/tracks/<topic>/REPORT.md` (or `SPEC.md`/`PLAN.md` when it is a design), and
+must carry `file:line` or URL for every claim, an explicit UNVERIFIED list, and a "what to do next"
+section. Reports are read-only work products: a research agent never edits `src/`, never builds and
+never flashes.
+
+The two rules are complementary: research answers "what is true", review answers "is this change
+safe". Neither substitutes for the other, and neither is optional on this board.
+

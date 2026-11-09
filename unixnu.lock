@@ -9,6 +9,12 @@ commit = "e45fbe30a7879e0b16e26dddb78538f1b00e0bff"
 [source."ShengUfs"]
 commit = "ab5405905a1892da03a9a53e0fa3dcd255d04055"
 
+[source."Sm8250Platform"]
+commit = "52bab45dde057f053c47ab4b73166f34b4e42678"
+
+[source."Sm8550Platform"]
+commit = "23b2049fcd9e30356161def84231334fb55ecca9"
+
 [source."corecrypto-2023"]
 commit = "11fba65b12d8830630e248dfa8344caf8b065f26"
 

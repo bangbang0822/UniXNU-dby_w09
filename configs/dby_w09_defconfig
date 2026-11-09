@@ -125,14 +125,27 @@ CONFIG_XNU_DT_PANIC_REGION=y
 # 计数器，我们用不到的这些组件没链，静态内核链又不放过 weak_import 未定义符号（alioth 也这样写：
 # configs/alioth_defconfig:87-90）。桩都是 weak 零值：读到 0 就是「该组件没做过任何事」，
 # 以后真链上某个组件时，真定义自动赢过桩。
+# HID 输入层（官方 ShengHidInput）：libDbyHidInput.a 必须 **-Wl,-force_load**，不能只写路径。
+# 原因：package/LinkStubs.c 已经用 weak 空定义满足了 native_hid_input_probe，普通归档按未定义符号
+# 惰性拉取时，那个 weak 桩正好把唯一的未定义符号满足掉，整个归档一个条目都不会被拉进来 —— 结果是
+# 「编得出、链得过、屏幕上什么都不发生」。官方 build-xnu-4k-baseline.sh:576-755 对每个组件归档用的
+# 就是 -Wl,-force_load,<path>；EXTRA_LD_ARCHIVES 在 :755 被原样追加进 KERNEL_EXTRA_ARCHIVES，再由
+# MakeInc.kernel 拼进 $(LD) 命令行，所以空格分隔的 -Wl,-force_load,<路径> 是合法形式。
+# 归档来源：scripts/build-dby-hid-input.py（见 work/tracks/hid/，10 个自有槽位 + handleReport
+# @0xfffffff004add0c4 已按 prelink 审计），产物按本仓既有惯例「自备进构建树」放在
+# {tree}/build/dby-hid-input/libDbyHidInput.a。它需要的 native_touch_seq/count/xs/ys/ids 由
+# package/DbyTouch/DbyTouch.cpp 提供（强定义），native_legacy_transfer_calls 由 LegacyDisplayProbe.cpp
+# 提供；归档内的 DbyHidSinkStubs.o 只有 weak 桩，真定义自动赢过它，不需要改桩。
+# 回退 = 删掉本行末尾的 -Wl,-force_load,{tree}/build/dby-hid-input/libDbyHidInput.a 这一个词。
+CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/link-stubs/libLinkStubs.a {tree}/build/dby-touch/libDbyTouch.a -Wl,-force_load,{tree}/build/dby-hid-input/libDbyHidInput.a -Wl,-force_load,{tree}/build/cpufreq/libCpuFreqProbe.a -Wl,-force_load,{tree}/build/gpusmmu/libDbyGpuSmmuProbe.a -Wl,-force_load,{tree}/build/gpupower/libDbyGpuPowerProbe.a {tree}/build/adreno-kits/libAdrenoKits.a"
 # DbyTouch 用普通归档路径（不 force_load）：BootProgress.c 强引用 dby_touch_probe_entry()，
 # 惰性拉取一定会发生；它内部的 stage 轮询线程由驱动自己起，不靠初始化函数被扫到。
 CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/link-stubs/libLinkStubs.a {tree}/build/dby-touch/libDbyTouch.a {tree}/build/dby-torch/libDbyTorch.a"
 
 CONFIG_XNU_CRYPTO_BOOTSTRAP="prelinked"
 
-# 数据卷 UUID：必须等于 payload --data-ramdisk 那粒种子的 volume UUID。kern_exec.c:7993 按这个字符串查种子，未命中就是 ENOENT，屏上即 offline scratch Data mount failed: 2。本轮换成云 run #19 (42412122118) 的 seed-audio19/data-audio.dbr：它是唯一带 /ngpu/audio/ShengAudio.driver 的种子，0xa00 那次 bindfs 联合挂载的源目录只有它能提供。
-CONFIG_XNU_OWNER_DATA_VOLUME_UUID="F26D17C8-45E7-4C47-9AD9-A2A8C208E44A"
+# 数据卷 UUID —— 占位符，选定目标 IPSW + 取证后才填
+CONFIG_XNU_OWNER_DATA_VOLUME_UUID="C3A917A1-A331-4E42-979B-DD6B9771D184"
 
 # 显式关闭的项（sheng 有、但 SM8250 阶段先不开）
 # CONFIG_XNU_ARMVIRT_PLATFORM is not set
@@ -142,7 +155,23 @@ CONFIG_XNU_OWNER_DATA_VOLUME_UUID="F26D17C8-45E7-4C47-9AD9-A2A8C208E44A"
 # scripts/build-gop-legacy-display.py 产出，offline-component-load-probes.patch 会调它的两个入口，
 # 所以这个开关和 archives 里的那一行必须同时开。
 CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y
-# CONFIG_XNU_NATIVE_ADRENO is not set
+# GPU（Adreno 650）**暂不启用**（2026-11-03 03:08 回退）。2026-11-05 复查推翻了当时的
+# "编译器级阻塞"结论：:95 的 clang-24 断言是**错误恢复**，不是编译器缺陷。类里两个类型
+# 缺失（NativeAdrenoGmuConfig.h:6 的 ShengGmu.h、NativeAdrenoSmmuMemory.h:16 的
+# ArmSmmu4KTablePages）把 RecordDecl 变成 invalid，XNU 的 type-signature 补丁
+# (XnuTypeSignature.cpp) 在无效 decl 上求 layout 才触发 RecordLayoutBuilder.cpp:3439。
+# work/verify/verify-h1.py 复现：w0/w1 崩，w2（补齐两个类型）不崩。真正的卡点是
+# ArmSmmu4K 组件指针落后：子模块停在 3ba9245，目录 pin 是 83969cd（origin/main tip，
+# 含 "allocate page tables on demand"）。2026-11-05 已把子模块切到 83969cd。
+# 结论与计划见 work/tracks/adreno-build-path/REPORT.md。
+# GPU（A650 / SM8250 kona）。驱动由 scripts/build-adreno650.py 编成
+# {tree}/build/adreno740/libAdreno740.a；CONFIG_XNU_NATIVE_ADRENO=y 才让
+# build-xnu-4k-baseline.sh:644-650 force_load 那个固定路径（ARCHIVE 变量只被
+# scripts/unixnu/kernel.py:165-167 当作“文件必须存在”的检查读过，链接器不读它）。
+# force_load 是必需的：没有任何符号引用这份驱动，普通归档会被整份丢弃。
+# G0 只链接：命令行不带 pipa-gpu，本板还没有调用方，所以它不改变一次启动。
+CONFIG_XNU_NATIVE_ADRENO=y
+CONFIG_XNU_NATIVE_ADRENO_ARCHIVE="{tree}/build/adreno740/libAdreno740.a"
 # CONFIG_XNU_SOURCE_MOCKFS is not set
 # 注意：不要再在这里补 OWNER_ROOT_AUDIT / NATIVE_VIRTIO_BLOCK 的 "is not set" 行，
 # defconfig 是后写覆盖先写，那样会把上面打开的根发布链重新关掉。

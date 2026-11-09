@@ -17,8 +17,17 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'build/sheng-platform-power'
 OUT.mkdir(parents=True, exist_ok=True)
-sys.path.insert(0, str(ROOT / 'kits/XnuPrelink'))
+# The prelink kit directory was renamed upstream (kits/NativePrelink -> kits/XnuPrelink);
+# accept either so a re-assembled tree does not fail with "No module named 'native_prelink'".
+for _kit in ('XnuPrelink', 'NativePrelink'):
+    _candidate = ROOT / 'kits' / _kit
+    if _candidate.is_dir():
+        sys.path.insert(0, str(_candidate))
+        break
+else:
+    raise SystemExit('neither kits/XnuPrelink nor kits/NativePrelink exists in this tree')
 from native_prelink import macho, backed_offset, exports
+from dby_macho_late import patch_late
 
 ORIGINAL_KERNELCACHE_SHA256 = 'f18b4df865405f2a287b84977d7aca745e056d656d9fc9df1662970ce2969de7'
 
@@ -180,8 +189,7 @@ asm.write_text(''.join(f'.globl {name}\n.set {name}, {va:#x}\n' for name, va in 
 sdk = run(['xcrun', '--sdk', 'iphoneos', '--show-sdk-path'], text=True).strip()
 run(['xcrun', 'clang', '-target', 'arm64-apple-ios17.0', '-isysroot', sdk, '-c', asm, '-o', OUT / 'original-bindings.o'])
 late = OUT / 'ShengPlatformPower.late.o'
-run(['llvm-objcopy', '--remove-section=__DATA,__mod_init_func',
-     '--globalize-symbol=__GLOBAL__sub_I_ShengPlatformPower.cpp', obj, late])
+patch_late(obj, late, '__GLOBAL__sub_I_ShengPlatformPower.cpp')
 
 
 def text_section(blob):

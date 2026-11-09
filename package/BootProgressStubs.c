@@ -5,6 +5,7 @@
 // only reads them, so a zero reads as "that component did nothing", which is the truth on this
 // board. Generated from the extern declarations in package/BootProgress.c; if that file gains a
 // diagnostic, this list has to gain the same name or the link fails loudly.
+#include <stddef.h>
 #include <stdint.h>
 
 __attribute__((weak)) uint64_t armcpu_ipi_interrupts;
@@ -79,6 +80,10 @@ __attribute__((weak)) volatile uint32_t native_touch_hid_reports;
 __attribute__((weak)) volatile uint32_t native_touch_count;
 __attribute__((weak)) uint32_t native_touch_loop_step;
 __attribute__((weak)) volatile unsigned native_touch_stage_req;
+/* GPU power/clock probe (package/DbyGpuPowerProbe.cpp). Weak so the page renders even when its archive
+ * is not linked; BootLog.c and BootProgress.c weak-import both symbols. */
+__attribute__((weak)) char native_gpupower_rows[6][120];
+__attribute__((weak)) volatile uint32_t native_gpupower_stage;
 __attribute__((weak)) uint32_t native_ufs_matched;
 __attribute__((weak)) uint32_t native_ufs_probe_calls;
 __attribute__((weak)) uint64_t native_ufs_read_ticks;
@@ -196,8 +201,8 @@ __attribute__((weak)) uint64_t native_adreno_method_stats[20][4];
 __attribute__((weak)) uint64_t native_adreno_mount_fail[4];
 __attribute__((weak)) uint64_t native_adreno_pool_stats[8];
 __attribute__((weak)) uint64_t native_adreno_ring_log[4][4 + 112];
-__attribute__((weak)) uint64_t native_adreno_stall[24];
-__attribute__((weak)) uint64_t native_adreno_stall_mem[59];
+__attribute__((weak)) uint64_t native_adreno_stall[28];   /* 2 + NativeAdrenoRingStallWords (26) uint32 = 112 B of this 224 B */
+__attribute__((weak)) uint64_t native_adreno_stall_mem[76];
 __attribute__((weak)) uint64_t native_adreno_submit_ibs[4];
 __attribute__((weak)) uint64_t native_adreno_unstick[15];
 __attribute__((weak)) uint64_t native_adreno_view_diag[6];
@@ -212,7 +217,11 @@ __attribute__((weak)) uint64_t native_backlight_request[6];
 __attribute__((weak)) uint64_t native_backlight_stats[16];
 __attribute__((weak)) uint64_t native_battery_stats[16];
 __attribute__((weak)) uint64_t native_buttons_stats[10];
-__attribute__((weak)) uint64_t native_cpufreq_row[120];
+/* Both readers declare this as char[120]: BootProgress.c:110/978 draw it as a string and BootLog.c:143
+ * archives it with %s.  It was uint64_t[120] until 2026-11-03 - 960 bytes, a stride eight times what the
+ * readers assume - a same-name type mismatch that only manifests once a real provider
+ * (package/CpuFreqProbe.cpp) is linked in. */
+__attribute__((weak)) char native_cpufreq_row[120];
 __attribute__((weak)) uint64_t native_dpu_pipes[54];
 __attribute__((weak)) uint64_t native_dpu_stats[20];
 __attribute__((weak)) uint64_t native_gop_wait_stats[7];
@@ -242,6 +251,10 @@ __attribute__((weak)) uint64_t native_touch_edge_stats[4];
 __attribute__((weak)) uint64_t native_touch_extent[4];
 __attribute__((weak)) uint64_t native_touch_hid_multi[3];
 __attribute__((weak)) uint64_t native_touch_hold[14];
+/* Type matters: the ShengHidInput contract is `volatile int xs/ys/ids[12]` and
+ * `volatile uint32_t seq/count`.  These were uint64_t, which links without a word and makes
+ * the consumer read int[12] out of an 8x larger object - coordinates come out zero or every
+ * other entry shifted.  Keep the stub's type identical to the contract. */
 __attribute__((weak)) volatile int native_touch_ids[12];
 __attribute__((weak)) uint64_t native_touch_jitter[3];
 __attribute__((weak)) char native_touch_rows[4][120];
@@ -301,3 +314,57 @@ __attribute__((weak)) void qcom_usb_debug_get_status(void *status)
   if (!bytes) return;
   for (i = 0; i < 304u; ++i) bytes[i] = 0xffu;
 }
+
+
+// ---------------------------------------------------------------------------
+// Official persistent-log writer (package/BootLog.c) dependencies.
+//
+// BootLog.c is compiled into libBootProgress.a, and that archive is -force_load'ed into the kernel,
+// so every weak_import it declares must have *some* definition or the static link fails with
+// "symbol(s) not found" (the same failure mode kernel-bootstrap.log records for
+// _native_ram_block_gpu_addon). This board selects none of the three providers, so the truthful
+// stub is "not implemented": the writer's own &fn guards then skip those optional paths.
+//
+//   boot_reset_*            kits/sheng BootReset.c: PMIC reset + hypervisor watchdog
+//   boot_diag_scan/stream   kits/sheng BootDiagExport.c: diagnostic snapshot export
+//   boot_progress_spawn_rows  the sheng progress row producer
+__attribute__((weak)) int boot_reset_probe(char *out, unsigned capacity) { (void)out; (void)capacity; return -1; }
+__attribute__((weak)) int boot_reset_bootloader(char *out, unsigned capacity) { (void)out; (void)capacity; return -1; }
+__attribute__((weak)) int boot_reset_mark_bootloader(char *out, unsigned capacity) { (void)out; (void)capacity; return -1; }
+__attribute__((weak)) int boot_reset_watchdog(uint32_t seconds, char *out, unsigned capacity) { (void)seconds; (void)out; (void)capacity; return -1; }
+__attribute__((weak)) uint64_t boot_diag_scan(uint64_t below) { (void)below; return 0; }
+__attribute__((weak)) int boot_diag_stream(int (*emit)(const void *, uint32_t, void *), void *context) { (void)emit; (void)context; return 0; }
+__attribute__((weak)) size_t boot_progress_spawn_rows(char *out, size_t capacity) { (void)out; (void)capacity; return 0; }
+
+// ---------------------------------------------------------------------------
+// Force-loaded GPU driver (build/adreno740/libAdreno740.a) dependencies.
+//
+// The driver declares both as weak_import, and a static kernel link refuses to leave a
+// weak_import undefined, so the force_load added for the A650 archive turns them into
+// hard errors (measured: kernel link, 2026-11-05, "_native_gpu_dcvs, referenced from
+// NativeAdrenoSubmit::submit" and "_native_pmap_user_mappings, referenced from
+// NativeAdrenoMemory::release"). Both uses are guarded in the driver:
+//
+//   native_gpu_dcvs         NativeAdrenoSubmit.cpp:90,397 -- the 15-entry DVFS level table
+//                           the submit record reads; all zeros means "no levels", which is
+//                           the truth until this board has a GPU DVFS table.
+//   native_pmap_user_mappings  NativeAdrenoMemory.cpp:317,338,344 -- names the process
+//                           mapping a page the driver is about to free. A weak *function*
+//                           returning 0 (not a pointer) is what the caller tests and calls;
+//                           0 means "no process maps that page".
+//
+// The reference board (alioth, same archive) answers both exactly this way.
+__attribute__((weak)) uint32_t native_gpu_dcvs[15];
+__attribute__((weak)) unsigned int native_pmap_user_mappings(unsigned int ppnum, void **pmap, uint64_t *va, char *name)
+{
+  (void)ppnum; (void)pmap; (void)va; (void)name;
+  return 0;
+}
+
+// R2 link proof: the ladder-probe symbols BootLog.c:148 and BootProgress.c:103 reference as
+// weak_import. A static link refuses to leave them undefined, and the probe archives cannot
+// be force_load'ed beside the A650 archive (both embed the same kits -- 41 duplicate
+// symbols, measured). Six empty census rows read as "no census", which is the truth when
+// the probe is not in the image; the probe function does nothing.
+__attribute__((weak)) char native_gpusmmu_census[6][120];
+__attribute__((weak)) void sheng_gpu_smmu_probe(void) {}
