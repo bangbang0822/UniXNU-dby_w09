@@ -24,7 +24,11 @@ extern int native_ufs_log_sync(void) __attribute__((weak_import));
 extern unsigned native_ufs_store_gpt_check(void) __attribute__((weak_import));
 extern uint32_t cs_text_fixup_parsed __attribute__((weak_import));
 extern uint32_t cs_text_fixup_applied __attribute__((weak_import));
-extern char boot_progress_page_text[48][120] __attribute__((weak_import));
+// 49 rows, not 48: row 48 carries the HID verdict line (TOUCH HID started/driver/touch-reports/
+// key-reports). It is captured by BootProgress.c but never drawn, so this archive is the only place it
+// can be read. The array in BootProgress.c is [49][BP_COLS] with BP_COLS == 120 (BootProgressCore.h:5),
+// so the stride here must stay 120.
+extern char boot_progress_page_text[49][120] __attribute__((weak_import));
 extern char boot_progress_banner_text[49][120] __attribute__((weak_import));
 extern volatile unsigned boot_progress_banner_rows __attribute__((weak_import));
 extern char boot_progress_ext[8][48] __attribute__((weak_import));
@@ -137,6 +141,13 @@ extern volatile uint64_t native_gpu_idle_spins __attribute__((weak_import));
 extern volatile uint32_t native_adreno_coherent_skips[4] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_io_coherent __attribute__((weak_import));
 extern char native_cpufreq_row[120] __attribute__((weak_import));
+/* The rich per-domain census from package/CpuFreqProbe.cpp: 24 rows of 120 bytes, only the first
+ * native_cpufreq_census_rows of which are used.  Weak, so it disappears when the probe is not linked. */
+extern char native_cpufreq_census[24][120] __attribute__((weak_import));
+/* The GPU SMMU probe's rows: two used, six reserved (package/DbyGpuSmmuProbe.cpp). */
+extern char native_gpusmmu_census[6][120] __attribute__((weak_import));
+/* The GPU power/clock probe's rows (package/DbyGpuPowerProbe.cpp): six, all used. */
+extern char native_gpupower_rows[6][120] __attribute__((weak_import));
 extern uint32_t native_gpu_perf_vote[2] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_pool_status __attribute__((weak_import));
 extern volatile uint32_t native_adreno_pool_wc __attribute__((weak_import));
@@ -188,6 +199,11 @@ struct boot_log_header {
 };
 // Writer state for the board page: 0 off, 1 waiting for the window, 2 writing, 3 stopped after errors, 4 stopped (GPT changed).
 volatile uint32_t boot_log_state, boot_log_rounds, boot_log_errors;
+/* Rounds that genuinely landed: incremented only when the slot, the message buffer, the header AND the
+ * sync all succeeded (see the end of the writer round). boot_log_rounds cannot serve that purpose - it
+ * is bumped before the header write, so a reader can see it mid-round. Probes that touch hardware on the
+ * strength of "the log is up" must wait for THIS counter (review 2026-11-03 15:30). */
+volatile uint32_t boot_log_slots_ok;
 volatile uint64_t boot_log_first_lba;
 static int boot_log_started;
 static uint8_t *boot_log_buffer;   // LogMsgBlocks blocks: the message buffer, then reused for a slot and the header
@@ -309,7 +325,9 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
   at = put(out, at, cap, head, sizeof head);
   if (&boot_progress_page_text) {
     at = put(out, at, cap, "[page]", 8);
-    for (unsigned i = 0; i < 48; ++i) if (boot_progress_page_text[i][0]) at = put(out, at, cap, boot_progress_page_text[i], 120);
+    // 49, not 48: row 48 is captured-only by BootProgress.c and holds the TOUCH HID verdict. A slot is
+    // 16 blocks (64 KiB) and this adds at most 120 bytes, so the window still fits with room to spare.
+    for (unsigned i = 0; i < 49; ++i) if (boot_progress_page_text[i][0]) at = put(out, at, cap, boot_progress_page_text[i], 120);
   }
   if (&boot_progress_banner_text && &boot_progress_banner_rows) {
     unsigned rows = boot_progress_banner_rows; if (rows > 49) rows = 49;
@@ -625,6 +643,32 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
              &native_gpu_perf_vote ? native_gpu_perf_vote[1] : 0);
     at = put(out, at, cap, row, sizeof row);
   }
+  // The rich CPU-frequency census (package/CpuFreqProbe.cpp, upstream CpuFreqProbe's shape): one line
+  // per domain plus the decoded LUT rows.  The page row above is 120 bytes and cannot carry it, and this
+  // board has no console, so the persistent log is the only place the decode is readable.  Weak: with the
+  // probe absent the symbol is a null pointer and this block does nothing.
+  if (&native_cpufreq_census) {
+    for (unsigned q = 0; q < 24; ++q) {
+      if (native_cpufreq_census[q][0]) at = put(out, at, cap, native_cpufreq_census[q], sizeof native_cpufreq_census[q]);
+    }
+  }
+  // The GPU SMMU probe's two lines (package/DbyGpuSmmuProbe.cpp): ID0/ID1/ID2 and the decoded
+  // input_bits, which is the GPU's entry gate.  Opt-in via dby-gpu-smmu=1, so without the argument this
+  // prints the single "skipped" line and nothing else.  Weak: absent when the archive is not linked.
+  if (&native_gpusmmu_census) {
+    for (unsigned q = 0; q < 6; ++q) {
+      if (native_gpusmmu_census[q][0]) at = put(out, at, cap, native_gpusmmu_census[q], sizeof native_gpusmmu_census[q]);
+    }
+  }
+  // GPU power/clock rows from package/DbyGpuPowerProbe.cpp, which drives the upstream SM8250 kit:
+  // GCC branches, the cfg_ahb write, CX GDSC + the SMMU vote clock, then the SMMU identity read that
+  // only happens once that gate passes.  Opt-in via dby-gpu-power=<1|2|3>; weak, so absent when the
+  // archive is not linked.
+  if (&native_gpupower_rows) {
+    for (unsigned q = 0; q < 6; ++q) {
+      if (native_gpupower_rows[q][0]) at = put(out, at, cap, native_gpupower_rows[q], sizeof native_gpupower_rows[q]);
+    }
+  }
   if (&native_adreno_export_stats && (native_adreno_export_stats[0] || native_adreno_export_stats[1])) {
     char row[120];
     snprintf(row, sizeof row, "[export] pieces=%u refused=%u generation=%u bytes=%u | complete generation=%u bytes=%u", native_adreno_export_stats[0],
@@ -852,7 +896,10 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
              native_audio_stats[12], native_audio_stats[13]);
     at = put(out, at, cap, row, sizeof row);
   }
-  // Touch strokes in panel pixels as the digitizer published them (y mirrored, 0 = the edge the UI calls top): where each finger came
+  // Touch strokes in panel pixels as the digitizer published them. y is bottom-up since 2026-11-03 12:16 (published Y is
+  // mirrored to match the official producer, work/refs/sheng/TouchProbe.cpp:351), so 0 is the BOTTOM edge - before that
+  // change it was the panel's top-down row and 0 was the top. Inert on this board anyway: nothing defines the stroke
+  // globals. Where each finger came
   // down and lifted, how long and over how many frames, and the extent of every contact so far (edge gestures need the outer pixels).
   if (&native_touch_stroke_count && &native_touch_strokes && &native_touch_extent && native_touch_stroke_count) {
     char row[160];
@@ -1124,7 +1171,7 @@ static void writer(void *arg, wait_result_t result) {
     memcpy(boot_log_buffer, &h, sizeof h);
     ok &= native_ufs_log_write(0, 1, boot_log_buffer);
     ok &= native_ufs_log_sync();
-    if (!ok) {boot_log_errors = ++errors;} else errors = 0;
+    if (!ok) {boot_log_errors = ++errors;} else {errors = 0; ++boot_log_slots_ok;}
     if (errors >= LogMaxErrors) {boot_log_state = 3; return;}
     if (h.gpt_last != h.gpt_open) {boot_log_state = 4; return;}
     if (autoreset && now >= autoreset && !reset_tried && ok) {

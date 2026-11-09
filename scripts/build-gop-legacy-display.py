@@ -7,8 +7,15 @@ import struct
 import subprocess
 import sys
 ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'build/native-legacy-display';OUT.mkdir(parents=True,exist_ok=True)
-sys.path.insert(0,str(ROOT/'kits/NativePrelink'))
+# Newer trees ship the prelink kit as kits/XnuPrelink; accept either name.
+for _kit in ('XnuPrelink','NativePrelink'):
+    _candidate=ROOT/'kits'/_kit
+    if _candidate.is_dir():
+        sys.path.insert(0,str(_candidate));break
+else:
+    raise SystemExit('neither kits/XnuPrelink nor kits/NativePrelink exists in this tree')
 from native_prelink import macho,backed_offset,exports
+from dby_macho_late import patch_late
 def run(cmd,**kw):return subprocess.check_output([str(x) for x in cmd],timeout=90,**kw)
 def require(v,why):
     if not v:raise SystemExit(why)
@@ -185,8 +192,8 @@ sdk=run(['xcrun','--sdk','iphoneos','--show-sdk-path'],text=True).strip()
 run(['xcrun','clang','-target','arm64-apple-ios17.0','-isysroot',sdk,'-c',asm,'-o',OUT/'original-bindings.o'])
 # The Mach-O aware llvm-objcopy comes from the launcher PATH (the toolchain shim directory), not from a
 # Homebrew prefix: this tree is built on Linux, where `brew --prefix llvm` does not exist.
-objcopy='llvm-objcopy';late=OUT/'NativeLegacyDisplay.late.o'
-run([objcopy,'--remove-section=__DATA,__mod_init_func','--globalize-symbol=__GLOBAL__sub_I_NativeLegacyDisplay.cpp',obj,late])
+late=OUT/'NativeLegacyDisplay.late.o'
+patch_late(obj,late,'__GLOBAL__sub_I_NativeLegacyDisplay.cpp')
 def code(data,info):
     sec=next(s for g in info['segments'] for s in g['sections'] if s['name']=='__text');return data[sec['fileoff']:sec['fileoff']+sec['size']]
 require(code(raw,image)==code(late.read_bytes(),macho(late.read_bytes())),'Only owned initializer section registration changes')
@@ -218,20 +225,27 @@ keystore_obj=OUT/'KeyStoreProbe.o'
 run([str(keystore_source) if str(arg)==str(source) else str(keystore_obj) if str(arg)==str(probe) else arg for arg in cmd],cwd=r['directory'])
 keyevents=KEY/'NativeKeyStoreEvents.o'
 keyevents_late=KEY/'NativeKeyStoreEvents.late.o'
-run([objcopy,'--remove-section=__DATA,__mod_init_func',
-     '--globalize-symbol=__GLOBAL__sub_I_NativeKeyStoreEvents.cpp',keyevents,keyevents_late])
+patch_late(keyevents,keyevents_late,'__GLOBAL__sub_I_NativeKeyStoreEvents.cpp')
 require(code(keyevents.read_bytes(),macho(keyevents.read_bytes()))==
         code(keyevents_late.read_bytes(),macho(keyevents_late.read_bytes())),
         'Owned event-service instructions unchanged by late init staging')
 run(['xcrun','ar','rcs',archive,late,OUT/'original-bindings.o',probe,keystore_obj,keyevents_late])
+# Upstream moved the event-service source under drivers/AppleKeyStoreState; older trees kept it in
+# drivers/NativeKeyStoreEvents. Resolve it by content instead of hardcoding one layout.
+_keyevents_source=None
+for _rel in ('drivers/NativeKeyStoreEvents/NativeKeyStoreEvents.cpp',
+             'drivers/AppleKeyStoreState/NativeKeyStoreEvents.cpp'):
+    if (ROOT/_rel).is_file():
+        _keyevents_source=ROOT/_rel;break
+if _keyevents_source is None:
+    raise SystemExit('NativeKeyStoreEvents.cpp not found under drivers/ (looked in NativeKeyStoreEvents and AppleKeyStoreState)')
 sources=[ROOT/'drivers/GopFramebuffer/NativeLegacyDisplay.cpp',
          ROOT/'drivers/GopFramebuffer/NativeLegacyRequest.h',source,
-         keystore_source,ROOT/'drivers/NativeKeyStoreEvents/NativeKeyStoreEvents.cpp']
+         keystore_source,_keyevents_source]
 # The presenter is its own official component build; only its initializer registration moves to late staging.
 print(run(['python3',ROOT/'scripts/build-arm-driver.py','NativeGOPPresenter'],text=True),end='')
 gop=ROOT/'build/native-gop-presenter';gop_late=gop/'NativeGOPPresenter.late.o'
-run([objcopy,'--remove-section=__DATA,__mod_init_func','--globalize-symbol=__GLOBAL__sub_I_NativeGOPPresenter.cpp',
-     gop/'NativeGOPPresenter.o',gop_late])
+patch_late(gop/'NativeGOPPresenter.o',gop_late,'__GLOBAL__sub_I_NativeGOPPresenter.cpp')
 require(code((gop/'NativeGOPPresenter.o').read_bytes(),macho((gop/'NativeGOPPresenter.o').read_bytes()))==
         code(gop_late.read_bytes(),macho(gop_late.read_bytes())),'Owned presenter instructions unchanged by late init staging')
 run(['xcrun','ar','rcs',archive,gop_late])

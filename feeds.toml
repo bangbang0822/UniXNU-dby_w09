@@ -22,3 +22,55 @@ name = "ShengUfs"
 kind = "driver"
 git = "https://github.com/FFT-infra/NativeUfs-alioth"
 commit = "ab5405905a1892da03a9a53e0fa3dcd255d04055"
+
+# GPU 驱动源。**name 必须是 Adreno740**：那是核心 components.toml 里的组件身份
+# （Adreno740 依赖 AdrenoPM4/AdrenoFirmware/Sm8550Platform），我们的芯片是 A650，但源仓库
+# 是 Adreno650 的 fork —— 与 alioth（同为 SM8250）完全相同的做法。
+#
+# **钉 alioth-ring 线的 70771a7，不要用 fft 分支的 bef707a**：
+#   - 70771a7 把用户态客户端改成「每连接独立地址空间」，
+#     window = (1<<input_bits) - GpuClientVaStart(0x100000000)；
+#   - fft@bef707a 仍是静态 kClientWindows 表（slot0 512–1536 MiB、slot1 1536–1706.66 MiB），
+#     README 里那个 OutOfMemory(Device) 就是它的；而本板 1600x2560 的像素量是参考板的 1.58 倍，
+#     客户端 VA 压力更大，正好落在 fft 死掉的那一点上。
+#
+# G0 只做接线：归档编进内核但**不传 pipa-gpu=**，GpuProbe 的门是
+#   if (gMode || !parsed || !mode) return;
+# 没有参数、解析失败、为 0、或第二次进入，都在碰任何寄存器之前返回。
+[[source]]
+name = "Adreno740"
+kind = "driver"
+git = "https://github.com/FFT-infra/Adreno650"
+commit = "70771a71795d7e1a78afdb82badd7943adb0a3a0"
+# GPU 电源/时钟 kit（SM8250 + Adreno 650）。它是 soc feed 里 52bab45dde057f053c47ab4b73166f34b4e42678 才加进来的模块，
+# 而本板 [board] soc_source 仍钉在 6bb9b02；直接 bump soc 会把 dts/sm8250.dtsi 的
+# ufshc/ufsphy 改动一起带进来（uart/UFS 是当前唯一在工作的存储路径，不能顺手动）。
+# feeds 的 git source 是"按模块路径 sparse checkout"，所以这里单独取这一个 kit。
+# 上游来源：FFT-infra/UniXNU-sm8250-common 52bab45dde057f053c47ab4b73166f34b4e42678 "gmu: the HFI 30 vote alone,
+# and the status that says which half failed"（在我们的旧 pin 26fd784e 之上只加 A650GmuSetFreq，+20/+2 行；
+# 该 kit 由 26fd784e 引入，本 pin 是它的快进，无其他改动）。
+[[source]]
+name = "Sm8250Platform"
+kind = "kit"
+git = "https://github.com/FFT-infra/UniXNU-sm8250-common"
+commit = "52bab45dde057f053c47ab4b73166f34b4e42678"
+# 只取这一个 kit 子目录（sparse checkout）：整仓 checkout 会让 tree 的 kits/Sm8250Platform
+# 指向仓库根，变成 kits/Sm8250Platform/kits/Sm8250Platform/…，与目录声明的 path 不一致。
+path = "kits/Sm8250Platform"
+
+# Adreno 的 firmware/HFI 与 PM4 两个 kit（2026-11-04）：A650Gmu.c 冷启动需要 AdrenoHfiStartup.h /
+# AdrenoFirmware.h，它们属于这两个 kit；树里原本没有 materialize，编译 A650Gmu.c 会直接 "file not found"。
+# 版本取自 components.toml 的 catalogue（AdrenoFirmware 20ad3d7a、AdrenoPM4 282606b5）。
+[[source]]
+name = "AdrenoFirmware"
+kind = "kit"
+git = "https://github.com/UniXNU/AdrenoFirmware"
+commit = "20ad3d7a"
+path = "kits/AdrenoFirmware"
+
+[[source]]
+name = "AdrenoPM4"
+kind = "kit"
+git = "https://github.com/UniXNU/AdrenoPM4"
+commit = "282606b5"
+path = "kits/AdrenoPM4"

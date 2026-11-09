@@ -89,10 +89,30 @@ extern volatile unsigned boot_ui_trace_index __attribute__((weak_import));
 extern void boot_process_capture(void) __attribute__((weak_import));
 extern void boot_process_snapshot(void) __attribute__((weak_import));
 extern void boot_log_tick(unsigned) __attribute__((weak_import));
+/* Persistent-log writer state (package/BootLog.c). 1=opening, 2=running, 3=refused/failed,
+ * 4=GPT changed. Without a UART this row is the only way to tell "never started" from
+ * "refused by NativeUfs" from "writing normally". */
+extern volatile uint32_t boot_log_state __attribute__((weak_import));
+extern volatile uint32_t boot_log_rounds __attribute__((weak_import));
+extern volatile uint32_t boot_log_errors __attribute__((weak_import));
+extern volatile uint64_t boot_log_first_lba __attribute__((weak_import));
 extern void sheng_cpufreq_poll(void) __attribute__((weak_import));
+/* Minimal GPU SMMU probe (package/DbyGpuSmmuProbe.cpp): read-only, opt-in via dby-gpu-smmu=1.
+ * Weak, so the call site disappears when the archive is not linked. It is polled from the same
+ * once-a-round hook as the cpufreq probe because this file already owns that cadence. */
+extern void sheng_gpu_smmu_probe(void) __attribute__((weak_import));
+extern void sheng_gpu_power_probe(void) __attribute__((weak_import));
 extern char boot_process_rows[10][120] __attribute__((weak_import));
 extern unsigned boot_ui_trace_role_rows(unsigned,char [][120],unsigned,unsigned) __attribute__((weak_import));
 extern char native_touch_rows[4][120] __attribute__((weak_import));
+/* DBY-W09 触摸普查自证：这三个计数由 boot_progress_poll() 维护，独立于驱动，
+ * 页面第 42 行会显示它们。目的：在没有串口/日志通道时，一次拍照就能区分
+ *   "poll 根本没被调用" / "钩子被调用但守卫挡住" / "驱动返回了错误码"。
+ * 实测背景：带普查的镜像能进锁屏，但页面上没有 TOUCH 行，无法判断卡在哪一环。 */
+volatile unsigned dby_touch_poll_calls;
+volatile unsigned dby_touch_hook_runs;
+volatile int      dby_touch_hook_ret = -999;
+volatile unsigned dby_touch_hook_nprocs;
 extern char native_cpufreq_row[120] __attribute__((weak_import));
 extern volatile uint32_t native_hid_input_events[8] __attribute__((weak_import));
 extern volatile int native_hid_input_results[8] __attribute__((weak_import));
@@ -169,11 +189,17 @@ static int take(void) {
 }
 static void release(void) { __atomic_store_n(&busy, 0, __ATOMIC_RELEASE); }
 // The text of every page row and of the last banner paint, for the UFS log (BootLog.c).
-char boot_progress_page_text[48][BP_COLS];
+// 49 rows, not 48: row 48 carries the HID verdict line. It is captured but deliberately NOT drawn -
+// the page grid is 48 rows tall and the prelinked bp_line's behaviour for row 48 is unverified, so
+// calling it could scribble past the display's text buffer. Without the capture, though, the one row
+// that decides the HID round could never reach the EDL log window (BootLog.c:312 archives i<49 now).
+// Every row in 0..47 is claimed by some conditional path (history 6+i, console 17+i..23, exits 20+i..23,
+// trace 6+i..19, process rows 24..30, frozen page 31..47), which is why row 48 exists at all.
+char boot_progress_page_text[49][BP_COLS];
 char boot_progress_banner_text[49][120];
 volatile unsigned boot_progress_banner_rows;
 static void capture(unsigned row, const char *text) {
-  if(row<48){strncpy(boot_progress_page_text[row],text,BP_COLS-1);boot_progress_page_text[row][BP_COLS-1]=0;}
+  if(row<49){strncpy(boot_progress_page_text[row],text,BP_COLS-1);boot_progress_page_text[row][BP_COLS-1]=0;}
 }
 static void line(unsigned row, const char *text, uint32_t color) {
   capture(row,text);
@@ -317,7 +343,7 @@ static void draw(unsigned now) {
     __asm__ volatile("mrs %0,cntv_ctl_el0" : "=r"(ctl));
     __asm__ volatile("mrs %0,daif" : "=r"(daif));
     snprintf(b,sizeof(b),"TIMER vct=%llx cval=%llx ctl=%llx DAIF=%llx (read-only monitor sample)",vct,cval,ctl,daif);
-    if(!(&native_touch_stage_req && native_touch_stage_req))line(42,b,0xffaaaaaa);
+    line(42,b,0xffaaaaaa);   /* TIMER 行恒定，不再让 dby-touch 把它关掉（复审 A5） */
     snprintf(b,sizeof(b),"CPU IRQ phase=%u id=%u quiesce=%u halt=%u; phase 0=exit 2=clock 4=IPI 6=EOI; sleep-disabled=1",
       armcpu_irq_phase,armcpu_irq_id,armcpu_quiesce_calls,armcpu_halt_calls);line(37,b,0xffffff00);
     if(&armcpu_smp_requested){
@@ -422,16 +448,57 @@ static void draw(unsigned now) {
   snprintf(b,sizeof(b),"OBS pulse-worker=%u anchor=%u bind=%u result=%u depth=%u base=%llx (0=bound 1=invalid 2=UI owned)",
     __atomic_load_n(&pulse_worker_status,__ATOMIC_ACQUIRE),__atomic_load_n(&pulse.ready,__ATOMIC_ACQUIRE),
     bind_count,bind_result,bind_depth,(uint64_t)bind_base);
+  /* DBY-W09：普查自证计数（dby_touch_poll_calls/runs/ret/nprocs）不再单独占一行。
+   * 审核结论（45584a61 A5/A6）：第 42 行属于 TIMER，44 与 GOP mapping 重叠、45 与 UFS CMD 重叠，
+   * 冻结路径还会从 31 行画到 42 抹掉自证行；且不带 dby-touch 时把 TIMER 顶掉属默认行为回归。
+   * 现在只保留驱动自己那两行（43 行摘要 + 44 行引脚普查），计数改由驱动行内体现。 */
+
   if(&native_touch_stage_req && native_touch_stage_req && &native_touch_rows) {
-    // Touch replaces the TIMER/OBS rows (42-43) while it is requested: its summary row and the HID report counters.
+    // Touch takes rows 42 and 47 on the page, plus row 48 which is captured only.
+    // These must be distinct rows: an earlier revision drew the pin row and the HID row both on 44,
+    // so the pin census was overwritten before anyone could read it.
+    // 2026-11-02: the HID row moved from a drawn row to capture-only row 48. It used to be line(48,..),
+    // which captured nothing (capture() rejected row>=48) and drew off a 48-row grid; moving it into
+    // 0..47 is not possible because every one of those rows is written by some conditional path.
+    // So capture() now accepts row 48 and BootLog.c archives 49 rows: the line reaches the EDL log
+    // window, which is the only place it can be read back.
     line(42,native_touch_rows[0],0xff00ffcc);
+    if(native_touch_rows[1][0]) line(47,native_touch_rows[1],0xff00ffcc);
     if(&native_hid_input_events) {
-      snprintf(b,sizeof(b),"TOUCH HID started=%u driver=%u touch-reports=%u result=%d key-reports=%u | pad dots=%u",
-        native_hid_input_events[2],native_hid_input_events[4],native_hid_input_events[6],native_hid_input_results[6],
-        native_hid_input_events[5],touch_dots);
-      line(43,b,0xff00ffcc);
+      /* Field -> counter mapping, verified against every native_hid_input_observed() call site in the
+       * archive (HidInputProbe.cpp:141 counts, results[] keeps the last value):
+       *   events[2]  NativeHidInput.cpp:307  start() reached its end            -> started=
+       *   events[4]  NativeHidInput.cpp:220,260  key-DOWN and button reports   -> key-reports=
+       *   events[5]  NativeHidInput.cpp:260  key-UP only (never use as "keys")
+       *   events[6]  NativeHidInput.cpp:204  digitizer/touch reports           -> touch-reports=
+       *   results[6] NativeHidInput.cpp:204  last IOReturn of those reports
+       *   results[3] NativeHidInput.cpp:250/254  0 = no IOHIDEventDriver below, 1 = found, -1 = never
+       *              evaluated. This is the real "driver" verdict; events[4] (used before review
+       *              M1) counted Home/button presses and read 0 on a perfectly healthy match.
+       * An earlier revision also labelled events[5] as "key-reports", which counts key-ups only. */
+      snprintf(b,sizeof(b),"TOUCH HID started=%u drv=%d key-reports=%u touch-reports=%u res=%d | pad dots=%u",
+        native_hid_input_events[2],native_hid_input_results[3],native_hid_input_events[4],
+        native_hid_input_events[6],native_hid_input_results[6],touch_dots);
+      capture(48,b);
     }
-  } else line(43,b,0xffaaaaaa);
+  } else line(42,b,0xffaaaaaa);
+  if(&boot_log_state) {
+    {
+      extern uint32_t dby_reset_mark_rc, dby_reset_mark_before, dby_reset_mark_after;
+      /* The reboot-reason write decides whether the autoreset lands in fastboot, so it belongs on
+       * the archived page next to the writer state: rc=0 and after=<value> is the success shape. */
+      extern uint32_t dby_spmi_version, dby_spmi_apids, dby_spmi_has071, dby_spmi_first_ppid;
+      /* The SPMI fields say which arbiter generation answered, how many APIDs its map holds, whether
+       * sheng's SDAM PPID 0x71 exists here, and the first PPID the table actually contains. */
+      snprintf(b,sizeof(b),"LOGS st=%u r=%u lba=0x%llx mark rc=%d %02x->%02x spmi v%u n=%u h=%u p=%x",
+        (unsigned)boot_log_state, (unsigned)(&boot_log_rounds ? boot_log_rounds : 0),
+        (unsigned long long)(&boot_log_first_lba ? boot_log_first_lba : 0),
+        (int)dby_reset_mark_rc, (unsigned)dby_reset_mark_before, (unsigned)dby_reset_mark_after,
+        (unsigned)dby_spmi_version, (unsigned)dby_spmi_apids, (unsigned)dby_spmi_has071,
+        (unsigned)dby_spmi_first_ppid);
+    }
+    line(43,b,0xffffaa00);   /* 43 is the only free row in the 0..47 grid (review 01e6cd16) */
+  }
   if(&native_ufs_verify_ticks && &native_ufs_read_ticks) {
     uint64_t freq;__asm__ volatile("mrs %0,cntfrq_el0":"=r"(freq));if(!freq)freq=1;
     uint64_t vt=__atomic_load_n(&native_ufs_verify_ticks,__ATOMIC_RELAXED),rt=__atomic_load_n(&native_ufs_read_ticks,__ATOMIC_RELAXED);
@@ -662,6 +729,92 @@ void boot_progress_irq(uint64_t pc,uint64_t psr,uint64_t sp) {
   boot_progress_poll();
 }
 void boot_progress_poll(void) {
+  /* DBY-W09 触摸普查钩子。
+   *
+   * 放在这里而不是 XNU 补丁里，是为了让 patches/xnu/series 保持冻结：unixnu 的
+   * scripts/unixnu/patches.py:48 用「补丁集合 + xnu commit」做签名，签名一变就删掉
+   * .cache/xnu-work 重新克隆并重打补丁，整棵树因此全量重编。
+   *
+   * 时机：boot_progress_poll 有三个调用者——boot_progress_irq 尾部（异常上下文）、monitor 线程
+   * 1 Hz、NativeUfs 的 verify()。最早那次早于 bsd_init/IOKit 初始化，所以在 IOKit 起来之前调用
+   * 必然映射失败。因此只在非中断上下文、nprocs > 0 时才试；只有驱动返回 0 才置 done。
+   * 缺省（dby-touch=0）时驱动在 mapWindows() 之前直接返回，不碰任何 MMIO。
+   */
+  /* Autoreset safety net, independent of the storage-backed log writer.
+   *
+   * package/BootLog.c resets the board when sheng-autoreset expires, but that timer only exists once
+   * the log window opened and a round wrote successfully: if the UFS log region cannot be opened the
+   * device would never come back on its own. This second deadline runs off the monitor thread, needs
+   * no storage at all, and calls the same board reset provider. Two independent paths to the same
+   * action are fine: whichever fires first resets the SoC.
+   */
+  {
+    extern int boot_reset_bootloader(char *, unsigned);
+    extern int boot_reset_probe(char *, unsigned);
+    static uint32_t autoreset_s = 0;
+    static int autoreset_parsed = 0;
+    static int autoreset_done = 0;
+    /* cntpct_el0 does not reset on a warm PSCI reset, so an absolute now/freq comparison can be
+     * satisfied by ticks accumulated over previous boots: measured on the board a 60 s deadline
+     * fired at ~30 s. The deadline therefore runs from the tick that armed it. s and base are
+     * published as a pair with release/acquire because boot_progress_poll also runs from
+     * NativeUfs's verify(), on another thread than the monitor. */
+    static uint64_t autoreset_base = 0;
+    /* Not from the IRQ tail: the probe defers itself there (it maps MMIO), and this block latches
+     * its answer once, so the first poll - which is the IRQ one, boot_progress_init runs inside
+     * arm_init long before kernel_bootstrap_thread starts this monitor - would otherwise record the
+     * deferral as "no autoreset" for the whole boot and this storage-independent deadline would
+     * never arm, exactly in the case it exists for. */
+    if (!ml_at_interrupt_context() &&
+        __atomic_exchange_n(&autoreset_parsed, 1, __ATOMIC_ACQ_REL) == 0) {
+      uint32_t want = 0;
+      char probe_text[80] = {0};
+
+      if (PE_parse_boot_argn("sheng-autoreset", &want, sizeof want) && want > 0) {
+        /* Same gate as BootLog.c:1154.  The provider owns the decision: it refuses unless the
+         * reboot-reason write is switched on (`sheng-autoreset-write=1`) and read back.  On a
+         * default boot both deadlines therefore stay disarmed. */
+        if (boot_reset_probe(probe_text, sizeof probe_text) == 0) {
+          uint64_t base;
+          __asm__ volatile("isb\n\tmrs %0, cntpct_el0" : "=r"(base));
+          __atomic_store_n(&autoreset_base, base, __ATOMIC_RELAXED);
+          __atomic_store_n(&autoreset_s, want, __ATOMIC_RELEASE);
+        }
+      }
+      (void)probe_text;
+    }
+    uint32_t autoreset_limit = __atomic_load_n(&autoreset_s, __ATOMIC_ACQUIRE);
+    if (autoreset_limit != 0 && !autoreset_done && !ml_at_interrupt_context()) {
+      uint64_t freq, now, base;
+      /* base before now: arming is single-shot (the exchange latch wrote base exactly once,
+       * before the release store of s), so this value is fixed in the past; sampling cntpct only
+       * afterwards keeps now >= base, and the barrier pins the order for the compiler. */
+      base = __atomic_load_n(&autoreset_base, __ATOMIC_RELAXED);
+      __asm__ volatile("" ::: "memory");
+      __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(freq));
+      __asm__ volatile("isb\n\tmrs %0, cntpct_el0" : "=r"(now));
+      if (freq != 0 && (now - base) / freq >= autoreset_limit) {
+        char why[64] = {0};
+        autoreset_done = 1;
+        (void)boot_reset_bootloader(why, sizeof why);
+      }
+    }
+  }
+
+  extern int dby_touch_probe_entry(void);
+  static int dby_touch_probe_done = 0;
+  dby_touch_poll_calls++;
+  if (!__atomic_load_n(&dby_touch_probe_done, __ATOMIC_RELAXED) &&
+      !ml_at_interrupt_context() && nprocs > 0 && dby_touch_hook_runs < 3) {
+    if (__atomic_exchange_n(&dby_touch_probe_done, 1, __ATOMIC_ACQ_REL) == 0) {
+      dby_touch_hook_runs++;
+      dby_touch_hook_nprocs = (unsigned)nprocs;
+      dby_touch_hook_ret = dby_touch_probe_entry();
+      if (dby_touch_hook_ret != 0) {
+        __atomic_store_n(&dby_touch_probe_done, 0, __ATOMIC_RELEASE);
+      }
+    }
+  }
   if (!enabled || state.frozen || !take()) return;
   unsigned now=seconds();
   unsigned offline=native_virtio_ready && !native_ufs_blocks_published;
@@ -725,7 +878,8 @@ static void process_monitor(void *arg, wait_result_t result) {
 // Visual touch check on the diagnostic page. The text renderer repaints whole rows up to column BP_COLS-1 about once a
 // second, so anything drawn there is wiped again; the strip to the right of the text (x >= 120 columns) is never touched
 // by it. A scaled copy of the panel (the 30480x20320 touch axes) is kept there: a frame, coloured corner markers inside
-// it (top-left red, top-right green, bottom-left blue, bottom-right yellow, on the touch controller's own axes) and a
+// it (top-left red, top-right green, bottom-left blue, bottom-right yellow, in SCREEN order -- the pad is
+// drawn top-down while the published ys axis is bottom-up, see touch_overlay_locked) and a
 // persistent dot trail for every contact, so a photograph taken after the finger is gone still shows where it went.
 static void touch_fill(unsigned x0,unsigned y0,unsigned x1,unsigned y1,uint32_t color) {
   if(!display.bound || !display.frame)return;
@@ -1047,7 +1201,9 @@ static void touch_overlay_locked(void) {
   if(__atomic_load_n(&native_touch_seq,__ATOMIC_ACQUIRE)!=seq)return;
   for(unsigned i=0;i<n;++i) {
     if(xs[i]<0||ys[i]<0)continue;
-    unsigned px=padX+(unsigned)((uint64_t)xs[i]*padW/30480),py=padY+(unsigned)((uint64_t)ys[i]*padH/20320);
+    // ys carries the digitizer's bottom-up axis (DbyTouch.cpp dbyTouchPublishContact, fixed 2026-11-03),
+    // while this pad is drawn top-down like the screen: reverse it back so the dot lands under the finger.
+    unsigned px=padX+(unsigned)((uint64_t)xs[i]*padW/30480),py=padY+(unsigned)((uint64_t)(20319u-(unsigned)ys[i])*padH/20320);
     if(px<padX+4||py<padY+4||px+4>=padX+padW||py+4>=padY+padH)continue;
     // One colour per contact slot; the newest dot gets a white centre so the direction of a swipe is visible.
     touch_fill(px-4,py-4,px+4,py+4,i<4?palette[i]:0xffffffff);
@@ -1084,6 +1240,23 @@ static void monitor(void *arg, wait_result_t result) {
     if(boot_process_snapshot)boot_process_snapshot();
     if(boot_log_tick)boot_log_tick(now);
     if(sheng_cpufreq_poll)sheng_cpufreq_poll();
+    // The GPU SMMU read is one-shot and can fault if the boot chain left GPUCC unclocked. It used to run
+    // on the first round of this thread, i.e. before the archive writer had landed a single slot, so a
+    // fault here would have destroyed the same boot's CPU-vote evidence as well (review, 2026-11-03 12:55).
+    // Three conditions, because elapsed time alone is only a probability: 20 s, at least one round, and
+    // NO error in the last round. boot_log_rounds alone is not a first-slot witness - BootLog.c:1151
+    // increments it even when the slot write failed (:1135-1138); boot_log_errors is the witness, because
+    // it is set on any failed slot/msg/header/sync and cleared only by a fully successful round
+    // (BootLog.c:1158). If the last round failed, the probe simply waits another second.
+    if(now>=20 && &boot_log_rounds && boot_log_rounds && &boot_log_errors && !boot_log_errors &&
+       sheng_gpu_smmu_probe)sheng_gpu_smmu_probe();
+    // GPU power/clock probe (package/DbyGpuPowerProbe.cpp): same late, log-backed start as the SMMU
+    // probe above, because its first act is MMIO on blocks the boot chain may have left unclocked. It
+    // is NOT inert once its argument is present: it powers the GPU CX domain and the SMMU clocks
+    // before reading anything, which is the ordering work/tracks/gpu-smmu-read-hang/REPORT.md
+    // established by measurement (a bare SMMU read froze this device at t=19 s on 2026-11-03).
+    if(now>=20 && &boot_log_rounds && boot_log_rounds && &boot_log_errors && !boot_log_errors &&
+       sheng_gpu_power_probe)sheng_gpu_power_probe();
     if(boot_ui_trace_snapshot)boot_ui_trace_snapshot(now);
     if(&boot_process_attempts && &boot_process_busy) {
       unsigned attempt=__atomic_load_n(&boot_process_attempts,__ATOMIC_RELAXED);

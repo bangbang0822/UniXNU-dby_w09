@@ -98,7 +98,12 @@ subprocess.run(policy_command, cwd=policy_record['directory'], check=True, timeo
 # osfmk startup.o.json command (it carries -I <tree>/.cache/xnu-work/osfmk for the kern/vm/ipc
 # source headers); the package directory supplies BootUiTraceCore.h.
 probe_objs = []
-for probe_name in ('BootProcessProbe.c', 'BootUiTraceProbe.c'):
+# BootLog.c is the official persistent-log writer (kits/sheng). BootProgress.c:1126 already calls
+# its weak entry boot_log_tick(), so compiling it here is what turns 'sheng-log=1' from a no-op
+# into a real writer. It only writes when that boot argument is present.
+# BootResetDby.c provides the strong boot_reset_* definitions the log writer's autoreset path
+# needs; the weak stubs in BootProgressStubs.c stay as the fallback for other boards.
+for probe_name in ('BootProcessProbe.c', 'BootUiTraceProbe.c', 'BootLog.c', 'BootResetDby.c'):
     probe_source = source.parent / probe_name
     probe_obj = OUT / (probe_source.stem + '.o')
     probe_command = [str(probe_source) if arg == str(source) else str(probe_obj) if arg == str(obj) else arg for arg in command]

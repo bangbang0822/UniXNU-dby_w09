@@ -24,7 +24,7 @@ kit = "dby_w09"                # 本仓 package/ 在构建树里出现为 kits/d
 # 是未移植项，不是省略。ShengHidInput/ShengNovatekTouch/QcomGeniSpi 也还没接（输入是
 # porting.toml 里记录的下一个卡点）。QcomXnuUsbDebug 先在本地分支验证，不进这条链。
 [components]
-include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot"]
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "Sm8250Platform", "AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K"]
 
 # ---------------------------------------------------------------------------
 # userdata：已取证（9008 完整备份 gpt_main0.bin，LUN 0）。
@@ -114,7 +114,8 @@ archives = [
   "component:RamBlock",
   "build-storage-bindings.py --component NativeRamBlock --archive libRamBlock.a --directory build/ram-block --subset",
   # payload 的 native-ufs-root 硬门要求内核里有 _sheng_pmgr_run。
-  "build-platform-power.py",
+  "build-platform-power-linux.py",
+  "build-verified-root-archive.py --component os",
   # 双卷（OS + SystemOS）verified-root policy bundle，喂给
   # CONFIG_XNU_VERIFIED_ROOT_ARCHIVE。
   # libVerifiedRootProbe.a 按官方形状自备进构建树（docs/guide/build-kernel.md:108「an archive that no
@@ -130,12 +131,57 @@ archives = [
   # libBootProgress.a：BOOT_PROGRESS 走全局 EXTRA_CFLAGS，同时是屏幕上有
   # 阶段带/pulse 条的开关。它引用的 sheng 专属计数器由下面的 link-stubs 给零值定义。
   "build-boot-progress.py",
+  # 触摸：产 build/dby-touch/libDbyTouch.a，由 defconfig 的 CONFIG_XNU_EXTRA_LD_ARCHIVES 送进链接，
+  # 调用点是板级 package/BootProgress.c 的 boot_progress_poll()（一次性守卫，失败可重试）。
+  # 驱动自身由内核参数 dby-touch=<stage> 门控，缺省 0 = 在 mapWindows() 之前直接返回。
+  "build-dby-touch.py",
+  # CPU 频率探针（官方 CpuFreqProbe 的本板移植，源为 alioth 的 SM8250 版）。产
+  # build/cpufreq/libCpuFreqProbe.a，由 defconfig 的 CONFIG_XNU_EXTRA_LD_ARCHIVES 以
+  # -Wl,-force_load 送进链接：LinkStubs.c:96-99 有 sheng_cpufreq_probe 的 weak 空桩且
+  # libLinkStubs.a 排在前面，普通归档路径永远不会被拉取，探针会静默不运行。
+  # 缺省（不传 sheng-cpufreq=）是只读普查：映射三个 EPSS 窗口、打印 enable/domain_state/LUT 解码，
+  # 不写任何寄存器。依据 work/tracks/cpu-freq/SPEC.md。
+  "build-cpufreq.py",
+  # 最小 GPU SMMU 探针：**只读两三个寄存器**，清掉 GPU 的入场门（G-1）。
+  # 当时（2026-11-03）完整 A650 驱动在本树编不出来，原因后来查明是两个缺失类型让
+  # RecordDecl 无效、clang-24 的错误恢复断言崩在 NativeAdrenoService.cpp:95（不是编译器
+  # 缺陷；2026-11-05 已修好，见下面 build-adreno650.py 那条）。G-1 仍值得单独读一次：
+  # input_bits ≤ 32 时驱动 publish 会拒绝所有非内核客户端（e00002be）。
+  # 默认不动作，只有传 dby-gpu-smmu=1 才读（SMMU 背后的 GPUCC 时钟可能没开，未应答读会 SError）。
+  # 阶梯探针：默认不动作，只有传 dby-gpu-smmu=1 / dby-gpu-power=N 才跑那段只读寄存器序列。
+  # 2026-11-06 起它不再自带 ArmSmmu4K/AdrenoFirmware/AdrenoPM4 的 12 个 TU（那些在
+  # build/adreno-kits/libAdrenoKits.a 里，见上面 --kits-only 那条）；否则它与 A650 归档
+  # 同时 force_load 会重现 41 个重复符号。
+  "build-gpu-smmu-probe.py", "build-gpu-power-probe.py",
   "build-link-stubs.py",
   "build-libpthread-kernel.py",
   "component:AppleKeyStoreState",
   # legacy 显示后端：NativeLegacyDisplay + NativeGOPPresenter + 板级 probe。
   # 必须在驱动配方之后，因为它读它们的编译记录。
-  "build-gop-legacy-display.py",
+  "seed-mobile-graphics-record.py",
+  "build-gop-legacy-display-linux.py",
+  # GPU（A650）：产 {tree}/build/adreno740/libAdreno740.a，只有在
+  # CONFIG_XNU_NATIVE_ADRENO=y 时 build-xnu-4k-baseline.sh:644-650 才 force_load 它。
+  # 名字是 libAdreno740 而不是 libAdreno650，因为那个脚本把路径写死成
+  # build/adreno740/libAdreno740.a，不读 CONFIG_XNU_NATIVE_ADRENO_ARCHIVE。
+  # 2026-11-05 复查推翻了 2026-11-03 的“编译器级阻塞”结论：clang-24 在
+  # drivers/Adreno740/NativeAdrenoService.cpp:95 的断言是**错误恢复**——两个缺失的类型
+  # （NativeAdrenoGmuConfig.h:6 的 ShengGmu.h、NativeAdrenoSmmuMemory.h:16 的
+  # ArmSmmu4KTablePages）让 RecordDecl 变成 invalid，XNU 的 type-signature 补丁在无效
+  # decl 上求 layout 才崩（RecordLayoutBuilder.cpp:3439），与 flag 无关。
+  # 真正的卡点是 kits/ArmSmmu4K 子模块落后 4 个提交（3ba9245 -> 目录 pin 83969cd，含
+  # "feat(smmu): allocate page tables on demand"）；切过去后 28 个对象归档成功，
+  # 1672432 字节，sha256 85a7bfee9bff615ed50fec095eb0f6cdda022cbd11dfb80c34f345cefe58c116
+  # （evidence/gpu-archive-r1/build-report.json）。work/verify/verify-h1.py 复现
+  # w0/w1 崩、w2 不崩。接线与三轮计划见 work/tracks/adreno-build-path/REPORT.md。
+  # G0 只链接：命令行不带 pipa-gpu，本板也还没有调用方，所以这份归档进内核不改变一次启动。
+  # GPU kit 归档（2026-11-06）：ArmSmmu4K / AdrenoFirmware / AdrenoHfi / AdrenoPM4 的 13 个
+  # TU 编成 build/adreno-kits/libAdrenoKits.a，**不 force_load**，放在
+  # CONFIG_XNU_EXTRA_LD_ARCHIVES 的最末尾：ld64 按顺序解析归档，A650 驱动归档在
+  # build-xnu-4k-baseline.sh:626 先被 force_load 并引入这些 kit 符号，随后这个普通归档
+  # 满足它们，于是驱动和阶梯探针共用同一份 kit（否则 41 个重复符号）。
+  "build-adreno650.py --kits-only",
+  "build-adreno650.py",
 ]
 
 # ---------------------------------------------------------------------------
@@ -152,13 +198,26 @@ include_dirs = ["soc:dts"]
 # firmware：uefi-sheng/UniXNUPkg 派生的 Mu-Silicium 移植（Platforms/Huawei/dby_w09Pkg）。
 # 我们的 UEFI 编译链目前在 VM 里手动跑，所以 [firmware] 只是把产物路径写对，
 # unixnu build firmware 还不是本板的构建入口——这一点记在 porting.toml 里。
+#
+# patches 必须与作者 canonical 路径一致：build_uefi.py:489/510 固定应用 5 个 Mu_Basecore
+# 补丁（AsmMacroLib / Auth-Service / Boot-Manager / Timer / Usb-Bus），本板另有第 6 个
+# Gic-Spurious（该文件在 Resources/MuPatches，但不在 build_uefi.py 的清单里）。此前这里只
+# 列了 Gic-Spurious，导致 unixnu build firmware 产出比作者少 5 个补丁的 FD 且不报错。
+# 顺序照 build_uefi.py 的 5 个在前、板级的 Gic 在后。
 # ---------------------------------------------------------------------------
 [firmware]
 config = "dby_w09"                 # Resources/Configs/dby_w09.toml
 dsc = "Platforms/Huawei/dby_w09Pkg/dby_w09.dsc"
 fd = "Build/dby_w09Pkg/{target}_CLANGPDB/FV/SILICIUM_UEFI.fd"
 preflight = ["scripts/check-dby_w09.py"]
-patches = ["Resources/MuPatches/Gic-Spurious.patch"]
+patches = [
+  "Resources/MuPatches/AsmMacroLib.patch",
+  "Resources/MuPatches/Auth-Service.patch",
+  "Resources/MuPatches/Boot-Manager.patch",
+  "Resources/MuPatches/Timer.patch",
+  "Resources/MuPatches/Usb-Bus.patch",
+  "Resources/MuPatches/Gic-Spurious.patch",
+]
 packages = [
   "{uefi}",
   "{uefi}/Platforms/Huawei",
@@ -207,35 +266,21 @@ kernel_args = [
   "offline-legacy-validate=1",
   "offline-legacy-retire=1",
   "boot-progress=2",
-  "sheng-build-tag=uit1",
+  "dby-touch=0",
+  "dby-gpu-power=24",
+  "sheng-cpufreq=3",
+  "dk=0",
+  "sheng-log=1",
+  "sheng-autoreset=60",
   "offline-apfs-load=1",
   "offline-mobile-graphics-load=1",
   "-apfs_shared_datavolume",
-  # NativeUfs 默认 stream 0x60 是 sheng 的板子；SM8250 走 0x0e0 / 0x4e0。
   "native-ufs-stream=0xe0",
   "native-ufs-stream2=0x4e0",
-  # 根设备发布门（NativeUfs.cpp start()：`if (rootMode && !probe) return startRoot(provider)`）。
-  # probe=10 是只读取证，和 root 互斥，所以必须用 root=1，否则永远不发布 IOMedia。
   "native-ufs-root=1",
-  # AMFI 硬门：payload.py 见到 native-ufs-root=1 就要求恰好一个 sheng-pmgr=2，
-  # 且内核里链了 _sheng_pmgr_run，否则原封不动的目标 AMFI 会 panic "No PMGR"。
   "sheng-pmgr=2",
-  # watchdogd 因 Data 卷没有 role 而 BRK #1，com.apple.watchdogd.plist 的 _PanicOnCrash
-  # 会把这一下升级成内核 panic。Data 挂载门还没开，所以先按官方 bring-up 做法抑制，
-  # 好让 initproc 之后的失败可读。
   "panic_on_crash_disabled=1",
-  # 以下每一项都对应本轮从官方 core 补进树里的补丁，参数本身由补丁里的代码读取：
-  #  zzyb-native-cryptex-os-view.patch -> 提供 SystemOS cryptex 视图，配合 -apfs_shared_datavolume
-  #  zzyc-owner-skip-launch-constraints.patch -> 放宽 launch constraints，让原始 iPadOS 用户态可 exec
-  # sheng-staged-apps 关闭：官方 UniXNU-sheng 只有 disable-watchdogd / disable-jobs / data-persist。
-  # 开它内核会把 OS 卷约 25 MiB 的 staged_system_apps 复制进 Data 种子，容器放不下，
-  # BootWatchdogPolicy.c 写 disabled.plist 得到 ENOSPC 28，内核在 kern_exec.c:8201 panic。
   "kt_fixed_zones=120",
-  # offline-legacy-unit-scale=1 发布 /chosen display-scale，SpringBoard 的
-  # -[FBSDisplayMode _initWithWidth:height:preferredScale:] 读的就是它。缺它 preferredScale=0，
-  # 合法性检查在 FBS+0xf744 触发 brk #0，SpringBoard 永远起不完。上游限定态是
-  # unit_scale_calls==chosen_scale==1、unit_scale_status==0；本板早先传 2 时对拍门没过，
-  # DISPLAY 停在 8，1 才是官方 GOP 1:1 值。
   "offline-legacy-unit-scale=1",
   "offline-legacy-pm=1",
   "offline-legacy-transfer=1",
@@ -245,24 +290,20 @@ kernel_args = [
   "offline-hid-home=1",
   "offline-hid-input=1",
   "offline-key-events=1",
-  # sheng-aks=1 让 AppleKeyStoreState 的 user client 如实回答状态查询（无钥匙串、未锁定）。
-  # 绝不加 offline-keystore=1：两者互斥，KeyStoreProbe.cpp:91 在它存在时直接放弃替身。
   "sheng-aks=1",
-  # 官方 debugging 文档：boot-ui-focus 替换第二个采样槽（默认 backboardd）。默认 trace_slot[0]=0，
-  # launchd 自身不被追踪；只有 launchd 活着时 boot_ui_trace_ready 永远是 0，UI trace 画不出来。
   "boot-ui-focus=launchd",
   "boot-ui-focus4=SpringBoard",
   "sheng-data-persist=2",
-  "sheng-data-reset=1",
   "sheng-disable-watchdogd=1",
   "sheng-disable-jobs=com.apple.identityservicesd,com.apple.locationd,com.apple.CommCenter,com.apple.bluetoothd",
   "armcpu-diagnostics=1",
-  # boot-diag-resume=3600：面板要交给系统。取 10 时，只要 UI 连续 10 秒没扫出新内容诊断页就抢回去，
-  # 而这对手屏（Always-On）是正常的，于是平板在系统画面和我们那页之间来回。3600 是
-  # BootProgress.c:535 接受的最大值。
   "boot-diag-resume=3600",
   "armcpu-spi-ipi=1",
   "-no_slto_panic",
+  "sheng-gpu-addon=1",
+  # Metal path switch (official boot-arguments: sheng-gpu-metal=1 enables it). Its plugin needs the
+  # AdrenoMetal archive, which is blocked by the clang-24 ICE at NativeAdrenoService.cpp:95.
+  "sheng-gpu-metal=1",
 ]
 
 # ---------------------------------------------------------------------------
