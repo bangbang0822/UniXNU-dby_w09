@@ -51,6 +51,11 @@ static bool publishOrMatchWord(IORegistryEntry *entry,const char *key,uint32_t v
 }
 extern "C" {
 volatile uint32_t native_legacy_stage;
+/* The stage-3 gate at :557-567: [0] the sheng-fb-gpu argument as parsed, [1] how far the presenter got - 0 gate not
+ * reached, 1 creating, 2 native_gop_presenter_create returned null, 3 no resource service, 4 init refused, 5 attach
+ * refused, 6 start refused, 7 presenter live. The SWAP row's "gpu offers=0" cannot tell "no presenter" from "every
+ * offer refused", because that counter only moves on an accepted offer (NativeGOPPresenter.cpp:138). */
+volatile uint32_t native_legacy_gop_gate[2];
 volatile int native_legacy_meta_status=-1;
 volatile uint32_t native_legacy_init_result,native_legacy_start_result,native_legacy_probe_match;
 volatile uint32_t native_legacy_parent_match,native_legacy_object_size,native_legacy_released;
@@ -555,15 +560,24 @@ void native_legacy_display_late_probe(void) {
                         activeLegacyDisplay=display;activeGOPNub=nub;native_legacy_stage=10;
                         {
                             unsigned gpu=0;PE_parse_boot_argn("sheng-fb-gpu",&gpu,sizeof gpu);
+                            native_legacy_gop_gate[0]=gpu;
                             if(gpu==1) {
+                                native_legacy_gop_gate[1]=1;
                                 IOService *handoff=native_gop_presenter_create();
                                 // Not a child of the display subsystem's node: the original display code enumerates that node's children (int-075/077:
                                 // SpringBoard found no display and crashed with the presenter attached there, registered or not).
                                 IOService *home=IOService::getResourceService();
                                 bool handoffAttached=false;
-                                if(handoff && home)native_gop_presenter_set_source(handoff,nub);
-                                if(handoff && home && handoff->init() && (handoffAttached=handoff->attach(home)) && handoff->start(home))gpuHandoffPresenter=handoff;
-                                else {if(handoffAttached)handoff->detach(home);OSSafeReleaseNULL(handoff);}
+                                if(!handoff)native_legacy_gop_gate[1]=2;
+                                else if(!home)native_legacy_gop_gate[1]=3;
+                                else {
+                                    native_gop_presenter_set_source(handoff,nub);
+                                    if(!handoff->init())native_legacy_gop_gate[1]=4;
+                                    else if(!(handoffAttached=handoff->attach(home)))native_legacy_gop_gate[1]=5;
+                                    else if(!handoff->start(home))native_legacy_gop_gate[1]=6;
+                                    else {gpuHandoffPresenter=handoff;native_legacy_gop_gate[1]=7;}
+                                }
+                                if(!gpuHandoffPresenter) {if(handoffAttached)handoff->detach(home);OSSafeReleaseNULL(handoff);}
                             }
                         }
                         finishUnitScalePolicy(true);

@@ -155,6 +155,49 @@ extern "C" {
 
 /* Row storage the logger reads; same shape as native_cpufreq_census / native_gpusmmu_census. */
 char native_gpupower_rows[6][120];
+/* [0] the A650GmuPowerGx status, [1] SPTPRAC_PWR_CLK_STATUS before the GX vote, [2] after it, [3] gx_on. Separate from
+ * native_gpupower_rows because renderGx() and renderMetal() both write slot 5 and only the later one survives. */
+uint32_t native_gpu_gx_status[4] = {0xFFFFFFFFu, 0u, 0u, 0u};
+/* The secure-mode exit as the published path ran it (dby-gpu-zap=1), after dbyRingBringup and before the packet:
+ * [0] the CP_SET_SECURE_MODE(0) packet status (0xFFFFFFFF = never submitted), [1] a progress marker written BEFORE each
+ * step - 10 about to load the zap, 11 the load failed, 15 the load succeeded, 20 about to send the packet, 21 the ring
+ * never started so it was skipped, 30 the packet returned - and the gate for the log row, [2] the packet's fence result
+ * (0xFFFFFFFF = never submitted), [3] RBBM_SECVID_TRUST_CNTL (0xF400) as it read before the packet (0xFFFFFFFF = never
+ * read; only meaningful at step 30), [4] the dbyZapLoad status (PAS 13 init_image/mem_setup/auth_and_reset).
+ * The load is not optional: evidence/edl-log-s127 sent the packet alone and the CP wedged (sec=1 timeout,
+ * RBBM_INT_0_STATUS 0x900200 = HANG | CP_HW_ERROR | fence). evidence/edl-log-s126 shows the load AFTER the ring is
+ * fine - auth_and_reset invalidated neither the ring, the SQE base, the microcode nor the SMMU bank. */
+volatile uint32_t native_gpu_zap[5] = {0xFFFFFFFFu, 0u, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu};
+/* a6xx_set_hwcg's own readback: [0] RBBM_CLOCK_CNTL (0x000AE) as found, [1] after the whole step, [2] the SPTPRAC
+ * clock control (GMU core dword 0x80) as found, [3] after the SP clock was put back. All-ones means the step never ran. */
+uint32_t native_gpu_hwcg[4] = {0xFFFFFFFFu, 0u, 0xFFFFFFFFu, 0u};
+/* The GPU's error state as the boot log reports it. [0] is a STICKY OR of every RBBM_INT_0_STATUS the interrupt handler
+ * has seen, and it is the only honest way to ask "was anything refused": this board does NOT mask the GPU interrupts on
+ * the boot it runs - dbyPublishBringup programs kEnableA6xx = 0x03d0e242 (NativeAdrenoIrq.cpp, includes UCHE_OOB and
+ * UCHE_TRAP), and dbyPubIrqHandler reads RBBM_INT_0_STATUS and clears it through RBBM_INT_CLEAR_CMD within milliseconds
+ * - so a plain read of that register almost always returns 0, including right after a shader access was refused.
+ * [1] the last status the handler saw, [2] CP_INTERRUPT_STATUS 0x0823, [3] CP_PROTECT_STATUS 0x0824, [4] CP_HW_FAULT
+ * 0x0821 (those three are the bounded poll's reads, so they stop at NativeGpuLatchPollLimit and are a snapshot after
+ * that), [5] how many times the poll has run, [6] CP_INTERRUPT_STATUS and [7] CP_PROTECT_STATUS as the handler latched
+ * them at the moment a CP error fired - these two never go stale. [8] RBBM_STATUS3 0x0213 and [9] UCHE_CLIENT_PF 0x0E19
+ * read AFTER the handler has decoded and cleared RBBM_INT_0_STATUS; both are live, not latched, so [8] can have already
+ * released and [9] is attributable only while a fault is physically stalled, which is the SMMU path and not this one.
+ * Special values: 0xFFFFFFFF means that read was refused, and 0xCCCCCCCC (the initial value of [8] and [9]) means the
+ * capture never ran because no interrupt carried bit 24 - so a real 0 prints as 0 and is not the same thing. */
+volatile uint32_t native_gpu_latch[10] = {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0xCCCCCCCCu, 0xCCCCCCCCu};
+/* The UCHE's windows as the same bounded poll reads them, so a UCHE_OOB_ACCESS can be attributed to one of them. Each
+ * 64-bit register is stored LO first, HI second, and the row prints it HI:LO: [0] UCHE_MODE_CNTL 0xE01, [1]=lo/[2]=hi
+ * UCHE_WRITE_RANGE_MAX 0xE05/0xE06, [3]=lo/[4]=hi UCHE_WRITE_THRU_BASE 0xE07/0xE08, [5]=lo/[6]=hi UCHE_TRAP_BASE
+ * 0xE09/0xE0A, [7]=lo/[8]=hi UCHE_GMEM_RANGE_MIN 0xE0B/0xE0C, [9]=lo/[10]=hi UCHE_GMEM_RANGE_MAX 0xE0D/0xE0E,
+ * [11] UCHE_UNKNOWN_0E12 (no documented meaning), [12] UCHE_CLIENT_PF 0xE19 (a perf-counter client selector, 1 by
+ * configuration). A refused read stores 0xFFFFFFFF; at these offsets that cannot happen while the window is mapped, so
+ * all thirteen at once is what means "never mapped". */
+volatile uint32_t native_gpu_uche[13];
+/* Armed at the end of dbyGpuHwInit with GX on, so the boot log never reads the window before the GPU is up. Bounded: the
+ * poll does nothing after NativeGpuLatchPollLimit calls, so it cannot put a periodic MMIO read on the evidence path for
+ * the whole boot. */
+int (*native_gpu_latch_poll)(void);
+enum : uint32_t {NativeGpuLatchPollLimit = 64};
 
 /* 0 = not entered, 1 = entered, 2 = measured, 3 = skipped (no argument), 4 = no window mapped. */
 volatile uint32_t native_gpupower_stage;
@@ -2392,11 +2435,9 @@ dbyGpuCtxPublishTables(uint64_t pages)
 }
 
 /* a6xx hw_init for the A650 (Linux v6.6 a6xx_gpu.c a650_hw_init), as the reference board runs it
- * (work/tracks/cpu-official-route/scratch/pipa/package/GpuProbe.cpp:620-675), minus a6xx_set_hwcg: clock
- * gating only matters once a shader runs, and setHwcg writes two GMU registers, which this step does not
- * need.  CP_PROTECT is Linux's a650_protect, 39 entries encoded as A6XX_PROTECT_RDONLY
- * (start | (count - 1) << 18) or A6XX_PROTECT_NORDWR (that | 1 << 31); the last entry, the unbounded tail,
- * goes into CP_PROTECT(47) exactly as Linux writes it. */
+ * (research/repos/UniXNU-alioth/package/GpuProbe.cpp hwInit).  CP_PROTECT is Linux's a650_protect, 39 entries
+ * encoded as A6XX_PROTECT_RDONLY (start | (count - 1) << 18) or A6XX_PROTECT_NORDWR (that | 1 << 31); the last
+ * entry, the unbounded tail, goes into CP_PROTECT(47) exactly as Linux writes it. */
 static uint32_t
 dbyGpuProtect(unsigned index)
 {
@@ -2426,6 +2467,36 @@ dbyGpuProtect(unsigned index)
 }
 
 static int
+dbyGpuLatchPoll(void)
+{
+	static const uint32_t regs[3] = {0x0823u, 0x0824u, 0x0821u};
+	/* The UCHE's own windows, as the reference board reads them (research/repos/UniXNU-alioth/package/GpuProbe.cpp
+	 * ucheRow): MODE_CNTL 0xE01, WRITE_RANGE_MAX 0xE05/6, WRITE_THRU_BASE 0xE07/8, TRAP_BASE 0xE09/A,
+	 * GMEM_RANGE_MIN 0xE0B/C and MAX 0xE0D/E, 0xE12, CLIENT_PF 0xE19. The UCHE_OOB_ACCESS this boot reports is one of
+	 * these windows refusing an access, and the GMEM pair is the one this tree never programs while Turnip renders
+	 * through GMEM (TU_DEBUG=nocb, not sysmem). */
+	static const uint32_t uche[13] = {0x0E01u, 0x0E05u, 0x0E06u, 0x0E07u, 0x0E08u, 0x0E09u, 0x0E0Au,
+	                                  0x0E0Bu, 0x0E0Cu, 0x0E0Du, 0x0E0Eu, 0x0E12u, 0x0E19u};
+	unsigned i;
+
+	if (native_gpu_latch[5] >= NativeGpuLatchPollLimit) {
+		return 0;
+	}
+	native_gpu_latch[5] = native_gpu_latch[5] + 1u;
+	for (i = 0; i < 3u; i++) {
+		uint32_t value = 0u;
+
+		native_gpu_latch[2 + i] = dbyGpuCpRead(regs[i], &value) != 0 ? 0xFFFFFFFFu : value;
+	}
+	for (i = 0; i < 13u; i++) {
+		uint32_t value = 0u;
+
+		native_gpu_uche[i] = dbyGpuCpRead(uche[i], &value) != 0 ? 0xFFFFFFFFu : value;
+	}
+	return 0;
+}
+
+static int
 dbyGpuHwInit(void)
 {
 	static const uint32_t addr_mode[] = {0x842u, 0xC01u, 0x8601u, 0x8E05u, 0x9E01u, 0xBE05u,
@@ -2442,6 +2513,52 @@ dbyGpuHwInit(void)
 		if (dbyGpuCpW(addr_mode[i], 1u) != 0) {
 			return 1;
 		}
+	}
+	/* a6xx_set_hwcg: Linux v6.6 a6xx_gpu.c a650_hwcg, 49 entries, in the order the reference board runs it
+	 * (research/repos/UniXNU-alioth/package/GpuProbe.cpp setHwcg). This step was left out here on the theory that
+	 * "clock gating only matters once a shader runs, and setHwcg writes two GMU registers, which this step does not
+	 * need"; that is backwards, because a shader is exactly what needs it. The reference records this board's own
+	 * failing row as its state before the step - the Turnip check filled a buffer that needs no shader and then wrote
+	 * no compute word and no pixel ("T s0 r0 v512 c0 g0/4096", evidence/edl-log-s122 and s119) - and v1024 c1024
+	 * g512/0 after it (GpuProbe.cpp:869). The sequence is Linux's: read RBBM_CLOCK_CNTL and the SPTPRAC clock
+	 * control, take the SP clock off, write the table, put the clock back, then RBBM_CLOCK_CNTL. A refused write is
+	 * left to gDbyGpuCpRegFail rather than failing the whole bring-up, which must not depend on a gating table. */
+	{
+		static const uint32_t hwcg[49][2] = {
+			{0x00B0u, 0x02222222u}, {0x00B4u, 0x02222220u}, {0x00B8u, 0x00000080u}, {0x00BCu, 0x0000F3CFu},
+			{0x00C0u, 0x02222222u}, {0x00C4u, 0x22222222u}, {0x00C8u, 0x22222222u}, {0x00CCu, 0x00022222u},
+			{0x00D0u, 0x11111111u}, {0x00D4u, 0x11111111u}, {0x00D8u, 0x11111111u}, {0x00DCu, 0x00011111u},
+			{0x00E0u, 0x77777777u}, {0x00E4u, 0x77777777u}, {0x00E8u, 0x77777777u}, {0x00ECu, 0x00077777u},
+			{0x00F0u, 0x22222222u}, {0x00F4u, 0x01002222u}, {0x00F8u, 0x00002220u}, {0x0100u, 0x00040F00u},
+			{0x0104u, 0x25222022u}, {0x0105u, 0x00005555u}, {0x0106u, 0x00000011u}, {0x0107u, 0x00445044u},
+			{0x0108u, 0x04222222u}, {0x0111u, 0x00002222u}, {0x0114u, 0x00222222u}, {0x0117u, 0x00000002u},
+			{0x011Bu, 0x00002222u}, {0x0109u, 0x00004000u}, {0x0112u, 0x00002222u}, {0x0115u, 0x00000200u},
+			{0x011Cu, 0x00000000u}, {0x010Au, 0x00000000u}, {0x0113u, 0x00000000u}, {0x0116u, 0x04104004u},
+			{0x011Du, 0x00000000u}, {0x0120u, 0x00000222u}, {0x0121u, 0x00000111u}, {0x0122u, 0x00000777u},
+			{0x010Bu, 0x22222222u}, {0x0110u, 0x00000004u}, {0x010Fu, 0x00000002u}, {0x0533u, 0x00000182u},
+			{0x0044u, 0x00000000u}, {0x0042u, 0x00000000u}, {0x0118u, 0x00000222u}, {0x0119u, 0x00000111u},
+			{0x011Au, 0x00000555u},
+		};
+		/* The reference guards its own table the same way: without this a future edit that drops an entry would
+		 * zero-fill it and write {0, 0} to dword 0x000 instead of failing to compile. */
+		static_assert(sizeof hwcg / sizeof hwcg[0] == 49, "a650_hwcg has 49 entries");
+		uint32_t sptp = 0u;
+
+		(void)dbyGpuCpRead(0x00AEu, &native_gpu_hwcg[0]);          /* RBBM_CLOCK_CNTL as found */
+		(void)dbyGpuRead32(&gDbyGpu, A650GpuWinGmu, 0x80u * 4u, &sptp);   /* GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL */
+		native_gpu_hwcg[2] = sptp;
+		(void)dbyGpuWrite32(&gDbyGpu, A650GpuWinGmu, 0x80u * 4u, sptp & ~1u);
+		for (i = 0; i < 49u; i++) {
+			(void)dbyGpuCpW(hwcg[i][0], hwcg[i][1]);
+		}
+		(void)dbyGpuRead32(&gDbyGpu, A650GpuWinGmu, 0x80u * 4u, &sptp);
+		(void)dbyGpuWrite32(&gDbyGpu, A650GpuWinGmu, 0x80u * 4u, sptp | 1u);
+		(void)dbyGpuCpW(0x00AEu, 0x8AA8AA82u);                     /* RBBM_CLOCK_CNTL */
+		(void)dbyGpuRead32(&gDbyGpu, A650GpuWinGmu, 0x80u * 4u, &native_gpu_hwcg[3]);
+		(void)dbyGpuCpRead(0x00AEu, &native_gpu_hwcg[1]);
+		/* The reference's own readback is "hwcg 0>8aa8aa82 sptp 0>0"
+		 * (work/tracks/cpu-official-route/scratch/alioth/docs/evidence/2026-10-29-gpu-gx-and-context.md:32), i.e.
+		 * dword 0x80 reads 0 on both sides of the RMW: sptp=0>0 in the row is the expected result and not a failure. */
 	}
 	for (i = 0x3C03u; i <= 0x3C06u; i++) {
 		if (dbyGpuCpW(i, 0x00071620u) != 0) {
@@ -2461,6 +2578,15 @@ dbyGpuHwInit(void)
 	    dbyGpuCpW(0x001Fu, (1u << 30) | 0x1FFFFFu) != 0 || dbyGpuCpW(0xE19u, 1u) != 0) {
 		return 1;
 	}
+	/* UCHE_GMEM_RANGE_MIN/MAX (0xE0B..0xE0E) are deliberately NOT written here, and evidence/edl-log-s125 shows both
+	 * reading 0 on this unit. That is not yet a defect: Linux's a6xx_gpu.c guards the pair with
+	 * `if (!(adreno_is_a650_family(...) || a702 || a730))`, so upstream programs NO GMEM range on this chip, and the
+	 * vendor tree's a6xx_gpu.c:359-365 writes `0x00100000 + gmem - 1` - i.e. 1 MiB, not 0 and not 16 MiB. A window
+	 * experiment was built and withdrawn: the 1 MiB base puts [0x100000, 0x11FFFF] around this port's own SQE
+	 * (DbyGpuFirmware.h places it at 0x100000, 0x13000 bytes), which the vendor avoids by starting driver IOVAs at
+	 * SZ_16M (adreno_gpu.c:718), and a CP fetch inside the window would hang the boot with no way back. The base is
+	 * still DBY_GPU_GMEM_BASE = DBY_GPU_TODO_MEASURE in DbyGpuRegs.h. So the pair stays untouched until either the
+	 * kernel buffers move out of the first 16 MiB or a source shows the window cannot shadow them. */
 	for (i = 0; i < 5u; i++) {
 		if (dbyGpuCpW(0xB608u + i, bicubic[i]) != 0) {
 			return 1;
@@ -2478,11 +2604,17 @@ dbyGpuHwInit(void)
 	}
 	/* CP_APRIV_CNTL: the CP's own instruction, ring and rptr accesses are privileged (hw_apriv); that is what
 	 * lets the ring run WITHOUT NO_UPDATE and still have the CP write the RPTR shadow
-	 * (NativeAdrenoRing.cpp:361-374).  RBBM_INT_0_MASK stays 0: nothing here handles a GPU interrupt, and
-	 * the fences are memory writes, so every CP interrupt is masked. */
+	 * (NativeAdrenoRing.cpp:361-374).  RBBM_INT_0_MASK is written to 0 here and the mask IS left 0 by this call:
+	 * dbyPublishBringup (step 4) is what programs kEnableA6xx = 0x03d0e242, which includes UCHE_OOB and UCHE_TRAP,
+	 * and step 5 attaches dbyPubIrqHandler. The restart hook (dbyGpuRestart) calls this function again and does not
+	 * re-arm the mask afterwards, so after a restart no GPU interrupt is taken again and the [gpu latch] irq=/lcpi=/
+	 * lprot= fields stop updating for the rest of that boot. */
 	if (dbyGpuCpW(DBY_CP_APRIV_CNTL, 0x6Eu) != 0 || dbyGpuCpW(DBY_RBBM_INT_0_MASK, 0u) != 0) {
 		return 1;
 	}
+	/* From here on the GPU is up and its window readable, so the boot log may poll the latched error state. */
+	native_gpu_latch_poll = dbyGpuLatchPoll;
+	(void)dbyGpuLatchPoll();
 	return 0;
 }
 
@@ -3445,7 +3577,6 @@ dbyZapLeaveSecure(void)
 	return 0u;
 }
 
-
 static void
 dbyGpuZapStart(void)
 {
@@ -4226,6 +4357,9 @@ dbyRingBringup(void)
 	gDbyRingCpRc = 0xFFFFFFFFu;
 	gDbyRingFence = 0u;
 	gDbyRingGen = 6u;
+	/* Cleared here and not only assigned at the end: dby-gpu-zap=1 reads it after this function returns, so an
+	 * early return would otherwise hand that reader the previous call's 1. */
+	gDbyRingVerdict = 0u;
 	if (gDbyArcBufRc != 0u) {
 		return;                       /* mode 17 did not produce the buffers */
 	}
@@ -4336,6 +4470,126 @@ dbyRingBringup(void)
 	gDbyRingStep = 7u;
 }
 
+/* The secure-mode exit through the archive ring - the ring the published path actually runs on. The reference board
+ * submits it on its one ring (research/repos/UniXNU-alioth/package/GpuProbe.cpp: cpStart() then leaveSecure()), so
+ * there is no second CP bring-up: submitFramed() frames the words with the ring's own prologue and appends the fence,
+ * and this only has to wait. Called after dbyRingBringup with gDbyRingVerdict == 1, because a CP that never started
+ * cannot run the packet. The wait is 2 s, the vendor's own timeout for it (vendor adreno.c:2015
+ * adreno_ringbuffer_submit_spin(rb, NULL, 2000)); the probe's own mode-14 ring allows only 200 ms, which mode 15
+ * happened to meet but a slow boot would not. It lives here, after dbyRingBringup, because it needs that function's
+ * ring object and clock. */
+static uint32_t
+dbyZapLeaveSecureRing(void)
+{
+	uint32_t words[16];
+	uint32_t fence = 0u;
+	uint32_t observed = 0u;
+	NativeAdrenoRingClock clock;
+	NativeAdrenoRingFence result;
+
+	gDbyZapSecRc = 0xFFFFFFFFu;   /* "not run", so a submit failure cannot print sec=0 as if it had passed */
+	if (AdrenoPM4Type7(DBY_ZAP_SECURE_OPCODE, 1u, &words[0]) != AdrenoPM4Success) {
+		return 0xFFFFFF2Fu;
+	}
+	words[1] = 0u;
+	/* The reference board's own shape: a plain submit of the two-dword packet and a wait on its fence
+	 * (GpuProbe.cpp:1189-1191). submitFramed() would add the user-buffer prologue and leave the fence unretired;
+	 * submitUnfenced() would leave nothing to wait on. */
+	if (gDbyRingObject.submit(words, 2u, &fence) != kIOReturnSuccess) {
+		return 0xFFFFFF2Fu;
+	}
+	gDbyZapSecFence = fence;
+	clock.cookie = nullptr;
+	clock.now_us = dbyRingNow;
+	clock.idle = nullptr;
+	result = gDbyRingObject.wait(fence, &clock, 2000000u, &observed);
+	gDbyZapSecRc = (uint32_t)result;
+	if (result != NativeAdrenoRingFenceComplete || observed < fence) {
+		return 0xFFFFFF30u;
+	}
+	return 0u;
+}
+
+/* The board's GPU restart for the driver's hangcheck (NativeAdrenoSubmit.h NativeAdrenoRestart), the
+ * sequence the reference board installs (research/repos/UniXNU-alioth/package/GpuProbe.cpp:1870-1890,
+ * installed at :1898): hw_init, the microcode started again, the ring reprogrammed, then CP_ME_INIT.
+ * The ring's restart(completed) clears the ring, the memptrs and the fence page and writes CP_RB_BASE,
+ * CP_RB_CNTL, CP_RB_RPTR_ADDR and CP_RB_SCRATCH itself (NativeAdrenoRing.cpp:381-405), so the ring
+ * registers are not written by hand; CP_SQE_INSTR_BASE and CP_SQE_CNTL are, because a6xx_hw_init
+ * writes them after the reset and this board's dbyGpuHwInit does not.
+ *
+ * Without this hook the driver only counts a hang: NativeAdrenoPublish.cpp:220 tests `g.restart`
+ * before calling recover(), and nothing in this repository ever called native_adreno_set_restart, so
+ * the CP stayed stopped for the rest of the boot. That is what evidence/edl-log-s113 shows - the queue
+ * stopped at fence 29 (30 submissions, SWAP calls=0) and never moved again in 29 minutes.
+ *
+ * This is not a GPU reset: the GX domain is not power-cycled, so a CP that is stuck inside an IB may
+ * well ignore the second CP_ME_INIT. That is why the hook is only installed when dby-gpu-restart=1 is
+ * on the command line, and why the driver no longer poisons the submit path on the first refusal
+ * (NativeAdrenoSubmit.cpp:886-899): a boot without the argument behaves exactly as it did before this
+ * hook existed, and a boot with it reports what the attempt did in [gpu recovery].
+ *
+ * The CP init runs unfenced and is waited for here, which NativeAdrenoCpInit.h:33-34 names as the
+ * restart's form: a fenced init would consume a ring fence number between the restart and the replayed
+ * submissions recover() issues straight after this returns. */
+extern "C" void native_adreno_set_restart(NativeAdrenoRestart restart, void *cookie);
+extern "C" IOReturn dbyGpuRestart(void *cookie, NativeAdrenoRing *ring, uint32_t completed)
+{
+	NativeAdrenoCpInitConfig config;
+	NativeAdrenoRingClock clock;
+	uint32_t fence = 0u;
+	IOReturn status;
+
+	/* `cookie` is the driver's own opaque pointer and it passes null (NativeAdrenoPublish.cpp:189), so
+	 * it must not be a condition; the ring and the SQE buffer are what this needs. */
+	(void)cookie;
+	if (ring == nullptr || gDbyArcBuffer[0].iova == 0u) {
+		return kIOReturnNotReady;
+	}
+	if (dbyGpuHwInit() != 0) {
+		return kIOReturnIOError;
+	}
+	/* The microcode start the bring-up does at :4311-4312: the kit's CP_ME_INIT compares
+	 * CP_SQE_INSTR_BASE instead of rewriting it once the SQE runs (NativeAdrenoCpInit.h:8-10), so the
+	 * base has to be written here, before CP_SQE_CNTL starts the microcode again.
+	 *
+	 * RBBM_SECVID_TRUST_CNTL (0xF400) is deliberately NOT written. The vendor's a6xx_hw_init clears it
+	 * at :467, but this board recorded that a CPU write of 0 there stalls this side
+	 * (evidence/edl-log-s77, GPU ZAP prog=4; the file's own notes at :114 and :3040-3042). A stalled
+	 * store returns no error from dbyGpuCpW - it parks the core, and that core is the hangcheck thread
+	 * holding the publish lock - so it would wedge every client instead of failing the restart. The
+	 * bring-up has never written it and the CP has run on the bootloader's value since; the hook keeps
+	 * that. Writing it belongs to a round that adds the GX power cycle, where the value can be checked
+	 * against a real reset.
+	 *
+	 * The ring registers follow, not precede, the microcode start; the vendor's adreno_hw_init writes
+	 * them first. Harmless here because program() writes the same base, size and control word the
+	 * bring-up already wrote, so the SQE sees no change; a ring whose geometry ever differs from the
+	 * bring-up's would need this order reversed. */
+	if (dbyGpuCpW64(DBY_CP_SQE_INSTR_BASE, gDbyArcBuffer[0].iova) != 0 ||
+	    dbyGpuCpW(DBY_CP_SQE_CNTL, 1u) != 0) {
+		return kIOReturnIOError;
+	}
+	status = ring->restart(completed);
+	if (status != kIOReturnSuccess) {
+		return status;
+	}
+	gDbyRingCp.reopen();
+	memset(&config, 0, sizeof config);
+	config.sqe_iova = gDbyArcBuffer[0].iova;
+	config.pwrup_reglist_iova = 0u;
+	config.sqe_base_programmed = 1u;
+	config.generation = 6u;
+	status = gDbyRingCp.run(&gDbyRingIo, ring, &config, &fence, false);
+	if (status != kIOReturnSuccess) {
+		return status;
+	}
+	clock.cookie = nullptr;
+	clock.now_us = dbyRingNow;
+	clock.idle = nullptr;
+	return ring->idle(&clock, 100000u);
+}
+
 /* Appended to the ARC row rather than rendered over it: mode 18 runs the whole mode-17 path,
  * and losing gmu=/pay=/cpu=/cold= would hide where a refused ring bring-up stopped (review
  * must-fix 5). Row 3 has ~60 characters left after the ARC fields. */
@@ -4435,6 +4689,39 @@ dbyPubIrqHandler(void *context)
 		return;
 	}
 	gDbyPubIrqCount++;
+	/* The handler is the only place that ever sees this register before it is cleared, so it is also the only place the
+	 * sticky OR can be taken: a UCHE out-of-bounds access latches here, raises the line and is cleared milliseconds
+	 * later, long before the boot log's 2 s round could look. */
+	native_gpu_latch[1] = result.status;
+	native_gpu_latch[0] = native_gpu_latch[0] | result.status;
+	/* The CP's own two error words are only decoded at the moment the CP error fires, so they are latched here too:
+	 * the poll below stops after a bounded number of rounds and would otherwise print a stale value as if it were live. */
+	if (result.cp_status != 0u) {
+		native_gpu_latch[6] = native_gpu_latch[6] | result.cp_status;
+	}
+	if (result.protect_status != 0u) {
+		native_gpu_latch[7] = native_gpu_latch[7] | result.protect_status;
+	}
+	/* Bit 24 UCHE_OOB_ACCESS names no cause by itself: neither the msm nor the KGSL driver decodes it, and the only
+	 * decode either has is on the SMMU-fault path, where UCHE_CLIENT_PF&7 names the engine client that faulted (0 VFD,
+	 * 1 SP, 2 VSC, 3 VPC, 4 HLSQ; CP and CCU are not UCHE clients at all). Two words are taken here when bit 24 fires,
+	 * and both are WEAK evidence, which is why the row says so:
+	 *   - RBBM_STATUS3 (0x0213) bit 24 SMMU_STALLED_ON_FAULT is LIVE, not latched: a set reading means a stalled
+	 *     translation, but it cannot be tied to this event and it may already have released. A clear reading means only
+	 *     "no stall visible now", not "translation was fine".
+	 *   - UCHE_CLIENT_PF (0x0E19) is a PERFSEL field, live as well, and only attributable while a fault is physically
+	 *     stalled - i.e. on the SMMU path, not here. Its value on this path may name an unrelated client; 0 is a real
+	 *     reading (which the client table would call VFD), and "not captured" is the 0xCCCCCCCC initial value instead.
+	 * They are still taken because a SET stall bit is the one reading that would redirect the search to the SMMU, and
+	 * because these are registers this board already reads (NativeAdrenoRing.cpp reads 0x0213, the UCHE row reads
+	 * 0x0E19). The capture runs once per interrupt that carries bit 24, not once per refused access. */
+	if ((result.status & (1u << 24)) != 0u) {
+		uint32_t value = 0u;
+
+		native_gpu_latch[8] = dbyGpuCpRead(0x0213u, &value) != 0 ? 0xFFFFFFFFu : value;
+		value = 0u;
+		native_gpu_latch[9] = dbyGpuCpRead(0x0E19u, &value) != 0 ? 0xFFFFFFFFu : value;
+	}
 	if (result.status == gDbyPubIrqLast) {
 		gDbyPubIrqSame++;
 	} else {
@@ -4521,6 +4808,19 @@ dbyPublishBringup(unsigned upto)
 	gDbyPubRc = (uint32_t)native_adreno_publish(vm, &gDbySubmit, &gDbyRingObject, &clock, &gDbyTimer,
 	                                            &gDbyPubInfo, NativeAdrenoGpuContextInputBits(),
 	                                            gDbyArcReport.output_bits);
+	/* The driver's hangcheck brings the GPU back only through this hook (NativeAdrenoPublish.cpp:220):
+	 * without it a hang is counted and the CP stays stopped for the rest of the boot. Off unless
+	 * dby-gpu-restart=1 is on the command line, because the hook cannot power-cycle the GX domain and so
+	 * may not be able to pull a CP out of an IB; a boot without the argument keeps the behaviour this
+	 * board had before the hook existed, and a boot with it says in [gpu recovery] what the attempt did.
+	 * Installed only once the ring and the SQE buffer are the ones the published driver is using. */
+	{
+		unsigned restart = 0u;
+		PE_parse_boot_argn("dby-gpu-restart", &restart, sizeof restart);
+		if (gDbyPubRc == 0u && restart == 1u) {
+			native_adreno_set_restart(dbyGpuRestart, nullptr);
+		}
+	}
 	gDbyPubStep = 7u;
 }
 
@@ -5221,12 +5521,73 @@ renderMetal(void)
 	*at = 0;
 }
 
+/* The GPU driver reads imported buffer memory through a board-supplied reader (declared
+ * NativeAdrenoVm.h:31; used by sampleWord at NativeAdrenoVm.cpp:480 and by the dramWord() that
+ * peekWords() calls at :535-538). BootProgressStubs.c:286 leaves the pointer null and nothing else
+ * assigns it, so every peekWords() fails and the stall dump prints its deadbeef marker where the
+ * indirect buffer should be. The reference board recorded the same trap and its remedy
+ * (docs/devices/alioth.md:420).
+ *
+ * ONLY the DRAM reader is installed. The cacheable one stays null on purpose: that is the contract
+ * NativeAdrenoVm.h:32-33 documents ("null on the host: the BO's own mapping is read"), and mapping a
+ * Normal-WB alias over pages this VM maps write-combined is an ARMv8 attribute mismatch.
+ *
+ * One page is mapped, read and released per call. Nothing is cached between calls, so no CPU can
+ * dereference a mapping another CPU is replacing, and no alias outlives the BO it describes. */
+extern "C" unsigned long gPhysBase, gPhysSize;
+extern int (*native_adreno_dram_read32)(uint64_t, uint32_t *) __attribute__((weak_import));
+
+static int
+dbyPhysReadDram(uint64_t physical, uint32_t *value)
+{
+	const uint64_t page = physical & ~(uint64_t)0xFFFu;
+	const uint64_t base = (uint64_t)gPhysBase;
+	const uint64_t bytes = (uint64_t)gPhysSize;
+	IOMemoryDescriptor *desc;
+	IOMemoryMap *map;
+	uint32_t word;
+
+	if (value == nullptr) {
+		return -1;
+	}
+	/* map() only builds page tables and succeeds for any page, so the range is checked first: a load
+	 * from a page that is not DRAM the kernel already maps is a synchronous external abort. */
+	if (base == 0u || bytes < 0x1000u || page < base || page - base > bytes - 0x1000u) {
+		return -1;
+	}
+	desc = IOMemoryDescriptor::withPhysicalAddress((IOPhysicalAddress)page, 0x1000u, kIODirectionInOut);
+	if (desc == nullptr) {
+		return -1;
+	}
+	map = desc->map(kIOMapAnywhere | kIOMapInhibitCache);
+	if (map == nullptr) {
+		desc->release();
+		return -1;
+	}
+	/* The word at page offset (physical & 0xFFC) is inside the one mapped page. */
+	word = reinterpret_cast<const volatile uint32_t *>(map->getVirtualAddress())[(unsigned)((physical & 0xFFFu) >> 2)];
+	map->release();
+	desc->release();
+	*value = word;
+	return 0;
+}
+
+static void
+dbyInstallAdrenoReaders(void)
+{
+	if (&native_adreno_dram_read32) {
+		native_adreno_dram_read32 = dbyPhysReadDram;
+	}
+}
+
 void
 sheng_gpu_power_probe(void)
 {
 	unsigned mode = 0;
 	A650GpuResult result;
 	A650GpuIo io;
+
+	dbyInstallAdrenoReaders();
 
 	/* ONE CALL SITE: BootProgress.c on the late gate (now>=20 with a successful log round). It used to
 	 * be called earlier as well - package/LegacyDisplayProbe.cpp ran it from
@@ -5489,6 +5850,17 @@ sheng_gpu_power_probe(void)
 			} else {
 				gDbyGxStatus = 0xFFFFFFF0u;     /* the cold start did not complete */
 			}
+			/* Published here and not only in the GPU GX row, because renderGx() writes native_gpupower_rows[5] and
+			 * renderMetal() writes the same slot on modes >= 25 (which is the mode this board boots), so the GX row
+			 * never survives to the log. These four values are what says whether the SPTPRAC domain - SP, TP and RAC,
+			 * i.e. every block that writes memory for a shader - was ever powered: a6xx_sptprac_enable() writes
+			 * GMU_GX_SPTPRAC_POWER_CONTROL = 0x778000 and then expects (GMU_SPTPRAC_PWR_CLK_STATUS & 0x38) == 0x28
+			 * (Linux a6xx_gmu.c:228-244). gx_before/gx_after are that status register read before and after the GX
+			 * vote; gx_on only tests the two GX_HM bits, so it is 1 with SPTPRAC still off. */
+			native_gpu_gx_status[0] = gDbyGxStatus;
+			native_gpu_gx_status[1] = gDbyGxResult.gx_before;
+			native_gpu_gx_status[2] = gDbyGxResult.gx_after;
+			native_gpu_gx_status[3] = gDbyGxResult.gx_on;
 			/* Same gate as mode 12: reading the GMU/SMMU apertures with the GMU clocks never
 			 * started is the recipe that froze this board on 2026-11-03.  renderGx only prints
 			 * static values, so it stays unconditional. */
@@ -5520,8 +5892,72 @@ sheng_gpu_power_probe(void)
 		if (mode >= 25u) {
 			/* Mode 25 is mode 24 plus the staged AGXAccelerator, the last kernel-side piece. */
 			if (gDbyColdStatus == 0u && gDbyGxStatus == 0u && gDbyGxResult.gx_on != 0u) {
+				/* Secure-mode exit on the path that actually runs a shader. The reference board of this project
+				 * (research/repos/UniXNU-alioth/package/GpuProbe.cpp, mode ladder in its header) runs the zap and
+				 * CP_SET_SECURE_MODE(0) at its mode 10, BEFORE its Metal/Turnip mode 12, and records that until APRIV
+				 * was set every UCHE read ended in UCHE_OOB_ACCESS. This board has never done the exit on any boot
+				 * that published the GPU: dbyGpuZapStart is reachable only from mode 15 (mode 16 returns earlier) and every measured boot ran mode 26.
+				 * a6xx powers on in secure mode, which "restricts what memory it can write to" - exactly the shape of
+				 * the evidence, where the CP (a privileged client) stores land and every engine store is refused with
+				 * UCHE_OOB_ACCESS while the CP reports no error.
+				 * Mode 15 proved the exit itself works here: GPU ZAP st=0 step=7 init/mem/auth 0/0 sec=0 tr=1
+				 * (evidence/edl-log-s126). What is not yet known is whether it clears UCHE_OOB_ACCESS, so this runs
+				 * only when dby-gpu-zap=1 is passed and the default boot is unchanged.
+				 * The packet goes through the ARCHIVE ring, after dbyRingBringup has started it: that is the reference
+				 * board's own shape (GpuProbe.cpp cpStart() then leaveSecure() on one ring), and it avoids a second CP
+				 * bring-up. An earlier draft called dbyGpuCpStart() here instead, which cannot work: its dbyCtxReady()
+				 * gate needs dbyGpuSmmuContextEncode, and that only runs on the mode < 17 branch, so the zap would have
+				 * been skipped with st=ffffff20 and the round would have answered nothing. */
+				/* ON BY DEFAULT since evidence/edl-log-s128. Without the exit every engine store is refused with
+				 * UCHE_OOB_ACCESS while the CP reports no error at all (s127 and every earlier boot: [metal gpu8]
+				 * v512 c0 g0/4096); with it the Turnip smoke test passes v1024 c1024 g512/0 and the UCHE bit leaves
+				 * RBBM_INT_0_STATUS. dby-gpu-nozap=1 is the escape, so an A/B can reproduce the old behaviour without a
+				 * rebuild; it is deliberately NOT in board.toml, because the old behaviour is the broken one. */
+				unsigned zapWanted = 1u;
+				{
+					unsigned nozap = 0u;
+
+					(void)PE_parse_boot_argn("dby-gpu-nozap", &nozap, sizeof nozap);
+					if (nozap != 0u) {
+						zapWanted = 0u;
+					}
+				}
 				dbyArcGpuContext();
 				dbyRingBringup();
+				/* The zap AFTER the ring and immediately before the packet, which is what every ladder in this project
+				 * does: mode 15 here runs dbyGpuCpStart() and then dbyZapLoad() (evidence/edl-log-s126: the ring, the
+				 * SQE base, the CP microcode and the SMMU bank all survived auth_and_reset, and sf=3 is the CP writing
+				 * the exit fence through that context afterwards), the reference board does cpStart() then
+				 * leaveSecure(), whose first act is zapLoad() (research/repos/UniXNU-alioth/package/GpuProbe.cpp:1820-
+				 * 1821), and work/tracks/gpu-peer-progress/REPORT.md:40,78 records that no ladder puts the zap first.
+				 * evidence/edl-log-s127 is why the load cannot be skipped: the packet alone wedged the CP
+				 * (sec=1 kIOReturnTimeout, RBBM_INT_0_STATUS 0x900200 = HANG | CP_HW_ERROR | fence, no Metal row). */
+				if (zapWanted) {
+					/* [1] is a progress marker written BEFORE each step, in its own numbering (10/11/15/20/21/30, not
+					 * the zap ladder's 1/2 in this file's header), so a hang leaves a row naming where it stopped. */
+					native_gpu_zap[1] = 10u;
+					__asm__ volatile("dsb sy" ::: "memory");
+					native_gpu_zap[4] = dbyZapLoad();
+					gDbyZapRc = native_gpu_zap[4];   /* dbyZapLoad leaves the global at its entry value otherwise */
+					native_gpu_zap[1] = native_gpu_zap[4] == 0u ? 15u : 11u;
+				}
+				if (zapWanted && native_gpu_zap[4] == 0u) {
+					native_gpu_zap[1] = 20u;
+					__asm__ volatile("dsb sy" ::: "memory");   /* the marker must be in memory before the first device access */
+					if (gDbyRingVerdict != 0u) {
+						uint32_t trust = 0xFFFFFFFFu;
+
+						/* Read before the exit, like mode 15 does (dbyGpuZapStart), so tr= is the state the exit
+						 * started from rather than whatever the exit left behind. */
+						(void)dbyGpuCpRead(0xF400u, &trust);
+						native_gpu_zap[3] = trust;
+						native_gpu_zap[0] = dbyZapLeaveSecureRing();
+						native_gpu_zap[2] = gDbyZapSecRc;
+						native_gpu_zap[1] = 30u;
+					} else {
+						native_gpu_zap[1] = 21u;
+					}
+				}
 				dbyPublishBringup(5u);
 				dbyClientBringup(1u);
 				/* Everything already proved is rendered before the accelerator work: its

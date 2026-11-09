@@ -277,6 +277,15 @@ kernel_args = [
   "offline-legacy-retire=1",
   "boot-progress=2",
   "dby-touch=0",
+  # Mode 26 again, now with dby-gpu-zap=1: the secure-mode exit on the path that actually publishes the GPU and runs the
+  # Turnip test. evidence/edl-log-s126 proved this board can do the exit at all (mode 15: GPU ZAP st=0 step=7
+  # init/mem/auth 0/0 sec=0 tr=1 - PAS 13 through qcom_scm, the device's own a650_zap.elf, and CP_SET_SECURE_MODE(0)
+  # returning 0), but every boot that published the GPU so far ran without it, because dbyGpuZapStart() is reachable only from mode 15 (mode 16 returns earlier) and was never on the mode-26 path
+  # 15. The reference board of this project runs the exit at its mode 10, before its Metal/Turnip mode 12
+  # (research/repos/UniXNU-alioth/package/GpuProbe.cpp mode ladder). a6xx powers on in secure mode, which restricts what
+  # memory it can write to - the shape of our evidence exactly: CP (a privileged client) stores land, every engine store
+  # is refused with UCHE_OOB_ACCESS, and the CP reports no error. Verdict is [gpu zap] plus [gpu latch] bit 24 plus
+  # [metal gpu8]: v1024 c1024 g512/0 would be the engine writing.
   "dby-gpu-power=26",
   "sheng-cpufreq=3",
   "dk=0",
@@ -307,6 +316,19 @@ kernel_args = [
   "sheng-disable-watchdogd=1",
   "sheng-disable-jobs=com.apple.identityservicesd,com.apple.locationd,com.apple.CommCenter,com.apple.bluetoothd",
   "armcpu-diagnostics=1",
+  # UCHE_GMEM_RANGE_MIN/MAX read 0:0 on this unit (evidence/edl-log-s125) while the UCHE raises UCHE_OOB_ACCESS (bit 24
+  # of RBBM_INT_0_STATUS) and every engine store is lost. A window experiment was built and WITHDRAWN: Linux guards the
+  # pair with `if (!(adreno_is_a650_family(...) || a702 || a730))`, so upstream programs no GMEM range on this chip at
+  # all, and the value the vendor tree does write is 1 MiB (`a6xx_gpu.c:359-365`, `0x00100000 + gmem - 1`) - not 0, not
+  # 16 MiB, which is the a740/a722 base. The 1 MiB window [0x100000, 0x11FFFF] also encloses this port's own SQE
+  # (DbyGpuFirmware.h puts it at 0x100000, 0x13000 bytes), which the vendor avoids by starting driver IOVAs at SZ_16M
+  # (adreno_gpu.c:718); a CP fetch inside the window would hang that boot with no way back, and the restart hook is not
+  # installed. So the pair is left untouched until the kernel buffers move out of the first 16 MiB or a source shows the
+  # window cannot shadow them. DBY_GPU_GMEM_BASE stays DBY_GPU_TODO_MEASURE in DbyGpuRegs.h.
+  # The keep-wait control (pipa-gpu-keep-wait=1) is OUT: both control boots that used it died at 40 s, 21 rounds, before
+  # the self-test ever ran (evidence/edl-log-s120, s121; work/tracks/gpu-presentation/CONTROL-2026-11-09.md), so it cannot
+  # answer "is the drop's stale query value what makes metal2vulkan believe work completed". This boot is s116's
+  # configuration plus the [gpu tgt] readback, and s116 survived to run the self-test (evidence/edl-log-s116).
   "boot-diag-resume=3600",
   "armcpu-spi-ipi=1",
   "-no_slto_panic",
@@ -314,6 +336,36 @@ kernel_args = [
   # Metal path switch (official boot-arguments: sheng-gpu-metal=1 enables it). Its plugin needs the
   # AdrenoMetal archive, which is blocked by the clang-24 ICE at NativeAdrenoService.cpp:95.
   "sheng-gpu-metal=1",
+  # The GPU restart hook (package/DbyGpuPowerProbe.cpp dbyGpuRestart) is installed only when dby-gpu-restart=1 is
+  # passed, because the hook cannot power-cycle the GX domain and so may not pull a CP out of an IB
+  # (evidence/edl-log-s114: status=e00002d6, kIOReturnTimeout). It is left OUT here: stage 2 no longer hangs
+  # (evidence/edl-log-s116). Pass it in place of another argument when a boot has to exercise the recovery path.
+  # Stage 3/4 gate: sheng-fb-gpu=1 is what creates the GOP presenter. LegacyDisplayProbe.cpp:562-566 parses it and,
+  # because board.toml also sets offline-legacy-phase=4 (:559 is `if(started && phase==4)`), calls
+  # native_gop_presenter_create(), recording native_legacy_gop_gate[0]=arg and [1]=7 on success (:578);
+  # native_legacy_gpu_offer() (:259-260) stays false while gpuHandoffPresenter is null. NativeGOPPresenter.cpp:94
+  # parses the same argument into gpuMode and :97 registers gHandoff only then, which is the only condition
+  # handoffCall (:213) tests before answering kIOReturnNotReady. s118/s119 already ran with this switch and both
+  # printed "[gop] arg=1 step=7" (presenter live), but their Metal self-test still failed (s119: M s0 c999 r64 i4096,
+  # secure mode), so serveScanout never ran and no "[gop call]" row existed. s130 is the first boot with both a
+  # passing Metal self-test ("M s0 c0 r0 i0 q167 k4/11 p15/8 F0") and MODE actually being called:
+  # "[gop call] mode=5/e00002d8 present=0/0 wait=0/0 complete=0/0". That kIOReturnNotReady is exactly this missing
+  # switch, so it is the next single variable, and it is now ON.
+  # It is NOT what killed s120: s121 ran without it and died identically (rounds=21 uptime=40), so the death was the
+  # kept CP_WAIT_REG_MEM (work/tracks/gpu-presentation/CONTROL-2026-11-09.md:10-11,29-30).
+  # What it does NOT do: it does not remove this board's CPU framebuffer copy. transfer()'s gpuMode refusal
+  # (NativeGOPPresenter.cpp:109) guards the presenter's own user client, and nothing in the tree sends
+  # NGP_METHOD_PRESENT, so that guard is already on a dead path. The copy is NativeLegacyDisplay.cpp:445+, entered
+  # while native_legacy_gpu_offer() refuses; offer() accepts only online && gpuClient && !swap.offered (:134) and
+  # gpuClient is set by waitSwap (:150) - "wait=0" today, so every frame is refused and the CPU copy paints. Once the
+  # userspace client gets past MODE and starts calling waitSwap, accepted frames skip the CPU copy and refused or
+  # failed ones fall back to it, which is the documented fail-safe (NativeLegacyDisplay.cpp:38,
+  # NativeGOPPresenter.cpp:187-200). The screen is therefore not lost if the present path fails.
+  # Headroom: the joined command line is 990 of the 1000-byte cap (scripts/unixnu/payload.py:34-36), so the next
+  # argument needs one removed first.
+  # Expected next boot: "[gop] arg=1 step=7" (BootLog.c:456-459), "[gop call] mode=N/0 present=N/0 wait=N/e00002d6 complete=N/0"
+  # (BootLog.c:492-499), and "[scanout wait]" (BootLog.c:1255).
+  "sheng-fb-gpu=1",
 ]
 
 # ---------------------------------------------------------------------------

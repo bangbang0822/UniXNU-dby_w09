@@ -194,8 +194,8 @@ __attribute__((weak)) uint64_t native_adreno_method_stats[20][4];
 __attribute__((weak)) uint64_t native_adreno_mount_fail[4];
 __attribute__((weak)) uint64_t native_adreno_pool_stats[8];
 __attribute__((weak)) uint64_t native_adreno_ring_log[4][4 + 112];
-__attribute__((weak)) uint64_t native_adreno_stall[24];
-__attribute__((weak)) uint64_t native_adreno_stall_mem[59];
+__attribute__((weak)) uint64_t native_adreno_stall[28];   /* 2 + NativeAdrenoRingStallWords (26) uint32 = 112 B of this 224 B */
+__attribute__((weak)) uint64_t native_adreno_stall_mem[76];
 __attribute__((weak)) uint64_t native_adreno_submit_ibs[4];
 __attribute__((weak)) uint64_t native_adreno_unstick[15];
 __attribute__((weak)) uint64_t native_adreno_view_diag[6];
