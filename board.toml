@@ -5,6 +5,12 @@
 # （profiles/os/ipados-17.7.11-21H461/profile.toml）已经给出的值，这里一律不再重写：
 # [ipsw] + [ipsw.sha256]、整个 [kernel.prelink]（tool/kernel/slide/early_security_init/
 # kernelcache_sha256/31 项 roots）、[payload] trust_cache_sha256 与 text_fixups、
+# The two trust bundles this board accepts, pinned before the addon exists on the device:
+# the owner bundle carries the plugin/daemon CDHashes, the original one is the donor's
+# unchanged static+System pair. payload.py skips this allow-list when --owner-trust-cache
+# is used, so the pin lives here and is checked by work/verify/pack-gates.py.
+owner_trust_cache_sha256 = "54dd82de82c5ac099f731a71c359eacccb2fc42818f29de6665ee08103217381"
+original_trust_cache_sha256 = "7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7"
 # 以及 ADT 的 iPad7,1/J120 身份、/chosen 安全状态、/defaults kern.maxvnodes。
 # 逐键对拍结果（SAME/DIFF）记在 porting.toml 的 os-profile 区，删的每一行都以那次对拍为据。
 # 保留的只有本板实测值，并在旁边写明来源。
@@ -182,6 +188,10 @@ archives = [
   # 满足它们，于是驱动和阶梯探针共用同一份 kit（否则 41 个重复符号）。
   "build-adreno650.py --kits-only",
   "build-adreno650.py",
+        # 暂存 AGXAccelerator（NativeAdrenoAccelerator.cpp）。必须排在上面那条之后：
+        # build-adreno650.py 会 unlink 整个归档再只写入自己的对象，先加进去的成员会被删掉。
+        # 缺归档时这个配方直接失败（不静默跳过），因为探针非弱引用它导出的三个符号。
+        "build-adreno650-accelerator.py",
 ]
 
 # ---------------------------------------------------------------------------
@@ -267,7 +277,7 @@ kernel_args = [
   "offline-legacy-retire=1",
   "boot-progress=2",
   "dby-touch=0",
-  "dby-gpu-power=24",
+  "dby-gpu-power=26",
   "sheng-cpufreq=3",
   "dk=0",
   "sheng-log=1",

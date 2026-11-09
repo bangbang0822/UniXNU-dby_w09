@@ -52,7 +52,7 @@
  *   when CX was already powered - the block that froze this device on 2026-11-03.
  *
  * BOOT ARGUMENT
- *   `dby-gpu-power=<1|..|24>`; absent means nothing happens beyond one "skipped" row. Mode 17 is the
+ *   `dby-gpu-power=<1|..|26>`; absent means nothing happens beyond one "skipped" row. Mode 17 is the
  *   first mode where the A650 driver archive owns the address spaces instead of the probe: it runs
  *   the same power and clock path, hands the GMU context to NativeAdrenoGmuContextBringupRoutes
  *   (slots 4,5), cold-starts from that context's payloads, powers GX, then hands the GPU context
@@ -4975,6 +4975,252 @@ renderClientBo(void)
 	*at = 0;
 }
 
+// mode 25: the staged AGXAccelerator, the last kernel-side piece before a Metal plugin can attach.
+//
+// The class lives in drivers/Adreno740/NativeAdrenoAccelerator.cpp and derives from the ORIGINAL
+// kernel's IOAcceleratorES. Its needs, in order: the original IOGPUFamily kext loaded (the parent
+// metaclass does not exist before that), the parent verified to be the 136-byte class that was
+// audited, its own initializer run by hand (it is stripped from __mod_init_func precisely so it
+// cannot run at kext load), and finally attach + registerService so that Metal can find it by
+// MetalPluginName - an object that is initialised but not registered is invisible.
+//
+// The three accelerator symbols are declared normally, not weak: this kernel's static link
+// refuses an undefined weak_import (package/LinkStubs.c:34-35, 48-49, 66-69), so a weak fallback
+// would fail the link rather than print a row. scripts/build-adreno650-accelerator.py puts them
+// in the driver archive, and board.toml runs that recipe after build-adreno650.py.
+#ifndef DBY_GPU_ACCELERATOR
+#define DBY_GPU_ACCELERATOR 1
+#endif
+
+#if DBY_GPU_ACCELERATOR
+kern_return_t OSKextLoadKextWithIdentifier(const char *);
+extern kmod_info_t g_kernel_kmod_info;
+extern void native_adreno_accelerator_static_init(void)
+    __asm__("__GLOBAL__sub_I_NativeAdrenoAccelerator.cpp");
+extern IOService *native_adreno_accelerator_allocate(void);
+extern unsigned native_adreno_accelerator_instance_size(void);
+#endif
+
+/* The audited parent from scripts/data/ioaccelerator-base-abi.json: this kernel's donor is the
+ * same ipados-17.7.11-21H461 the record was taken from, so the address must match. If it does not,
+ * the staged class was bound against a different kernel and nothing may call into it. */
+#define DBY_METAL_METACLASS 0xfffffff006aeb688ull
+#define DBY_METAL_KEY_NAME     "MetalPluginName"
+#define DBY_METAL_KEY_CLASS    "MetalPluginClassName"
+#define DBY_METAL_KEY_GRANT    "NativeSandboxGrantProcess"
+#define DBY_METAL_PLUGIN_NAME  "NativeAdrenoMetal"
+#define DBY_METAL_PLUGIN_CLASS "NativeAdrenoMetalDevice"
+#define DBY_METAL_INSTANCE  136u
+
+/* Every field starts at 0xFFFFFFFF: a refused gate renders this row too, and a BSS zero
+ * would make find=00000000 read as "found" when nothing was attempted. */
+static uint32_t gDbyMetalStep;
+static uint32_t gDbyMetalKext = 0xFFFFFFFFu, gDbyMetalClsSize = 0xFFFFFFFFu;
+static uint32_t gDbyMetalInit = 0xFFFFFFFFu, gDbyMetalSize = 0xFFFFFFFFu;
+static uint32_t gDbyMetalAlloc = 0xFFFFFFFFu, gDbyMetalAccelInit = 0xFFFFFFFFu;
+static uint32_t gDbyMetalState = 0xFFFFFFFFu;
+static uint32_t gDbyMetalName = 0xFFFFFFFFu, gDbyMetalClass = 0xFFFFFFFFu;
+static uint32_t gDbyMetalGrant = 0xFFFFFFFFu, gDbyMetalFind = 0xFFFFFFFFu;
+static uint64_t gDbyMetalClsAddr;
+
+static void
+dbyMetalBringup(unsigned full)
+{
+	gDbyMetalStep = 1u;
+	gDbyMetalClsAddr = 0u;
+#if DBY_GPU_ACCELERATOR
+	{
+	IOService *accelerator = nullptr;
+	const OSMetaClass *parent = nullptr;
+	void *handle = nullptr;
+	kern_return_t loaded;
+
+	/* The load status is informational: "already loaded" is equally good, and the kext may have
+	 * been brought in by the prelink. The real test is whether the parent metaclass exists
+	 * (KeyStoreProbe.cpp:92-95 resolves first and treats the status as diagnostic). */
+	loaded = OSKextLoadKextWithIdentifier("com.apple.iokit.IOGPUFamily");
+	gDbyMetalKext = (uint32_t)loaded;
+
+	gDbyMetalStep = 2u;
+	{
+		const OSSymbol *name = OSSymbol::withCString("IOAcceleratorES");
+
+		if (name != nullptr) {
+			parent = OSMetaClass::getMetaClassWithName(name);
+			name->release();
+		}
+	}
+	if (parent == nullptr) {
+		gDbyMetalClsSize = 0xFFFFFFA2u;
+		return;
+	}
+	gDbyMetalClsAddr = (uint64_t)(uintptr_t)parent;
+	gDbyMetalClsSize = parent->getClassSize();
+	if (gDbyMetalClsSize != DBY_METAL_INSTANCE || gDbyMetalClsAddr != DBY_METAL_METACLASS) {
+		return;                            /* bound against a different kernel: stop here */
+	}
+
+	gDbyMetalStep = 3u;
+	handle = OSMetaClass::preModLoad(g_kernel_kmod_info.name);
+	if (handle == nullptr) {
+		gDbyMetalInit = 0xFFFFFFA3u;
+		return;
+	}
+	native_adreno_accelerator_static_init();
+	loaded = OSMetaClass::postModLoad(handle);
+	gDbyMetalInit = (uint32_t)loaded;
+	if (loaded != 0) {
+		return;
+	}
+	gDbyMetalSize = native_adreno_accelerator_instance_size();
+	if (gDbyMetalSize != DBY_METAL_INSTANCE) {
+		/* The size itself is not rendered, so a mismatch needs its own code: sz= is the
+		 * parent's getClassSize, a different gate. */
+		gDbyMetalInit = 0xFFFFFFA9u;
+		return;
+	}
+
+	gDbyMetalStep = 4u;
+	accelerator = native_adreno_accelerator_allocate();
+	if (accelerator == nullptr) {
+		gDbyMetalAlloc = 0xFFFFFFA4u;
+		return;
+	}
+	gDbyMetalAlloc = 0u;          /* allocate() passed; init() is the next verdict */
+	if (!accelerator->init()) {
+		accelerator->release();
+		gDbyMetalAccelInit = 0xFFFFFFA5u;
+		return;
+	}
+	gDbyMetalAccelInit = 0u;
+
+	gDbyMetalStep = 5u;
+	/* What the plugin and the sandbox need, and the reason this class exists at all: the plugin
+	 * is loaded by name, and the processes whose sandbox profiles admit AGXDeviceUserClient are
+	 * granted by name through the board's own grant module. */
+	accelerator->setProperty(DBY_METAL_KEY_NAME, DBY_METAL_PLUGIN_NAME);
+	accelerator->setProperty(DBY_METAL_KEY_CLASS, DBY_METAL_PLUGIN_CLASS);
+	accelerator->setProperty(DBY_METAL_KEY_GRANT,
+	                         "backboardd,SpringBoard,iconservicesagent,Preferences,CollectionsPoster,"
+	                         "AegirPoster,KaleidoscopePoster,PhotosPosterProvider,PosterBoard,"
+	                         "WidgetRenderer_Default,mediaserverd");
+
+	gDbyMetalStep = 6u;
+	/* Initialised is not visible: the reference attaches to the platform and registers the
+	 * service (GpuProbe.cpp:1602-1603), which is what puts it in the IOService plane where the
+	 * plugin's matching can find it. */
+	/* IOPlatformExpert is only forward-declared in this translation unit, so the platform pointer
+	 * needs the cast the reference board's own TU does not (it sees the full definition). */
+	{
+		IOService *platform = reinterpret_cast<IOService *>(IOService::getPlatform());
+
+		if (platform == nullptr || !accelerator->attach(platform)) {
+			accelerator->release();
+			gDbyMetalAccelInit = 0xFFFFFFA6u;   /* attached is the step that failed */
+			return;
+		}
+	}
+	/* registerService() returns void in this XNU, so there is no status to test; a failure to
+	 * register shows up as the service being absent from the plane, which is why the row also
+	 * prints reg= separately from on=. */
+	/* kIOServiceSynchronous: the asynchronous default hands matching to a job thread, and this
+	 * row is rendered immediately afterwards - evidence/edl-log-s88 shows the state without the
+	 * registered bit, which is what a not-yet-run job looks like. */
+	accelerator->registerService(kIOServiceSynchronous);
+	/* registerService() returns void, so ask the object, and print the whole state word: one bit
+	 * says only that something is missing, not what state it does have. The registered bit is
+	 * inside this word, so there is no separate reg= field. */
+	gDbyMetalState = accelerator->getState();
+	gDbyMetalStep = 7u;
+	if (full < 2u) {
+		return;   /* mode 25 stops here: its st=7 row is already device-verified */
+	}
+
+	/* The descriptor the plugin consumes. Read back rather than assumed set: a property that
+	 * silently did not stick would only show up as a plugin that never loads. */
+	{
+		OSObject *value = accelerator->getProperty(DBY_METAL_KEY_NAME);
+		OSString *string = OSDynamicCast(OSString, value);
+
+		gDbyMetalName = (string != nullptr && string->isEqualTo(DBY_METAL_PLUGIN_NAME)) ? 1u : 0u;
+		value = accelerator->getProperty(DBY_METAL_KEY_CLASS);
+		string = OSDynamicCast(OSString, value);
+		gDbyMetalClass = (string != nullptr && string->isEqualTo(DBY_METAL_PLUGIN_CLASS)) ? 1u : 0u;
+		value = accelerator->getProperty(DBY_METAL_KEY_GRANT);
+		string = OSDynamicCast(OSString, value);
+		gDbyMetalGrant = (string != nullptr && string->getLength() > 0u) ? 1u : 0u;
+	}
+
+	/* Present is not discoverable: ask a matcher for our own class name and give it one second.
+	 * This is a class-plane test, not the plugin's route - the plugin matches IOAcceleratorES and
+	 * then loads MetalPluginName - so find=0 is necessary, not sufficient. */
+	gDbyMetalStep = 8u;
+	{
+		OSDictionary *matching = IOService::serviceMatching("AGXAccelerator");
+		IOService *found = nullptr;
+
+		if (matching != nullptr) {
+			found = IOService::waitForMatchingService(matching, 1000000000ull);
+			matching->release();
+		}
+		gDbyMetalFind = (found != nullptr) ? 0u : 0xFFFFFFA8u;
+		if (found != nullptr) {
+			found->release();
+		}
+	}
+	}
+#else
+	gDbyMetalStep = 0u;
+#endif
+}
+
+/* 0 / 1 / f: clean, set, never reached. Keeps the all-sentinel row inside 119 bytes. */
+static char *
+putFlag(char *at, const char *end, uint32_t value)
+{
+	if (at < end) {
+		*at++ = (value == 0u) ? '0' : ((value == 1u) ? '1' : 'f');
+	}
+	return at;
+}
+
+static void
+renderMetal(void)
+{
+	char *row = native_gpupower_rows[5];
+	const char *end = row + 119;
+	char *at = row;
+
+	/* One character per verdict, so the all-sentinel case cannot overflow the 119-byte row:
+	 * 0 = clean, 1 = set, f = anything else (never reached, or a failure code - which one is
+	 * read from st=). Worst case is 110 bytes:
+	 *   GPU METAL st=8 kext=ffffffff sz=ffffffff init=ffffffff acc=ffffffff on=ffffffff
+	 *   state=ffffffff n=f c=f g=f f=f */
+	at = putStr(at, end, "GPU METAL st=");
+	at = putDec(at, end, gDbyMetalStep);
+	at = putStr(at, end, " kext=");
+	at = putHex8(at, end, gDbyMetalKext);
+	at = putStr(at, end, " sz=");
+	at = putHex8(at, end, gDbyMetalClsSize);
+	at = putStr(at, end, " init=");
+	at = putHex8(at, end, gDbyMetalInit);
+	at = putStr(at, end, " acc=");
+	at = putHex8(at, end, gDbyMetalAlloc);
+	at = putStr(at, end, " on=");
+	at = putHex8(at, end, gDbyMetalAccelInit);
+	at = putStr(at, end, " state=");
+	at = putHex8(at, end, gDbyMetalState);
+	at = putStr(at, end, " n=");
+	at = putFlag(at, end, gDbyMetalName);
+	at = putStr(at, end, " c=");
+	at = putFlag(at, end, gDbyMetalClass);
+	at = putStr(at, end, " g=");
+	at = putFlag(at, end, gDbyMetalGrant);
+	at = putStr(at, end, " f=");
+	at = putFlag(at, end, gDbyMetalFind);
+	*at = 0;
+}
+
 void
 sheng_gpu_power_probe(void)
 {
@@ -5003,10 +5249,10 @@ sheng_gpu_power_probe(void)
 	}
 	native_gpupower_stage = 1u;
 
-	if (!PE_parse_boot_argn("dby-gpu-power", &mode, sizeof mode) || mode < 1u || mode > 24u) {
+	if (!PE_parse_boot_argn("dby-gpu-power", &mode, sizeof mode) || mode < 1u || mode > 26u) {
 		char *row = native_gpupower_rows[0];
 		const char *end = row + 119;
-		char *at = putStr(row, end, "GPU PWR skipped: pass dby-gpu-power=1..24");
+		char *at = putStr(row, end, "GPU PWR skipped: pass dby-gpu-power=1..26");
 
 		*at = 0;
 		native_gpupower_stage = 3u;
@@ -5271,7 +5517,27 @@ sheng_gpu_power_probe(void)
 				}
 			}
 		}
-		if (mode >= 24u) {
+		if (mode >= 25u) {
+			/* Mode 25 is mode 24 plus the staged AGXAccelerator, the last kernel-side piece. */
+			if (gDbyColdStatus == 0u && gDbyGxStatus == 0u && gDbyGxResult.gx_on != 0u) {
+				dbyArcGpuContext();
+				dbyRingBringup();
+				dbyPublishBringup(5u);
+				dbyClientBringup(1u);
+				/* Everything already proved is rendered before the accelerator work: its
+				 * synchronous matching runs inline on this thread, and if it ever blocks, the
+				 * rows above must already be in the log rather than lost with it. */
+				renderArchive();
+				renderRing();
+				renderPublish();
+				renderClient();
+				renderClientBo();
+				dbyMetalBringup(mode >= 26u ? 2u : 1u);
+			} else {
+				gDbyArcGpuRc = 0xFFFFFF02u;
+			}
+			renderMetal();
+		} else if (mode >= 24u) {
 			/* Mode 24 is mode 23 plus the buffer, IB and submission half of the round. */
 			if (gDbyColdStatus == 0u && gDbyGxStatus == 0u && gDbyGxResult.gx_on != 0u) {
 				dbyArcGpuContext();
