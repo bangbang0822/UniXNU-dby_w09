@@ -62,6 +62,11 @@ per clone:
 git config core.hooksPath .githooks
 ```
 
+## Tags
+
+A pushed tag is immutable: it names a state someone may already have fetched, so a mistake is
+fixed by publishing a new tag that says what it replaces, never by moving the one already out.
+
 ## Where code belongs
 
 The test for "does this belong in this repository": would a second board on SM8250 need the
