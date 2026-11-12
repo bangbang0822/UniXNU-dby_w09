@@ -110,6 +110,8 @@ an administrator.
 
 So the flow is: push a branch, open a pull request against `main`, and let it pass the review
 and the test. Nothing of yours enters `main` until both are recorded.
+[`CONTRIBUTING.md`](CONTRIBUTING.md) says what a review checks, what the code in this tree looks
+like, and which commands a pull request has to pass.
 
 A branch is a workspace, not a release. Work in progress may not build, and the branch list is
 not the project: what this repository offers to reproduce is the record at a commit on `main`,
