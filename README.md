@@ -95,6 +95,24 @@ The upstream record validator is a separate, stronger check and needs a UniXNU c
 python3 scripts/porting-record.py check --device ../UniXNU-dby_w09
 ```
 
+## Contributing
+
+`main` is a protected branch: changes arrive through a pull request, and merging is the
+review step. Two ways to propose one:
+
+- **inside this repository**, if you have write access: push a branch and open a pull
+  request against `main`;
+- **from a fork**, if you do not: fork, push a branch, open a pull request.
+
+Install the hooks once per clone so the checks run before anything leaves your machine:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The checks are `scripts/check-repository.py` (does the repository still describe itself)
+and `scripts/check-commit-messages.py` (does every subject follow the convention in
+`AGENTS.md`). Both are also runnable by hand and need no build host.
 ## Prerequisites
 
 1. **UniXNU** checkout plus an arm64 Apple toolchain (clang/lld, `xcrun` shims) on the build host.
