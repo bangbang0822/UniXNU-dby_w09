@@ -27,7 +27,7 @@ if [ -z "$python" ]; then
 fi
 
 echo "pre-push: checking that the repository still describes itself"
-"$python" "$root/scripts/check-repository.py" --device "$root" || {
+"$python" "$root/scripts/check-repository.py" --device "$root" --quiet || {
     echo "pre-push: scripts/check-repository.py failed; fix it or push with --no-verify" >&2
     exit 1
 }

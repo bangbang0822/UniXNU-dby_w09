@@ -46,25 +46,34 @@ IGNORED_PREFIX = ('build/', '.cache/')
 
 
 class Report:
-    def __init__(self, verbose):
+    def __init__(self, verbose, quiet=False):
         self.verbose = verbose
+        self.quiet = quiet
         self.failures = []
+        self.passes = 0
 
     def check(self, ok, name, detail=''):
-        print(('PASS  ' if ok else 'FAIL  ') + name + ('  ' + detail if detail else ''))
-        if not ok:
+        if ok:
+            self.passes += 1
+            if not self.quiet:
+                print('PASS  ' + name + ('  ' + detail if detail else ''))
+        else:
+            print('FAIL  ' + name + ('  ' + detail if detail else ''))
             self.failures.append(name)
         return ok
 
     def note(self, message):
-        if self.verbose:
+        if self.verbose and not self.quiet:
             print('      ' + message)
 
     def done(self):
         if self.failures:
             print(f'\n{len(self.failures)} check(s) failed: ' + ', '.join(self.failures))
             return 1
-        print('\nall checks passed')
+        if self.quiet:
+            print(f'check-repository: all {self.passes} checks passed')
+        else:
+            print('\nall checks passed')
         return 0
 
 
@@ -98,9 +107,11 @@ def main():
     ap.add_argument('--device', type=pathlib.Path,
                     default=pathlib.Path(__file__).resolve().parents[1])
     ap.add_argument('--verbose', action='store_true')
+    ap.add_argument('--quiet', action='store_true',
+                    help='print failures and a one-line summary only')
     args = ap.parse_args()
     device = args.device.resolve()
-    report = Report(args.verbose)
+    report = Report(args.verbose, args.quiet)
 
     files = tracked(device, others=True)
     tracked_set = set(tracked(device))
@@ -237,7 +248,7 @@ def main():
                 missing_entries.append(f'{series.name}: {entry}')
     report.check(not missing_entries, 'every patch named by a series resolves in this repository',
                  ', '.join(missing_entries) if missing_entries else f'{len(series_files)} series checked')
-    if external:
+    if external and not args.quiet:
         print('      note: series entries that resolve in the assembled tree, not here:')
         for item in external:
             print(f'            {item}')
