@@ -97,16 +97,23 @@ python3 scripts/porting-record.py check --device ../UniXNU-dby_w09
 
 ## Contributing
 
-Every branch in this repository is protected, and the rule covering them allows only
-repository administrators to push. Merging is a separate gate: a pull request must pass both
-its review and its test before it can be merged, and only an administrator can merge it.
-Both halves were verified on 2026-11-13 by running the chain end to end -- a merge was
-refused with "this pull request has not passed the configured review", then with "has not
-passed the configured test", and succeeded only after both were recorded.
+`main` is protected, and merging into it is a separate gate: the pull request must pass both
+its review and its test, and only an administrator can merge it. Both halves were verified on
+2026-11-13 by running the chain end to end -- a merge was refused with "this pull request has
+not passed the configured review", then with "has not passed the configured test", and
+succeeded only after both were recorded.
 
-So the flow for a contributor is: **fork this repository, push a branch to your fork, and
-open a pull request against `main`.** Nothing of yours enters this repository until it has
-been reviewed and merged here.
+Every other branch name is covered by a rule that admits developers as well, so a contributor
+can push a branch here directly and open a pull request against `main`; forking works too and
+is not required. What that rule does not give away is the merge: it still needs both gates and
+an administrator.
+
+So the flow is: push a branch, open a pull request against `main`, and let it pass the review
+and the test. Nothing of yours enters `main` until both are recorded.
+
+A branch is a workspace, not a release. Work in progress may not build, and the branch list is
+not the project: what this repository offers to reproduce is the record at a commit on `main`,
+and `dby-w09-2026.11.13` is a tag on a commit that passes both checks.
 
 Install the hooks once per clone so the checks run before anything leaves your machine:
 
