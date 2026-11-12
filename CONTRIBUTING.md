@@ -12,11 +12,12 @@ and the hardware rules this port learned the hard way. Read it before your first
 
 ## Where to start
 
-Read in this order. Everything in this list is documentation; reading it needs neither a build host nor the tablet.
+Read in this order. Only step 3 leads to a command; the rest is documentation, and reading it needs
+neither a build host nor the tablet.
 
 1. [`AGENTS.md`](AGENTS.md) -- the rules that are not negotiable: what belongs in this repository,
    the commit convention, the tag rule, and the hardware values that have to name their source.
-2. This file -- branches, review, code style, and the checks a pull request has to pass.
+2. The rest of this file -- branches, review, code style, and the checks a pull request has to pass.
 3. [`README.md`](README.md) -- layout, the three inputs no builder here can make, build, flash and
    known deviations. If you are going to run anything, `Layout` and `Prerequisites` come before
    `Build`.
