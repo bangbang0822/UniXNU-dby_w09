@@ -10,19 +10,39 @@ repository. [`AGENTS.md`](AGENTS.md#where-code-belongs) states the test that dec
 second SM8250 board need this file, unchanged? -- and carries the commit convention, the tag rule
 and the hardware rules this port learned the hard way. Read it before your first change.
 
+## Where to start
+
+Read in this order. Everything in this list is documentation; reading it needs neither a build host nor the tablet.
+
+1. [`AGENTS.md`](AGENTS.md) -- the rules that are not negotiable: what belongs in this repository,
+   the commit convention, the tag rule, and the hardware values that have to name their source.
+2. This file -- branches, review, code style, and the checks a pull request has to pass.
+3. [`README.md`](README.md) -- layout, the three inputs no builder here can make, build, flash and
+   known deviations. If you are going to run anything, `Layout` and `Prerequisites` come before
+   `Build`.
+4. The `porting.toml` area your change lands in. Its `findings` say why the code is the way it is
+   and its `limits` say what is still owed; a change that contradicts either updates the record in
+   the same pull request.
+5. A component's own notes, if you are changing one: `package/QcomXnuUsbDebug/AGENTS.md` and the
+   `docs/` beside it, `package/DbyTorch/README.md`. They apply in addition to the root `AGENTS.md`,
+   never instead of it.
+6. The upstream page the root `AGENTS.md` names for your task. Those are the authoritative
+   descriptions; this repository does not restate them.
+
+Two habits that save an afternoon: find the area before you find the file, because the area is what
+tells you what the record already knows; and run the checks on a fresh clone before you change
+anything, so a failure you meet later is one you introduced.
+
 ## Before your first change
 
-Install the hooks once per clone. They run everything that does not need a build host:
+Install the hooks once per clone:
 
 ```sh
 git config core.hooksPath .githooks
 ```
 
-Read the `porting.toml` area your change touches. The record is the only place this board remembers
-why something is the way it is; a change that contradicts it is a change that has to update it.
-
-Nothing in this document needs a build host or the tablet. The checks below run from a clean
-checkout with Python 3.11 and git.
+They run everything that does not need a build host: the repository still describes itself, and
+every commit subject follows the convention.
 
 ## Branches, review and merge
 
