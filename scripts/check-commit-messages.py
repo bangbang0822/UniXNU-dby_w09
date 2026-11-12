@@ -77,7 +77,7 @@ def check_subject(subject, areas, strict):
 
 
 def iter_commits(rev_range):
-    out = subprocess.run(['git', 'log', '--format=%H%x09%s%x09%b%x00', rev_range],
+    out = subprocess.run(['git', 'log', '--format=%H%x09%P%x09%s%x09%b%x00', rev_range],
                          capture_output=True, text=True, check=True)
     for chunk in out.stdout.split('\x00'):
         chunk = chunk.strip('\n')
@@ -85,9 +85,10 @@ def iter_commits(rev_range):
             continue
         parts = chunk.split('\t')
         sha = parts[0].strip()
-        subject = parts[1].strip() if len(parts) > 1 else ''
-        body = parts[2].strip() if len(parts) > 2 else ''
-        yield sha, subject, body
+        parents = parts[1].split() if len(parts) > 1 else []
+        subject = parts[2].strip() if len(parts) > 2 else ''
+        body = parts[3].strip() if len(parts) > 3 else ''
+        yield sha, subject, body, parents
 
 
 def changed_files(sha):
@@ -138,7 +139,12 @@ def main():
     print(f'range {rev_range}')
     touched_areas = set()
     record_touched = False
-    for sha, subject, _body in iter_commits(rev_range):
+    for sha, subject, _body, parents in iter_commits(rev_range):
+        if len(parents) > 1:
+            # Written by the hosting platform, not by a person. Holding it to the
+            # convention would block every push that follows a pull-request merge.
+            print(f'SKIP  {sha[:8]}  merge commit, subject authored by the host')
+            continue
         problems, notes = check_subject(subject, areas, args.strict_scopes)
         for note in notes:
             print(f'NOTE  {sha[:8]}  {note}')
