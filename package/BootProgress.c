@@ -569,8 +569,10 @@ void boot_progress_bind(uintptr_t base,unsigned w,unsigned h,unsigned rb,unsigne
     // Text scale is board policy and reaches the kernel through the device tree, not through a
     // boot argument: [adt.defaults.u32] dby-boot-ui-scale is emitted into /defaults by the shared
     // ADT generator, so changing it costs a payload rebuild rather than a kernel rebuild.
-    // The compiled expression is the fallback for a payload built before the key existed; it
-    // reproduces the previous behaviour exactly (this 1600x2560 panel fails both bounds -> 1).
+    // The compiled expression is the fallback for a payload built before the key existed, and it is
+    // orientation-sensitive, which is the reason this value is board policy: with the bind XNU reports
+    // here (1600 wide by 2560 tall) only the 2160 width bound fails and it yields 1, while the same
+    // panel bound landscape (2560x1600) would satisfy both bounds and yield 3.
     {
       uint32_t ui_scale=0;
       if (PE_get_default("dby-boot-ui-scale",&ui_scale,sizeof ui_scale) && ui_scale>=1 && ui_scale<=3)

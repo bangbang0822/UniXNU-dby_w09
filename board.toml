@@ -569,8 +569,10 @@ flash = 1
 # 本板没实现 suspend/resume：用原始根域策略输入，而不是让 CPU 永久停车。
 [adt.defaults.u32]
 sleep-disabled = 1
-dby-boot-ui-scale = 1              # 引导期文本缩放档（1..3）。读者 package/BootProgress.c 的 PE_get_default；
-                                   # 改它只需要重出 payload，不需要重编内核。1 是本板实测值。
+# dby-boot-ui-scale = 1            # 引导期文本缩放档（1..3），读者 package/BootProgress.c 通过
+#                                  # PE_get_default 读取。默认先注释掉：加一个属性会改变 ADT，而
+#                                  # scripts/regression-baseline-adt.adt 记的是那一次被验收的开机，没有
+#                                  # 构建机就无法重录。等下一次验收开机重录基线时再打开这一行。
 
 # /buttons：DBY-W09 没有 Home 键，所以 button-names 不带 menu，
 # home-button-type = 2（纯手势），锁屏给滑动解锁并画 home indicator。
