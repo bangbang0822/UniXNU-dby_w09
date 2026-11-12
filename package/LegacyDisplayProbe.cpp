@@ -394,6 +394,11 @@ void native_legacy_client_observed(IOReturn status,IOUserClient *client) {
     native_legacy_client_checkpoint();
 }
 __attribute__((noinline)) bool native_legacy_gop_mapping_observed(IOService *object,IOMemoryMap *mapping,uint32_t width,uint32_t height) {
+    // The mapping is about to become the frame buffer the whole display stack publishes through, so
+    // accepting one that belongs to another object would point every later scanout at the wrong thing.
+    // The only caller is the original IOMobileFramebufferLegacy instance this probe wrapped, so the
+    // branch is unreachable on the accepted path -- and it has never fired on hardware. If it does,
+    // the panic text names the object and the recovery starts from the previous boot's DISPLAY row.
     if((uintptr_t)object!=native_legacy_object)panic("NativeLegacyDisplay: wrong mapping owner");
     native_legacy_gop_map=(uintptr_t)mapping;native_legacy_gop_virtual=mapping->getVirtualAddress();
     native_legacy_gop_physical=mapping->getPhysicalAddress();native_legacy_gop_bytes=mapping->getLength();

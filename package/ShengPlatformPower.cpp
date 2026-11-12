@@ -22,6 +22,12 @@ volatile uint64_t sheng_pmgr_observation[16];
 __attribute__((noinline)) void sheng_pmgr_checkpoint(void) { __asm__ volatile("" ::: "memory"); }
 }
 
+// An unimplemented slot is a contract violation, and panicking is the point: the kernel asked
+// this provider for something the board cannot do, and returning success would let AMFI's latch
+// be satisfied by a provider that never honoured it. The one way to reach this on purpose is
+// the sheng-pmgr=3 self-test further down, which calls disableCPUCore(1); board.toml passes
+// sheng-pmgr=2 and the payload gate requires exactly one such argument, so a shipped boot cannot
+// arrive here. The slot number lands in sheng_pmgr_observation[0] as 0x100+slot for the post-mortem.
 __attribute__((noreturn)) static void unavailable(unsigned slot)
 {
   sheng_pmgr_observation[0] = 0x100 + slot;
