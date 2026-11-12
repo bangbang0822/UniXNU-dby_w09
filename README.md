@@ -97,15 +97,16 @@ python3 scripts/porting-record.py check --device ../UniXNU-dby_w09
 
 ## Contributing
 
-`main` is a protected branch, and merging a pull request is the review step. Repository
-administrators can still push directly -- verified on 2026-11-13, when an administrator push
-succeeded against the protected branch -- so for everyone else the pull request is the gate,
-and the rules that make it one are configured in the repository's branch protection settings.
-Two ways to propose a change:
+Every branch in this repository is protected, and the rule covering them allows only
+repository administrators to push. Merging is a separate gate: a pull request must pass both
+its review and its test before it can be merged, and only an administrator can merge it.
+Both halves were verified on 2026-11-13 by running the chain end to end -- a merge was
+refused with "this pull request has not passed the configured review", then with "has not
+passed the configured test", and succeeded only after both were recorded.
 
-- **inside this repository**, if you have write access: push a branch and open a pull
-  request against `main`;
-- **from a fork**, if you do not: fork, push a branch, open a pull request.
+So the flow for a contributor is: **fork this repository, push a branch to your fork, and
+open a pull request against `main`.** Nothing of yours enters this repository until it has
+been reviewed and merged here.
 
 Install the hooks once per clone so the checks run before anything leaves your machine:
 
@@ -116,6 +117,7 @@ git config core.hooksPath .githooks
 The checks are `scripts/check-repository.py` (does the repository still describe itself)
 and `scripts/check-commit-messages.py` (does every subject follow the convention in
 `AGENTS.md`). Both are also runnable by hand and need no build host.
+
 ## Prerequisites
 
 1. **UniXNU** checkout plus an arm64 Apple toolchain (clang/lld, `xcrun` shims) on the build host.
