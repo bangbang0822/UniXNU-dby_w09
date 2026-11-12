@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
-// No-op definitions of the probe hooks the patched XNU references while alioth_defconfig leaves their component out.
-// Each hook runs only on its boot argument, which board.toml does not pass; the kernel link needs the symbol anyway.
+// No-op definitions of the probe hooks the patched XNU references while their component is left out of the link.
+// A hook whose component IS selected is compiled out here by the #if below, because the real producer is linked in.
+// The rest are weak so the link succeeds either way; several of their boot arguments ARE passed by board.toml
+// (sheng-gpu-addon=1, dby-bl=1, dby-pa=3, dby-battery=2, sheng-buttons=1), and for those the real implementation is
+// what runs -- the stub is the fallback, not the path.
 
 // offline-component-load-probes.patch, bsd_init: called on offline-legacy-register=1.
 // CONFIG_XNU_NATIVE_LEGACY_DISPLAY is now on, so libNativeLegacyDisplay.late.a defines this

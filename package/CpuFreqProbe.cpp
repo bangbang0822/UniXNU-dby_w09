@@ -7,15 +7,22 @@
 // the L3 window the SM8550 version maps is absent here. `sheng-cpufreq=<n>`:
 //   1  read-only: report each domain's enable bit, current/requested level and its highest LUT entry
 //   2  additionally request that highest non-turbo level in domain 0 (the boot CPU's cluster)
-//   3  the same in every domain once it reads enabled, and the highest L3 level
-// Optional `sheng-cpufreq-cap=<MHz>`: mode 3 requests the highest non-turbo level at or below it (domains and L3).
+//   3  the same in every domain once it reads enabled
+// Optional `sheng-cpufreq-cap=<MHz>`: mode 3 requests the highest non-turbo level at or below it, in every domain.
 // Register layout is the qcom-cpufreq-hw "epss" data of the pinned mainline tree (reg_enable 0x0, reg_domain_state 0x20,
 // reg_dcvs_ctrl 0xb0, reg_freq_lut 0x100 with 4-byte rows, reg_perf_state 0x320, per-core perf_state rows +4*i for the
-// policy's other CPUs when dcvs_ctrl bit 0 is set); the three domain windows come from the cpufreq@17d91000 node of
-// sm8550.dtsi, their CPU counts from the cpus' qcom,freq-domain (3, 4, 1). The L3 is osm-l3.c "qcom,epss-l3" (the sm8550
-// node interconnect@17d90000): REG_ENABLE 0x0, LUT 0x100 with 4-byte rows, vote EPSS_REG_L3_VOTE 0x90; only those three
-// offsets are touched there. LUT row: bits 31:30 source, 18:16 core count (1 = turbo), 7:0 L value; an L value is a
-// multiple of the 19.2 MHz bi_tcxo_div2 clock, source 0 is GPLL0/2.
+// policy's other CPUs when dcvs_ctrl bit 0 is set).
+//
+// The three windows are THIS board's: kona places them at 0x18591000 / 0x18592000 / 0x18593000, with CPU counts
+// 4, 3 and 1 (cpu0-3, cpu4-6, cpu7) - see kDomainBase and kDomainCpus below, and qcom,freq-domain in dts/dby_w09.dts.
+// Earlier revisions of this comment quoted the SM8550 reference this file was derived from (cpufreq@17d91000 and
+// counts 3/4/1); those were never the values in the code, and a reader comparing the two had no way to tell which
+// side to trust.
+//
+// There is no L3 vote here. The SM8550 reference carries an osm-l3 "qcom,epss-l3" node at interconnect@17d90000;
+// this board's kona EPSS has no such window, which is why no L3 code exists in this file. LUT row: bits 31:30
+// source, 18:16 core count (1 = turbo), 7:0 L value; an L value is a multiple of the 19.2 MHz bi_tcxo_div2 clock,
+// source 0 is GPLL0/2.
 // A cluster whose cores are all off reads enable 0 and state 0 (int-143 read at 7 s, before the secondary cores ran), so the
 // probe maps the windows once and sheng_cpufreq_poll(), called every log round, votes each domain the first time it reads
 // enabled and refreshes the row. Nothing here is validated on the device until a boot has shown it.

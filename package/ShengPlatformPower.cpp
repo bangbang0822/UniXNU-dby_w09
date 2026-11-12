@@ -74,6 +74,16 @@ extern "C" void sheng_pmgr_run(void)
   sheng_pmgr_observation[0] = 1;
   kern_return_t result = OSKextLoadKextWithIdentifier("com.apple.driver.ApplePMGR");
   if (result) { sheng_pmgr_observation[1] = static_cast<uint32_t>(result); sheng_pmgr_checkpoint(); return; }
+  // Provenance, because three numbers here are contract values rather than choices:
+  //   0x4b8a8  ApplePMGR's class size
+  //   0x740    ApplePMGRNub's class size
+  //   nub+0x88 the nub's provider field
+  // All three are recorded by UniXNU's own scripts/audit-amfi-pmgr-contract.py, which pins the untouched
+  // AMFI -> PMGR boundary: provider_field_offset '0x88', service class 'ApplePMGRNub', read and write
+  // vtable slots 320 and 321 at byte offsets 0xa00 and 0xa08, and the null-provider behaviour (read
+  // 0xffffffff, write returns without an operation) that lets a provider-less nub satisfy the latch.
+  // The two sizes are compared against the classes this boot actually loaded, so a donor that changes
+  // either one stops the bridge here instead of letting it write through a stale layout.
   const OSMetaClass *parent = lookup("ApplePMGR"), *nubMeta = lookup("ApplePMGRNub");
   if (!parent || parent != &ApplePMGR::gMetaClass || parent->getClassSize() != 0x4b8a8 ||
       !nubMeta || nubMeta->getClassSize() != 0x740) { sheng_pmgr_checkpoint(); return; }
@@ -98,6 +108,9 @@ extern "C" void sheng_pmgr_run(void)
     nub = sheng_original_pmgr_nub_create(description, provider);
     sheng_pmgr_observation[5] = reinterpret_cast<uintptr_t>(nub);
     if (!nub || nub->getMetaClass() != nubMeta || !provider->metaCast("ApplePMGR")) break;
+    // Read the provider field back before touching anything else: 0x88 is provider_field_offset in
+    // the AMFI-PMGR contract named above, so a mismatch here means the nub published against a
+    // different provider than the one this driver built.
     uintptr_t bound = 0;
     memcpy(&bound, reinterpret_cast<const char *>(nub) + 0x88, sizeof(bound));
     sheng_pmgr_observation[6] = bound;

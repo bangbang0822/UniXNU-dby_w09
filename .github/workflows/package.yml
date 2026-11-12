@@ -57,9 +57,10 @@ jobs:
       - name: tools
         run: |
           brew install dtc llvm lld cmake mtools ninja blacktop/tap/ipsw
+          llvm_prefix=$(brew --prefix llvm)
           {
-            echo "/opt/homebrew/opt/llvm/bin"
-            echo "/opt/homebrew/opt/lld/bin"
+            echo "$llvm_prefix/bin"
+            echo "$(brew --prefix lld)/bin"
           } >> "$GITHUB_PATH"
           # Fail fast, naming the tool, before forty minutes of build.
           ok=1
@@ -68,7 +69,7 @@ jobs:
             command -v "$t" >/dev/null || { echo "missing tool: $t"; ok=0; }
           done
           for t in llvm-nm llvm-objcopy llvm-ar; do
-            [ -f "/opt/homebrew/opt/llvm/bin/$t" ] || { echo "missing tool: $t"; ok=0; }
+            [ -f "$llvm_prefix/bin/$t" ] || { echo "missing tool: $t"; ok=0; }
           done
           [ "$ok" = 1 ]
       - name: platform seed

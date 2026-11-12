@@ -43,6 +43,7 @@ Run from the UniXNU checkout:
 ./unixnu tree -D ../UniXNU-dby_w09
 ./unixnu build kernel -j 2 -D ../UniXNU-dby_w09 --uefi ../uefi-sheng
 ./unixnu build payload -D ../UniXNU-dby_w09 --uefi ../uefi-sheng <inputs from README.md>
+python3 scripts/check-repository.py                    # no build host, no hardware
 python3 scripts/porting-record.py check --device ../UniXNU-dby_w09
 ```
 

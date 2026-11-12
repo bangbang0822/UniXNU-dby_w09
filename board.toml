@@ -511,7 +511,7 @@ kernel_args = [
   # 命名按本板 dby- 短名规范（同 dby-bl=1、dby-pa=2），不用官方的 sheng-battery=1（15 字节）。
   # 字节预算：本次改动前实测 44 个参数拼接 919 字节，加这个 933/1000（payload.py:35 的 DarwinBoot 门）。
   "dby-battery=2",
-  # 2026-11-07 dby-audio=2（12 字节）：本机 legacy APR 播放阶梯的开关，读取点是 package/DbyAudio.cpp:445
+  # 2026-11-07 dby-audio=2（12 字节）：本机 legacy APR 播放阶梯的开关，读取点是 package/DbyAudio.cpp:923 的 sheng_audio_probe
   # 的 sheng_audio_probe（同一条链上 dby-apr 只截阶梯深度，默认 3 = AFE/ADM/ASM 全跑，这次不占字节）。
   # 2 是 initiator：由我们打开 apr_audio_svc 通道并先问 AVCS 版本；1 只被动监听，本机要主动拉起。
   # 不用 SM8550 AudioProbe.cpp 读的 sheng-audio：那是另一台机器的硅，本板不编译它（上面 216-219 行的

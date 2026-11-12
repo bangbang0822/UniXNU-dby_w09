@@ -3,7 +3,8 @@
 // banner, the GPU rows, a caught panic message) and the kernel message buffer are written to the last 32 MiB of userdata through
 // NativeUfs's bounded log window, so a run can be read back afterwards (scripts/read-sheng-log.py over the Linux log reader).
 //
-// Window layout (4096-byte blocks): 0 header, 1..32 the kernel message buffer (oldest first), 33.. text slots of 8 blocks in a ring,
+// Window layout (LogBlock = 4096-byte blocks): 0 header, 1..32 the kernel message buffer (oldest first), 33.. text slots of
+// LogSlotBlocks = 16 blocks each in a ring,
 // then the export (version 3, int-150): the newest complete blob that user space handed over (boot_log_export_put: the Metal plugin's
 // pipeline caches, so the next image can start with them) lies in NativeUfs's export region, the 256 MiB below the window, which the
 // reader fetches on its own. Its two halves alternate, so the header always names a blob that is wholly on the medium. (Version 2 kept a

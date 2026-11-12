@@ -190,8 +190,9 @@ Three parts, all of them this repository's existing mechanisms rather than a new
    `2` or `3` a refused mount, `4` that `/System/Library/MediaCapture` does not answer a lookup on this
    root, `5` that the overlay took. This is the same bindfs union the wallpaper, the LaunchDaemons and
    the audio HAL plug-in use; the root itself is never written.
-3. **The plug-in** (`torch/DbyTorchPlugin.m`, `scripts/build-dby-torch-plugin.py`,
-   `scripts/add-dby-torch-data.py`): a `dlopen`-ed bundle whose only job is to answer the vendor's
+3. **The plug-in** (`package/DbyTorch/ios/DbyTorchPlugin.m`, compiled into `H6ISP.mediacapture` by
+   `scripts/build-dby-camera-plugin.py`, which also adds the camera providers, and staged into the Data seed by
+   `scripts/add-dby-camera-data.py`): a `dlopen`-ed bundle whose only job is to answer the vendor's
    flashlight messages. It exports no `CaptureDeviceCreate`, so no capture device appears and no
    camera appears anywhere; it registers a client only for the description `FigFlashlight`, and that
    stream's `TorchLevel` is what reaches the user client. It is delivered through the Data seed and

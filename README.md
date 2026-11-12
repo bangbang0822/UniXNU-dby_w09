@@ -42,6 +42,31 @@ porting.toml                porting record: areas, statuses and evidence
 
 `package/` appears in the assembled tree as `kits/dby_w09`.
 
+## Verify the record
+
+This repository is meant to be readable and checkable without a build host and without the
+tablet. `scripts/check-repository.py` needs only Python 3.11 and git, and it fails when the
+record and the tree stop agreeing:
+
+```sh
+python3 scripts/check-repository.py            # every check, one line each
+python3 scripts/check-repository.py --verbose  # plus what it skipped and why
+```
+
+It verifies that `board.toml` and `porting.toml` parse and agree on the device identity,
+that every path either file names exists, that every tracked code file is claimed by a
+record area and every claim matches a file, that each patch named by a series resolves
+(series entries that live in the assembled tree are reported, not silently passed), that
+the two copies the repository keeps of the same patch are still byte-identical, that no
+committed file names a build host path, and that no generated or private artefact is
+tracked. Exit status is 0 only when all of it holds.
+
+The upstream record validator is a separate, stronger check and needs a UniXNU checkout:
+
+```sh
+python3 scripts/porting-record.py check --device ../UniXNU-dby_w09
+```
+
 ## Prerequisites
 
 1. **UniXNU** checkout plus an arm64 Apple toolchain (clang/lld, `xcrun` shims) on the build host.

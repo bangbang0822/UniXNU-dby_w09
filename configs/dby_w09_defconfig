@@ -1,10 +1,13 @@
 # Kernel configuration of the dby_w09 image. CONFIG_XNU_<NAME> becomes XNU_<NAME> for the kernel build.
 #
 # DBY-W09 = Huawei MatePad 11, SM8250 (kona), AArch64.
-# 这是最小 defconfig：只保留与 SoC 无关的通用 XNU 项，删掉了 sheng 的
-# SM8550/Adreno740 专属项（CONFIG_XNU_SHENG_PMGR / CONFIG_XNU_NATIVE_ADRENO /
-# CONFIG_XNU_NATIVE_LEGACY_DISPLAY 等）。SM8250/Adreno650 的显示/GPU/电源驱动
-# 要单独移植，当前阶段（bring-up 阶段 2→3）先不启用。
+# 保留与删除，按本文件的实际情况写清楚（早先这里写着 sheng 专属项都被删了，
+# 但 CONFIG_XNU_SHENG_PMGR 一直开着，因为它就是 PMGR 桥的开关）：
+#   保留 CONFIG_XNU_SHENG_PMGR=y —— payload 阶段要求恰好一个 sheng-pmgr=2，
+#        且内核里链了 _sheng_pmgr_run，否则拒产出镜像。
+#   保留 CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y —— 本板现在就是 CPU 渲染扫描输出。
+#   删除 CONFIG_XNU_NATIVE_ADRENO 与 Adreno740 GPU 路径 —— SM8250 是 A650，
+#        目录里没有覆盖这一代的组件。
 
 # 通用平台与 CPU（AArch64，所有设备都需要）
 CONFIG_XNU_ARM_DT_PLATFORM=y

@@ -107,14 +107,18 @@
 // scripted swipes' percentages) then speaks one coordinate space: x across the landscape screen, y down it.
 #define TB_UI_ABS_MAX_X 2560
 #define TB_UI_ABS_MAX_Y 1600
-// The published space is the panel's own frame, in the devicetree's own units, with no rotation and no rescaling. Axis x is
-// the axis the framebuffer scans out as its width, and the two frames really are the same shape: this board's scan-out is
-// 1600 columns by 2560 rows - scripts/patch-xnu-entry-probe.py:76-79 and scripts/xnu-panic-screen.c:238-241, both written
-// against the device's own vc_info, which is also why the console has to rotate into a landscape canvas to be readable -
-// and the digitizer's axes are 1600 by 2560 (b01.dts:10101-10102 above). Those spans only pair up without a transpose, so
-// the transpose this file used to do (short axis "becomes the UI's y", long axis "becomes the UI's x", a landscape
-// convention inherited from the sheng board, whose GOP is 2560x1600) rotated every contact through 90 degrees and stretched
-// the aspect by 2560/1600 against the panel it was supposed to match.
+// What is published is the UI's landscape space, not the digitizer's portrait one: TB_X_AXIS_MAX/TB_Y_AXIS_MAX are the
+// UI's 2560x1600 above, and the driver converts the digitizer's 1600x2560 into it rather than publishing that frame
+// raw. An earlier revision of this comment claimed the opposite - that the published space was the panel's own
+// portrait frame "with no rotation and no rescaling" - while the two defines below already carried the UI's values,
+// which is exactly the kind of contradiction a reader cannot resolve from the file.
+//
+// The pixel geometry a reader needs: the panel scans out 1600 columns by 2560 rows (scripts/patch-xnu-entry-probe.py:76-79
+// and scripts/xnu-panic-screen.c:238-241, both written against the device's own vc_info, which is also why the console
+// rotates into a landscape canvas), and the digitizer reports in the same 1600x2560 frame (b01.dts:10101-10102 above).
+// Those two spans pair up without a transpose; the transpose this file used to do (a landscape convention inherited
+// from the sheng board, whose GOP is 2560x1600) rotated every contact through 90 degrees and stretched the aspect by
+// 2560/1600 against the panel it was supposed to match.
 #define TB_X_AXIS_MAX TB_UI_ABS_MAX_X
 #define TB_Y_AXIS_MAX TB_UI_ABS_MAX_Y
 // Which way each axis runs along its span has not been observed on this board: a photograph cannot show it, and the
