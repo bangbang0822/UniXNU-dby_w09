@@ -42,9 +42,10 @@ Only an administrator merges, and only after both gates are recorded. This was v
 passed the configured review", then with "has not passed the configured test", and succeeded only
 after both were recorded.
 
-One thing worth stating because it is easy to get wrong: the review gate is not cleared by the
-person who wrote the change. Approving your own pull request records a review that nobody
-performed.
+One thing worth stating because it is easy to get wrong: Gitee will accept an approval from the
+author of a pull request, but that records a review nobody performed. The gate asks for a second
+person; when there is no second person, say so in the pull request rather than approving your own
+work.
 
 ## What review checks
 
@@ -82,28 +83,33 @@ the claim.
 ## Code style
 
 There is no formatter and no style gate, so the file you are editing is the specification: read the
-function above the one you are adding and match it. The table below describes the tree as it
-stands; it was measured, not chosen, and it is what a new file should look like.
+function above the one you are adding and match it. The table below is what a new file should look
+like here; where the tree disagrees, the disagreement is older than the rule.
 
 | Convention | What the tree does |
 | --- | --- |
-| Indentation | Four spaces per level. Tabs survive in the XNU-derived sources and in a few older files. |
-| Braces | The opening brace stays on the line that opens the block. |
+| Indentation | Four spaces per level; tabs survive only in files that arrived from elsewhere. |
+| Braces | Blocks open on the same line; function definitions use either form -- match the file. |
 | Headers | `#ifndef` guards in upper snake case ending in `_H`; no `#pragma once`. |
-| Licence header | First line `// SPDX-License-Identifier: BSD-2-Clause-Patent`, or `#` in scripts. |
+| Licence header | `// SPDX-License-Identifier: BSD-2-Clause-Patent` first, or `#` in scripts. |
 | Includes | `<...>` for SDK and kernel headers, `"..."` for headers in this tree. |
 | Null | `NULL` in C, `nullptr` in C++: match the file instead of mixing the two. |
 | Constants | A `k` prefix on constants that are not local to one function (`kOpForms`). |
 | Line endings | LF, enforced by `.gitattributes`; patches are marked `-whitespace`. |
 | Line length | No hard limit; comment prose is wrapped by hand at about 95 columns. |
-| Comments | English, and they explain why. A claim about upstream code cites file and line, the way `porting.toml` does. |
+| Comments | English, explaining why; a claim about upstream code cites file and line. |
+
+The tree does not match this table everywhere, because several hands wrote it. Twelve files carry
+Chinese notes, `NULL` and `nullptr` both appear in C++ written on different days, and a few older
+functions put their brace on its own line. That is history, not precedent: new code follows the
+table, and a file is not converted just because it is being touched.
 
 Two things the table does not license:
 
-- **Do not restyle a file that came from somewhere else.** The XNU-derived sources -- the fixtures
-  under `package/QcomXnuUsbDebug/fixture/`, `package/LinkStubs.c` and the pexpert sources beside
-  them -- keep their tabs, their brace placement and the header they arrived with, because the next
-  person has to be able to diff them against the original.
+- **Do not restyle a file that came from somewhere else.** The fixtures under
+  `package/QcomXnuUsbDebug/fixture/` carry XNU's own `bsd/`, `osfmk/` and `pexpert/` paths, and they
+  keep their tabs, their brace placement and the header they arrived with, because the next reader
+  has to diff them against the original.
 - **Do not reformat and change behaviour in the same commit.** If the tree ever adopts a formatter,
   it arrives as its own commit that touches only whitespace, so that a review can read it with
   `git diff -w` and know there is nothing else in it.
@@ -116,8 +122,8 @@ Python 3.11 does:
 - `#!/usr/bin/env python3`, a module docstring that says what the script proves, standard library
   only;
 - `argparse` for arguments, `if __name__ == "__main__"` for the entry point;
-- one line of output on success, a non-zero exit when a check fails, and no output at all when
-  `--quiet` is given.
+- one line of output on success and a non-zero exit when a check fails; a script the `pre-push` hook
+  calls takes `--quiet`, because the hook prints one line per push.
 
 Shell scripts start `#!/usr/bin/env bash` and set `-e`.
 
@@ -158,5 +164,5 @@ live under `.cache/`. A pull request that adds one of them is rejected, not disc
 
 ## License
 
-Contributions are licensed under BSD-2-Clause-Patent. The `LICENSE` file applies to the whole
-repository.
+Contributions are licensed under BSD-2-Clause-Patent, the root `LICENSE`. Code that arrived from
+somewhere else keeps the licence it came with, as `package/QcomXnuUsbDebug/usb/LICENSE.m1n1` does.
