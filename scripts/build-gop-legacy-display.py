@@ -268,7 +268,7 @@ for src in adsp_c:
 # it opens the channel this board's own device tree names (kona.dtsi:4191-4216, apr_audio_svc with
 # qcom,intents = <0x200 20>), walks the AFE/ADM/ASM command ladder ShengApr.c encodes, and plays one mapped PCM
 # stream out of Primary TDM RX 0x9000 - the four-slot port this unit's speakers hang off (asoc/kona.c:6678-6692,
-# kona/DBY/W09_VA/huawei-audio.dtsi). Its entry is sheng_audio_probe, which LegacyDisplayProbe.cpp:501 calls and
+# kona/DBY/W09_VA/huawei-audio.dtsi). Its entry is sheng_audio_probe, which LegacyDisplayProbe.cpp:495 calls and
 # LinkStubs.c:121 leaves a weak no-op for; until this object existed the call landed on that no-op and the four
 # TFA9874 amplifiers DbySmartPA.cpp initialised never received a single sample. Same compile record as
 # AdspProbe.cpp, and no late staging: the file has one zero-initialised POD at namespace scope, so it emits no
@@ -312,7 +312,7 @@ require(code(keyevents.read_bytes(),macho(keyevents.read_bytes()))==
         'Owned event-service instructions unchanged by late init staging')
 # The CPU frequency control for this board's EPSS domains (package/CpuFreqProbe.cpp, the official SM8250
 # board alioth's file, taken unchanged). It exports sheng_cpufreq_probe/sheng_cpufreq_poll, which
-# LegacyDisplayProbe.cpp:495 calls once and BootProgress.c:1110 calls every log round; until this object
+# LegacyDisplayProbe.cpp:489 calls once and BootProgress.c:1129 calls every log round; until this object
 # existed both calls landed on the weak no-op in LinkStubs.c:96, so the board never issued one vote and all
 # eight cores sat on the EPSS reset level. Same compile record as the two probes above, so the flags match
 # the kernel's C++ recipe, plus -mgeneral-regs-only the way alioth's recipe passes it (build-gop-legacy-
@@ -325,7 +325,7 @@ run([str(cpufreq_source) if str(arg)==str(source) else str(cpufreq_obj) if str(a
 
 # Panel brightness (package/AppleARMBacklight.cpp: the sheng board's service with this board's constants; package/
 # BacklightProbe.cpp: its entry; package/GeniI2c.c: the GENI engine core it drives). BacklightProbe.cpp defines
-# sheng_backlight_probe, which LegacyDisplayProbe.cpp:503 calls and LinkStubs.c:131 leaves a weak no-op for: without this
+# sheng_backlight_probe, which LegacyDisplayProbe.cpp:497 calls and LinkStubs.c:131 leaves a weak no-op for: without this
 # object that call lands on the no-op and the panel keeps whatever brightness the boot loader left it at.
 # One engine and one LP8556 at 0x2c on qupv3_se11, 12-bit level across 0x10 and 0x11 (see the file's header for the kernel
 # device tree and clock driver records each constant comes from).
@@ -351,7 +351,7 @@ pa_obj=OUT/'DbySmartPA.o'
 run([str(pa_source) if str(arg)==str(source) else str(pa_obj) if str(arg)==str(probe) else arg for arg in cmd]
     +['-Wno-missing-designated-field-initializers'],cwd=r['directory'])
 # 电池（package/DbyBattery.cpp 这个服务 + package/BatteryProbe.cpp 它的入口）。入口导出
-# sheng_battery_probe：LegacyDisplayProbe.cpp:500 已经在调它，LinkStubs.c:116-117 今天把这个调用
+# sheng_battery_probe：LegacyDisplayProbe.cpp:494 已经在调它，LinkStubs.c:116-117 今天把这个调用
 # 答案成弱空桩——llvm-nm 在已建好的 kernel.macho 上，_sheng_cpufreq_probe 和 _sheng_backlight_probe
 # （它们的对象已是这里的成员）是强 external，_sheng_battery_probe 还是 weak external。让这个归档多出
 # 一个成员就是把那一次调用接到真实现上，机制与上面两块一模一样：归档是被 -force_load 拉进来的

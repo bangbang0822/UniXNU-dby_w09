@@ -287,8 +287,8 @@ __attribute__((weak)) int (*native_adreno_dram_read32)(uint64_t, uint32_t *) = 0
  * 0xff says "this stub answered, not the module", so the row can never be misread as a real
  * measurement. The struct's first two fields are phase and error, which is all this writes. */
 /* The console module pushes its own one-line status through this, declared weak_import there, so
- * a board without the row still links. alioth gives it a real implementation that redraws row 42
- * (package/BootProgress.c:655); our page has no spare row, so the note is dropped and the USB
+ * a board without the row still links. alioth gives it a real implementation that redraws row 42;
+ * our page has no spare row, so the note is dropped and the USB
  * console carries the same bytes. */
 __attribute__((weak)) void boot_progress_persist(const char *text, unsigned color) { (void)text; (void)color; }
 

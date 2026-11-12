@@ -8,7 +8,7 @@ Status, measured 2026-11-09 rather than carried forward: the portable core and t
 `scripts/check-dby-torch-host.py`, archive gates included, against a real tree's XNU compile records
 (see `## Building and testing`). The driver is wired into this device repository and is in that tree's
 kernel — `board.toml` gives `scripts/build-dby-torch.py` an `archives` slot,
-`configs/dby_w09_defconfig:130` names `build/dby-torch/libDbyTorch.a`, `package/BootProgress.c:1134`
+`configs/dby_w09_defconfig:130` names `build/dby-torch/libDbyTorch.a`, `package/BootProgress.c:1146`
 calls `dby_torch_start()`, and `build/xnu/ios-obj/mach.development.bcm2837` defines the 20 entry
 points. Two things are not: that kernel is the one built before the `DbyTorchIos.*` sources existed, so
 its archive has the core and the driver but not the iOS glue (the next official kernel build links all

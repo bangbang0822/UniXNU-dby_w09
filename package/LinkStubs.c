@@ -66,7 +66,7 @@ __attribute__((weak)) uint32_t native_ufs_dpu_map(unsigned slot, const uint64_t 
 	return 0;
 }
 
-// BootProgress.c:1070 calls boot_log_tick() as a weak_import, and the official provider of that
+// BootProgress.c:1129 calls boot_log_tick() as a weak_import, and the official provider of that
 // counter is package/BootLog.c (sheng 38,585 B / alioth 81,678 B), which our device repo does not ship.
 // Same rule as the boot_progress_poll stub above: a static kernel link refuses an undefined weak_import,
 // so the hook gets a no-op here; weak, so linking the real BootLog.c later wins without editing this file.

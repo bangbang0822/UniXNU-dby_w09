@@ -10,7 +10,7 @@
 // sheng-battery at 15 — see board.toml's comment on the argument.
 //
 // The entry point keeps upstream's name, sheng_battery_probe, because the consumer already calls it:
-// package/LegacyDisplayProbe.cpp:488 declares it and :500 calls it between sheng_adsp_probe() and
+// package/LegacyDisplayProbe.cpp:482 declares it and :494 calls it between sheng_adsp_probe() and
 // sheng_audio_probe(). llvm-nm on that object spells the reference `_sheng_battery_probe U`, the
 // unmangled C name, so this file's extern "C" definition is what resolves it — and it arrives through
 // the force-loaded display archive, which is why it beats the weak no-op at package/LinkStubs.c:116-117

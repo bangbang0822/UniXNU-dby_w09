@@ -276,6 +276,32 @@ def main():
     report.check(not offenders, 'no committed file names a build host path',
                  ', '.join(offenders[:6]) if offenders else 'record and Apple sources exempt')
 
+    # ---- line citations --------------------------------------------------
+    # A citation is only useful if it points inside the file it names. This cannot judge
+    # whether the line still says what the sentence claims -- that needs a reader -- but it
+    # catches the case that has already happened here twice: a number that ran past the end
+    # of the file when the file shrank.
+    citation = re.compile(r'([\w.-]+\.(?:c|cpp|h|m|mm|py|sh|toml)):(\d+)')
+    out_of_range = []
+    for rel in files:
+        if not rel.endswith(('.c', '.cpp', '.h', '.m', '.mm', '.py', '.sh', '.toml', '.md', '.txt', '.yml')):
+            continue
+        try:
+            text = (device / rel).read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            continue
+        for match in citation.finditer(text):
+            target, line = match.group(1), int(match.group(2))
+            if target in (pathlib.PurePath(rel).name,) and target.startswith(rel):
+                continue
+            candidates = [f for f in files if f.endswith('/' + target) or f == target]
+            if not candidates:
+                continue          # cites a file outside this repository (core, xnu, vendor tree)
+            count = len((device / candidates[0]).read_text(encoding='utf-8', errors='replace').splitlines())
+            if line > count:
+                out_of_range.append(f'{rel}: {match.group(0)} (file has {count} lines)')
+    report.check(not out_of_range, 'every line citation points inside the file it names',
+                 '; '.join(sorted(set(out_of_range))[:4]) if out_of_range else 'checked across the tree')
     # ---- generated artefacts --------------------------------------------
     tracked_build = [f for f in tracked_set if f.startswith(IGNORED_PREFIX)]
     report.check(not tracked_build, 'no generated or private artefact is tracked',

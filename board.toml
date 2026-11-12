@@ -262,11 +262,11 @@ kernel_args = [
   "dby-touch-se=1",
   # CPU 频率投票（package/CpuFreqProbe.cpp 读 sheng-cpufreq=，来自官方同 SoC 板 alioth）。
   # 2 -> 3 之前先把历史写清楚：这一项从 uit1 起就在参数里，但本树从来没有链进读它的代码，
-  # 调用点 LegacyDisplayProbe.cpp:495 命中的是 LinkStubs.c:96 的 weak 空桩——也就是说八个核
+  # 调用点 LegacyDisplayProbe.cpp:489 命中的是 LinkStubs.c:96 的 weak 空桩——也就是说八个核
   # 一直停在 EPSS 复位默认档，一次投票都没发过。现在探针进来了（走 build-gop-legacy-display.py
   # 的 late 归档，和 KeyStoreProbe 同一层），mode 3 = 每个读到 enable 的域都投最高非 turbo 档；
   # alioth 在同款 kona 上跑的就是 3。本板 EPSS 没有 L3 窗口，mode 3 的 L3 半边在这份 kona 源里
-  # 本来就不存在。屏幕上第 39 行（BootProgress.c:342，native_cpufreq_stage>=2 才画）是判读行。
+  # 本来就不存在。屏幕上第 39 行（BootProgress.c:347，native_cpufreq_stage>=2 才画）是判读行。
   "sheng-cpufreq=3",
   # DriverKit 必须让开：不加 dk=0 时 AppleUserHIDEventDriver 抢走匹配，然后卡在
   # "user server timeout"（机器上没有 AppleUserHIDDrivers 进程），事件根本出不了内核；
@@ -315,7 +315,7 @@ kernel_args = [
   # host either (no 1209:316d), so every tee'd printf/kprintf/IOLog has been polling a controller
   # that never came back -- and when the cable is pulled the poll has no owner left to find.
   # Evidence: community-components/alioth-qud/docs/evidence/2026-10-27-boot-diagnostics.md
-  # sheng-build-tag removed here: it is the panel session label, and package/BootProgress.c:213
+  # sheng-build-tag removed here: it is the panel session label, and package/BootProgress.c:223
   # states its purpose as "so a photograph says which image it is". The USB console now carries
   # the record itself, and each run is named by the kernel sha256 that payload.json records, so
   # this row had no reader left. Its 21 bytes are also the reserve for qcom-usb-ctl=1, which is
@@ -411,7 +411,7 @@ kernel_args = [
   "sheng-adsp=2",
   # boot-diag-resume dropped 2026-11-05: with the live banner off by default the panel is never
   # painted after the hand-off, so there is nothing left to take back. The argument being absent
-  # means resume_after=0 (BootProgress.c:551 clamps <5 to 0) = never reclaim the panel. Its 22
+  # means resume_after=0 (BootProgress.c:556 clamps <5 to 0) = never reclaim the panel. Its 22
   # bytes are now spent on armcpu-self-ipi=1 below; qcom-usb-ctl=1 (15 bytes) stays queued.
   "armcpu-spi-ipi=1",
   # 官方同 SoC 板 alioth 的 cpu 记录逐字列出的四项之一（sheng-smp / armcpu-spi-ipi /
@@ -455,7 +455,7 @@ kernel_args = [
   # （payload.py:35）。主机侧证据是枚举 1209:316d serial=QcomXnuUsbDebug；拒绝也会由
   # boot-progress 把同一行画在面板上（§8），所以一次刷写两边都能读。
   # 2026-11-06 dby-bl=1（8 字节）：面板背光 LP8556 @ 0x2c，挂在 qupv3_se11（i2c@a8c000）。
-  # 读者是 package/BacklightProbe.cpp，由 LegacyDisplayProbe.cpp:503 的 sheng_backlight_probe()
+  # 读者是 package/BacklightProbe.cpp，由 LegacyDisplayProbe.cpp:497 的 sheng_backlight_probe()
   # 调进来（LinkStubs.c:131 是它的弱空桩）。不传则整条背光服务不启动，亮度停在引导
   # 器留下的值。命名按本板 dby- 短名规范，不用 sheng-backlight=1（后者 18 字节）。
   # 2026-11-08 恢复 dby-bl=1。它是亮度滑杆唯一的启用开关（读者 package/BacklightProbe.cpp），
@@ -471,7 +471,7 @@ kernel_args = [
   # 无论先从哪套开始，三套 × 两种复位末端电平都会试到，每套一行判词。
   "dby-pa=3",
   # 2026-11-06 dby-battery=1（13 字节）：电池/充电这条路的开关，读者是 package/BatteryProbe.cpp
-  # （它导出 sheng_battery_probe，由 LegacyDisplayProbe.cpp:500 调进来；LinkStubs.c:116-117 是它今天的
+  # （它导出 sheng_battery_probe，由 LegacyDisplayProbe.cpp:494 调进来；LinkStubs.c:116-117 是它今天的
   # 弱空桩，所以这个参数不传时连服务对象都不会被创建）。
   # =1 起 DbyBattery 服务：先读 SPMI arbiter 的 APID 表（0x900+4n）与 ownership 表（0x700+4n）确认
   # USID 2 的电量计/充电器对本 EE 有没有通道，再用观察者引擎（0x0e600000，DbyTouch 在本板跑通的同一条
@@ -569,6 +569,8 @@ flash = 1
 # 本板没实现 suspend/resume：用原始根域策略输入，而不是让 CPU 永久停车。
 [adt.defaults.u32]
 sleep-disabled = 1
+dby-boot-ui-scale = 1              # 引导期文本缩放档（1..3）。读者 package/BootProgress.c 的 PE_get_default；
+                                   # 改它只需要重出 payload，不需要重编内核。1 是本板实测值。
 
 # /buttons：DBY-W09 没有 Home 键，所以 button-names 不带 menu，
 # home-button-type = 2（纯手势），锁屏给滑动解锁并画 home indicator。

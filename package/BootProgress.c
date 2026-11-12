@@ -565,7 +565,19 @@ void boot_progress_bind(uintptr_t base,unsigned w,unsigned h,unsigned rb,unsigne
   if (base >= 0xffff000000000000ULL && depth == 32 && w >= 720 && w <= 4096 &&
       h >= 560 && h <= 4096 && rb >= w*4 && rb <= 65536 &&
       base <= UINTPTR_MAX-(uint64_t)h*rb) {
-    display.frame=base;display.width=w;display.height=h;display.stride=rb;display.scale=w>=2160 && h>=1400?3:1;
+    display.frame=base;display.width=w;display.height=h;display.stride=rb;
+    // Text scale is board policy and reaches the kernel through the device tree, not through a
+    // boot argument: [adt.defaults.u32] dby-boot-ui-scale is emitted into /defaults by the shared
+    // ADT generator, so changing it costs a payload rebuild rather than a kernel rebuild.
+    // The compiled expression is the fallback for a payload built before the key existed; it
+    // reproduces the previous behaviour exactly (this 1600x2560 panel fails both bounds -> 1).
+    {
+      uint32_t ui_scale=0;
+      if (PE_get_default("dby-boot-ui-scale",&ui_scale,sizeof ui_scale) && ui_scale>=1 && ui_scale<=3)
+        display.scale=(unsigned)ui_scale;
+      else
+        display.scale=w>=2160 && h>=1400?3:1;
+    }
     memset(display.previous,0xff,sizeof(display.previous));
     // Terminate the sentinels before strcmp.
     for(unsigned i=0;i<48;++i) display.previous[i][BP_COLS-1]=0;
