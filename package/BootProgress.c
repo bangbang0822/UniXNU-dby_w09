@@ -40,7 +40,7 @@ static struct bp_pulse pulse;
 struct bp_panic_info boot_progress_panic_vinfo;
 // The panic screen (scripts/xnu-panic-screen.c) also copies the formatted panic message here (first panic only, NUL-terminated):
 // a panic on a secondary core parks just that core, the next swap paints over the panic screen, and the live banner keeps the text.
-char boot_progress_panic_text[256];
+char boot_progress_panic_text[2048];
 _Static_assert(offsetof(struct bp_panic_info,height)==offsetof(struct vc_info,v_height),"panic height ABI");
 _Static_assert(offsetof(struct bp_panic_info,width)==offsetof(struct vc_info,v_width),"panic width ABI");
 _Static_assert(offsetof(struct bp_panic_info,depth)==offsetof(struct vc_info,v_depth),"panic depth ABI");
@@ -92,7 +92,7 @@ extern void boot_log_tick(unsigned) __attribute__((weak_import));
 extern void sheng_cpufreq_poll(void) __attribute__((weak_import));
 extern char boot_process_rows[10][120] __attribute__((weak_import));
 extern unsigned boot_ui_trace_role_rows(unsigned,char [][120],unsigned,unsigned) __attribute__((weak_import));
-extern char native_touch_rows[4][120] __attribute__((weak_import));
+extern char native_touch_rows[8][120] __attribute__((weak_import));
 extern char native_cpufreq_row[120] __attribute__((weak_import));
 extern volatile uint32_t native_hid_input_events[8] __attribute__((weak_import));
 extern volatile int native_hid_input_results[8] __attribute__((weak_import));

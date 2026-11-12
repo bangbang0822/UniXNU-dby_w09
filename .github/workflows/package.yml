@@ -1,0 +1,142 @@
+name: package
+
+# scripts/package.sh of this repository on a macOS runner, with the UniXNU and
+# uefi-dby_w09 checkouts beside it, the layout board.toml names. The platform seed
+# comes from the repository secret UNIXNU_UNIQUE_CHIP_ID and is baked into the
+# images, so the run's artifacts belong to one device alone: download them, then
+# delete the run.
+#
+# The Data seed is an input no builder on this board can make (README prerequisite 4):
+# it is produced on macOS and its APFS volume UUID has to equal
+# CONFIG_XNU_OWNER_DATA_VOLUME_UUID in configs/dby_w09_defconfig. The cache below keeps
+# that one file between runs; a run with no cached seed stops instead of inventing one.
+
+on:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: "OS profile of the images"
+        type: choice
+        options: ["ipados-17.7.11-21H461"]
+        default: "ipados-17.7.11-21H461"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEVICE: dby-w09
+  OS_PROFILE: ${{ inputs.os }}
+  RUN_DIR: out/dby-w09/${{ inputs.os }}/dby_w09/runtime
+
+jobs:
+  package:
+    runs-on: macos-26
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: device
+          submodules: recursive
+      - uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          # Pin the UniXNU revision this board was qualified against. Replace this
+          # branch with the commit once it is recorded in porting.toml.
+          ref: main
+          path: UniXNU
+          submodules: recursive
+      - uses: actions/checkout@v4
+        with:
+          repository: WQSQW/uefi-dby_w09
+          path: uefi-dby_w09
+          submodules: recursive
+      - name: tools
+        run: |
+          brew install dtc llvm lld cmake mtools ninja blacktop/tap/ipsw
+          {
+            echo "/opt/homebrew/opt/llvm/bin"
+            echo "/opt/homebrew/opt/lld/bin"
+          } >> "$GITHUB_PATH"
+          # Fail fast, naming the tool, before forty minutes of build.
+          ok=1
+          for t in clang xcodebuild make git ninja cmake dtc fdtget fdtput aea compression_tool \
+                   mformat mcopy ipsw; do
+            command -v "$t" >/dev/null || { echo "missing tool: $t"; ok=0; }
+          done
+          for t in llvm-nm llvm-objcopy llvm-ar; do
+            [ -f "/opt/homebrew/opt/llvm/bin/$t" ] || { echo "missing tool: $t"; ok=0; }
+          done
+          [ "$ok" = 1 ]
+      - name: platform seed
+        env:
+          seed: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+        run: |
+          if ! [[ "$seed" =~ ^[0-9a-fA-F]{8}$ ]]; then
+            echo 'Set the repository secret UNIXNU_UNIQUE_CHIP_ID: the platform seed of the device, 8 hex digits.' >&2
+            exit 1
+          fi
+      - name: seed cache identity
+        id: seed-key
+        env:
+          SEED: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, os
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('key=data-seed-v1-' + hashlib.sha256(os.environ['SEED'].encode()).hexdigest()[:16] + '\n')
+          PY
+      - uses: actions/cache/restore@v4
+        id: data-cache
+        with:
+          path: |
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/data.dbr
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/inputs.json
+          key: ${{ steps.seed-key.outputs.key }}-${{ inputs.os }}
+      - name: require the preserved Data seed
+        run: |
+          seed="UniXNU/out/dby-w09/$OS_PROFILE/dby_w09/runtime/data.dbr"
+          if [ ! -f "$seed" ]; then
+            echo "No cached Data seed at $seed." >&2
+            echo "This board cannot generate one (prepare-owner-data-fixture.py needs macOS hdiutil)." >&2
+            echo "Restore the seed produced for this unit, or build it on a Mac and seed the cache." >&2
+            exit 1
+          fi
+      - name: package
+        working-directory: device
+        env:
+          UNIXNU_UNIQUE_CHIP_ID: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+          UNIXNU_UEFI: ${{ github.workspace }}/uefi-dby_w09
+        run: |
+          scripts/package.sh --os "$OS_PROFILE" --uefi ../uefi-dby_w09
+      - uses: actions/cache/save@v4
+        if: always() && steps.data-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/data.dbr
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/inputs.json
+          key: ${{ steps.seed-key.outputs.key }}-${{ inputs.os }}
+      - name: installation seed backup
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installation-seed-${{ inputs.os }}
+          retention-days: 1
+          if-no-files-found: ignore
+          path: |
+            UniXNU/out/dby-w09/*/*/runtime/data.dbr
+            UniXNU/out/dby-w09/*/*/runtime/inputs.json
+      - name: images
+        uses: actions/upload-artifact@v4
+        with:
+          name: images-${{ inputs.os }}
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            UniXNU/out/dby-w09/*/*/boot/boot.img
+            UniXNU/out/dby-w09/*/*/payload/payload.img
+            UniXNU/out/dby-w09/*/*/kernel/kernel.macho
+            UniXNU/out/dby-w09/*/*/package.manifest.json

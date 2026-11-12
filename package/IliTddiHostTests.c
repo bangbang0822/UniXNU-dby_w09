@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Ilitek TDDI chip model built from the driver this device's own kernel compiles
-// (E:\dby_w09\Code_Opensource\kernel\drivers\devkit\tpkit\hostprocessing\ilitek_thp.c, CONFIG_HUAWEI_THP_ILITEK=y in
+// (the vendor kernel's drivers/devkit/tpkit/hostprocessing/ilitek_thp.c, CONFIG_HUAWEI_THP_ILITEK=y in
 // arch/arm64/configs/merge_kona_defconfig). Nothing in the port had ever spoken this protocol, so this fixture is the
 // check that the transcription is the vendor's and not an approximation: it records what goes on the wire and what the
 // reset line does, and answers the way ilitek_thp.c's own tests require (rxbuf[1] == SPI_ACK at :425, the packet id at

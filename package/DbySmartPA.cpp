@@ -43,7 +43,7 @@
  *
  * 这一层只做到「认出是哪套、把四颗各自的 INIT_CHIP 跑完」。POWER_ON 要等 TDM 有数据再开，
  * 否则只是把 PA 推到放大态听杂音。播放通路这一侧不可达，原因不是“机子里没有 ADSP 固件”：本机
- * modem.img 的 FAT 就带着 adsp.mdt + adsp.b00..b18（22 个文件已抽到 D:\Linux\stock\adsp_unit 核对过），
+ * modem.img 的 FAT 就带着 adsp.mdt + adsp.b00..b18（22 个文件已抽出并核对过，见 porting.toml 的 audio 区），
  * 缺的是 XNU 这边的 PIL-TZ 装载器和 GPR/AudioReach 那一半——&smartpakit algo_in=<1> 走 soc_dsp、
  * &hw_adsp_misc、&wsa_spkr_en1 在 dtsi 里也是 disabled。下面那段 [pa-adsp] 只读调查就是这一步的第一档：
  * 先量清楚启动阶段到底留下了什么，再决定要不要写装载器。

@@ -38,6 +38,27 @@ import sys
 import tempfile
 from pathlib import Path
 
+
+import os
+
+
+def tool(name):
+    """Resolve a host tool: PATH first, then $LLVM_PREFIX/bin, then refuse by name.
+
+    Build hosts differ in where the LLVM toolchain lives, so the prefix is an input
+    rather than a literal path: a committed machine path only works on the machine
+    that wrote it.
+    """
+    found = shutil.which(name)
+    if found:
+        return found
+    prefix = os.environ.get('LLVM_PREFIX')
+    if prefix:
+        candidate = Path(prefix) / 'bin' / name
+        if candidate.is_file():
+            return str(candidate)
+    raise SystemExit(f'{name} not found: put it on PATH or set LLVM_PREFIX to the LLVM prefix')
+
 ENTRY_VA = 0xFFFFFFF00B9D0488        # LC_UNIXTHREAD pc, `b start_first_cpu`
 START_FIRST_CPU = 0xFFFFFFF00B9D205C
 MMU_ENABLE_VA = 0xFFFFFFF00B9D2330   # msr SCTLR_EL1, x0
@@ -157,7 +178,7 @@ _start:
 
 def kernel_symbols(kernel):
     """Address -> name for the kernel's symbols, from llvm-nm."""
-    nm = shutil.which('llvm-nm') or '/opt/homebrew/opt/llvm/bin/llvm-nm'
+    nm = tool('llvm-nm')
     table = {}
     for line in subprocess.run([nm, '-n', kernel], capture_output=True, text=True, check=True).stdout.splitlines():
         parts = line.split()
@@ -205,10 +226,10 @@ def assemble_c(source, va, workdir, symbols):
 
     The linker may start .text a little after VA (it keeps the ELF headers in front), so the
     load address is read back from the ELF and is what the caller must write the bytes to."""
-    clang = shutil.which('clang') or '/opt/homebrew/opt/llvm/bin/clang'
-    lld = shutil.which('ld.lld') or '/opt/homebrew/opt/llvm/bin/ld.lld'
-    objcopy = shutil.which('llvm-objcopy') or '/opt/homebrew/opt/llvm/bin/llvm-objcopy'
-    nm = shutil.which('llvm-nm') or '/opt/homebrew/opt/llvm/bin/llvm-nm'
+    clang = tool('clang')
+    lld = tool('ld.lld')
+    objcopy = tool('llvm-objcopy')
+    nm = tool('llvm-nm')
     # UNIXNU_UEFI is the Mu-Silicium checkout when the unixnu driver runs this script.
     font_dir = Path(os.environ.get('UNIXNU_UEFI') or ROOT / 'uefi-sheng') / 'Silicon/Silicium/SiliciumPkg/Library/FrameBufferSerialPortLib'
     obj, elf, binary = (workdir / name for name in ('panic.o', 'panic.elf', 'panic.bin'))
@@ -233,7 +254,7 @@ def assemble_c(source, va, workdir, symbols):
                     *definitions, f'-I{font_dir}', '-c', source, '-o', obj], check=True)
     script = workdir / 'panic.ld'
     script.write_text('SECTIONS { . = %#x; .text : { *(.text.a_entry) *(.text.a_common) *(.text*) *(.rodata*) } /DISCARD/ : { *(.comment) *(.note*) *(.eh_frame*) *(.ARM.*) } }\n' % va)
-    size = shutil.which('llvm-size') or '/opt/homebrew/opt/llvm/bin/llvm-size'
+    size = tool('llvm-size')
     sizes = subprocess.run([size, '--format=berkeley', obj], capture_output=True, text=True, check=True).stdout.splitlines()[-1].split()
     if int(sizes[1]) or int(sizes[2]):
         # The code runs from the kernel's read-only text: a global would fault on its first store.
@@ -241,7 +262,7 @@ def assemble_c(source, va, workdir, symbols):
     subprocess.run([lld, '-T', script, '-e', 'panic_screen', obj, '-o', elf], check=True)
     # Only .text: a plain binary dump would start at the ELF headers kept in front of it.
     subprocess.run([objcopy, '-O', 'binary', '-j', '.text', elf, binary], check=True)
-    readelf = shutil.which('llvm-readelf') or '/opt/homebrew/opt/llvm/bin/llvm-readelf'
+    readelf = tool('llvm-readelf')
     load = None
     for line in subprocess.run([readelf, '-S', elf], capture_output=True, text=True, check=True).stdout.splitlines():
         parts = line.replace('[', ' ').replace(']', ' ').split()
@@ -261,7 +282,7 @@ def assemble_c(source, va, workdir, symbols):
 
 def panic_common_entry(workdir, code, load):
     """Resolve the real alternate entry and verify its distinct argument ABI."""
-    nm = shutil.which('llvm-nm') or '/opt/homebrew/opt/llvm/bin/llvm-nm'
+    nm = tool('llvm-nm')
     names = {parts[2]: int(parts[0], 16)
              for line in subprocess.check_output([nm, workdir / 'panic.elf'], text=True).splitlines()
              if len(parts := line.split()) == 3}
@@ -438,9 +459,9 @@ def branch(from_va, to_va):
 def assemble(source, va, symbols, workdir):
     asm, obj, elf, binary = (workdir / name for name in ('cave.S', 'cave.o', 'cave.elf', 'cave.bin'))
     asm.write_text(source)
-    clang = shutil.which('clang') or '/opt/homebrew/opt/llvm/bin/clang'
-    lld = shutil.which('ld.lld') or '/opt/homebrew/opt/llvm/bin/ld.lld'
-    objcopy = shutil.which('llvm-objcopy') or '/opt/homebrew/opt/llvm/bin/llvm-objcopy'
+    clang = tool('clang')
+    lld = tool('ld.lld')
+    objcopy = tool('llvm-objcopy')
     subprocess.run([clang, '--target=aarch64-none-elf', '-c', asm, '-o', obj], check=True)
     subprocess.run([lld, f'-Ttext={va:#x}', *[f'--defsym={name}={value:#x}' for name, value in symbols.items()], '-e', '_start', obj, '-o', elf], check=True)
     subprocess.run([objcopy, '-O', 'binary', elf, binary], check=True)

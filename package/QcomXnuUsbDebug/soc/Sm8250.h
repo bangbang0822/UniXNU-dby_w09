@@ -10,8 +10,7 @@
  *
  * Every value names its source.  The workspace's own device trees carry no
  * USB node, so the hardware facts come from the pinned Linux tree that this
- * workspace already uses for SM8250 facts (accessible here as
- * alioth/tmp/kbuild/source -> /Volumes/Disk/xinyang/Lab/Bridge/tmp/gunyah-probe),
+ * workspace already uses for SM8250 facts (alioth/tmp/kbuild/source points at it),
  * cross-checked against the Android DT that the board's UEFI ships in
  * NEW/uefi-alioth/Resources/DTBs/alioth.dts.
  */

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 // dby_w09 (SM8250 / kona) touch controller board facts and the pure helpers around them. Every constant states its source.
 // Nothing here touches hardware; TouchProbe.cpp owns the MMIO. Derived from UniXNU-sheng package/TouchBoard.h (SM8550) with
-// every address replaced by the kona value from the stock kernel tree (/home/wqsqw/kernel).
+// every address replaced by the kona value from this unit's stock kernel tree, as the touch area of
+// porting.toml records it.
 #ifndef DBY_W09_TOUCH_BOARD_H
 #define DBY_W09_TOUCH_BOARD_H
 #include <stdint.h>

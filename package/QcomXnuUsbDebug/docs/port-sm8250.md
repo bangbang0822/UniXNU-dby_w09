@@ -128,7 +128,7 @@ USB and video byte counts.
 ## 4. The SM8250 hardware facts
 
 Source: the pinned Linux tree this workspace already uses for SM8250 facts,
-`alioth/tmp/kbuild/source` → `/Volumes/Disk/xinyang/Lab/Bridge/tmp/gunyah-probe`,
+`alioth/tmp/kbuild/source` → `the pinned Linux tree`,
 cross-checked against the Android DT that the board's UEFI ships.
 
 | item | value | citation |

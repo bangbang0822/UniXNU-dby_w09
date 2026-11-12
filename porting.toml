@@ -10,7 +10,7 @@ summary = "Huawei MatePad 11 (DBY-W09, kona) runs iPadOS 17.7.11 with the donor 
 id = "configuration"
 status = "implemented"
 components = []
-paths = ["board.toml", "feeds.toml", "unixnu.lock", "configs/**", "scripts/build-xnu-4k-baseline.sh", ".gitignore", ".gitattributes", "local.toml.example", "porting.toml", "AGENTS.md", "README.md"]
+paths = ["board.toml", "feeds.toml", "unixnu.lock", "configs/**", "scripts/build-xnu-4k-baseline.sh", ".gitignore", ".gitattributes", "local.toml.example", "porting.toml", "AGENTS.md", "README.md", "scripts/data/native-aes-original-bindings.S", "drivers/.gitkeep", "kits/.gitkeep"]
 
 inputs = ["iPadOS 17.7.11 build 21H461 for iPad7,1 (chip_id 0x8011, board_id 12, device_class j120ap).", "Shared hardware description and drivers resolve through [components] plus the two feeds in feeds.toml: the sm8250 SoC feed and the ShengUfs driver replacement.", "One defconfig, configs/dby_w09_defconfig, named by board.toml [kernel] defconfig."]
 configuration = ["board.toml sets schema_version = 2, so the profile layers, dts/, the SoC repository and patch_series are read as format 2.", "[board] kit = dby_w09 maps package/ to kits/dby_w09 in the assembled tree.", "[ipsw] pins the restore URL, identity and two root-image member hashes; [userdata] records the userdata GPT entry; [device_tree] selects dts/dby_w09.dts with the SoC include directory, and scripts/unixnu/devicetree.py generates the ADT.", "feeds.toml pins two sources beyond the base repository: kind = soc sm8250 (FFT-infra/UniXNU-sm8250-common) and kind = driver ShengUfs (FFT-infra/NativeUfs-alioth, the SM8250 stream of the same driver). ./unixnu fetch clones both at their pinned commits and records them, with every Apple reference source and edk2, in unixnu.lock. Machine paths belong to the ignored local.toml or --local-module."]
@@ -174,7 +174,7 @@ result = "sheng_policy_unmodified() reads the on-disk disabled.plist and skips t
 id = "display"
 status = "device-verified"
 components = ["GopFramebuffer"]
-paths = ["scripts/build-boot-progress.py", "scripts/build-gop-legacy-display.py", "scripts/patch-xnu-entry-probe.py", "scripts/xnu-panic-screen.c", "package/BootProgressDisplay.h", "package/BootUiTraceProbe.c", "package/AppleARMBacklight*", "package/BacklightProbe*"]
+paths = ["scripts/build-boot-progress.py", "scripts/build-gop-legacy-display.py", "scripts/patch-xnu-entry-probe.py", "scripts/xnu-panic-screen.c", "package/BootProgressDisplay.h", "package/BootUiTraceProbe.c", "package/AppleARMBacklight*", "package/BacklightProbe*", "package/LegacyDisplayProbe.cpp"]
 
 inputs = ["Firmware GOP framebuffer handed over by the UEFI port.", "Panel mode published through /chosen display-scale.", "Unmodified IOMobileFramebufferLegacy and IOMobileGraphicsFamily from the donor kernelcache."]
 configuration = ["[kernel] archives build the legacy display backend with build-gop-legacy-display.py and force_load it.", "[payload] kernel_args keep the official offline-legacy-* sequence with offline-legacy-unit-scale=1 and offline-legacy-phase=4.", "panic_screen = true patches the panic screen into the payload copy of the kernel.", "GopFramebuffer is the selected shared component that publishes the firmware framebuffer to that backend."]
@@ -205,11 +205,13 @@ result = "Panic and checkpoint text rendered by the panel build"
 id = "input"
 status = "device-verified"
 components = ["ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi"]
-paths = ["package/DbyTouch/**", "package/GeniSpi*", "package/HidInputProbe.cpp", "package/IliTddi*", "package/Nvt*", "package/TouchBoard.h", "package/TouchProbe.cpp", "scripts/build-dby-touch.py", "scripts/gen-touch-firmware.py"]
+paths = ["package/DbyTouch/**", "package/GeniSpi*", "package/HidInputProbe.cpp", "package/IliTddi*", "package/Nvt*", "package/TouchBoard.h", "package/TouchProbe.cpp", "scripts/build-dby-touch.py", "scripts/gen-touch-firmware.py", "scripts/gen-touch-firmware-multi.py"]
 inputs = ["Capacitive touch panel (Novatek N9Z family over TDDI) and three physical keys (power, volume up, volume down), polled on the SE14 GENI SPI bus.", "The keys are already usable in firmware; the DbyTouch stack reports them in XNU as an HID consumer as well.", "Touch firmware image for this panel, carried verbatim in package/DbyTouch/DbyTouchFw.h."]
 configuration = ["[components] selects ShengHidInput, ShengNovatekTouch and QcomGeniSpi from the catalog; the board producer DbyTouch reaches the kernel through [kernel] archives and scripts/build-dby-touch.py.", "[kernel.prelink] roots already include com.apple.iokit.IOHIDFamily and com.apple.iokit.IOHIDEventDriver, so the OS side of HID is inside the prelink closure.", "[payload] kernel_args carry the stage ladder: dby-touch=8 dby-touch-se=1 sheng-touch-hid=1 sheng-buttons=1, with offline-hid-input=1 offline-hid-home=1 offline-key-events=1 on the consumer side."]
 procedure = ["Read https://unixnu.com/porting/input completely before writing board code: transport and sensor, publishing reports through the qualified IOHIDDevice ABI, then physical buttons.", "Keep the vendor-verified driver sources byte-identical to the accepted implementation, then change one variable per flash and read the stage ladder."]
 findings = [
+  "The three NT36523 firmware images left Git. They are vendor bytes taken from the closed libafehalW2599Z*.so files, so committing them contradicted proprietary-files.txt and this repository's own gen-touch-firmware.py rule. They now live in .cache/firmware/novatek as nt36523_Z<project>.bin, are listed with their sha256 in proprietary-files.txt, and scripts/gen-touch-firmware-multi.py turns them into build/dby-touch/DbyTouchFwImages.h, which scripts/build-dby-touch.py runs before the compile and puts on the include path. package/DbyTouch/DbyTouchFw.h keeps only the table layout, the default selection and the name matching. The generator checks each image against its recorded ILM/DLM length and CRC-32/MPEG-2 before embedding it, and a missing image produces a length-0 row that the uploader's own bound turns into a refusal, so a host without the vendor package builds a kernel whose touch upload stops instead of programming the panel with unknown bytes. Verified by round trip: the bytes parsed back out of the generated header are identical to the pinned files.",
+
   "`DbyTouch` is the accepted producer for this panel (Novatek N9Z, 1600x2560, mode 0): on hardware it reports points on the lock screen against payload `09c3aad6…`, so the earlier no-XNU-HID-device limit is closed. The Home and volume keys go through the board `KeypadDeviceLib` in the firmware tree.", "The stage ladder gates the chip side only: once the SE answers (dby-touch-se=1) stage2 chains to stage5, which reads frames and publishes contacts, so dby-touch=2 already reaches the UI. Reading the number as a feature switch misattributes every later failure.", "Publishing reports means subclassing the original IOHIDDevice with its exact 207-slot vtable and 0xd0 instance size; an approximate header changes the instance layout and the failure appears far from its cause.", "The N9Z command mailbox and the 0x30000 firmware array are board data, not SoC data: taking the SM8550 board's controller sources as-is for this panel is the trap on this line.",
   "The publish cadence question is closed by reverting, not by re-tuning. The rung ladder {8208, 2048, 1024, 512, 128} and every number measured on it (read=11178 us on the 128 rung, loop=25994 us, about 67 us per piece) describe a read path that exists only in our tree: the accepted driver has no ladder, it reads at a fixed DBY_TOUCH_FRAME_CHUNK piece with a memset per piece. On 2026-11-06 the self-invented read path went back with `git checkout e61237a -- package/DbyTouch/DbyTouch.cpp package/DbyTouch/DbyTouchBoard.h`, which removed +470/-24 lines and the nine symbols stage5ReadAdaptive, gTouchChunks, gTouchChunkStep, gTouchChunkFail, gTouchTxPad, gTouchFaultTry, dbyTouchCompensateBase, gTouchBaseLift and gTouchIdleRun; kernel 916f71cd and payload e4a24792 were then rebuilt from the restored source. So the cadence figures above are measurements of reverted code and are not a criterion for anything. What stands: this unit is a three-firmware integration assembled by its owner, the stage-8 upload really does run (dby-touch=8 dby-touch-se=1 sheng-touch-hid=1, byte-for-byte the reference kernel-args.txt values), and the accepted read shape is part of that contract, not a detail to optimise.",
   "Withdrawn inference. The 2026-11-06 sentence that eliminated GENI_ERR_TIMEOUT (-110) because a silent engine would cost about 20 ms at poll_limit 20000 was arithmetic on an unmeasured constant: it assumed one empty-poll iteration costs 1 us, and that iteration cost was never measured on this bus, so both the 20 ms figure and the -110 exclusion it produced are void. The refusals it set out to explain (the cf=1/1/1/0 row) came from the ladder described in the entry above, and the fault latch it defended -- snap_irq, snap_status, snap_txfs, snap_rxfs copied on every failed piece plus a 4-byte CS-release transfer inserted inside stage5ReadChunked -- was itself our addition. Putting an instrument inside the data path it measures is how this panel went from working to dead, and no raw errno was ever recorded for that boot.",
@@ -230,7 +232,7 @@ result = "Accepted on the tablet on 2026-11-04: contacts follow the finger, the 
 id = "gpu"
 status = "planned"
 components = []
-paths = ["package/*Gpu*", "package/*Adreno*", "package/*Metal*", "scripts/*gpu*", "scripts/*adreno*", "scripts/*metal*"]
+paths = ["package/*Gpu*", "package/*Adreno*", "package/*Metal*", "scripts/*gpu*", "scripts/*adreno*", "scripts/*metal*", "scripts/data/*air*", "scripts/data/ioaccelerator-*"]
 
 inputs = ["Adreno 650 (SM8250). The shared tree's GPU components target Adreno 740, a different generation.", "Signed ZAP firmware and GMU/HFI bring-up inputs, neither of which this board has recorded."]
 configuration = ["The board selects no GPU component; com.apple.iokit.IOGPUFamily is kept in the prelink roots only because the donor closure requires it.", "IOCoreSurfaceRoot has to be published for the display stack to complete, which was done without any GPU hardware."]
@@ -270,7 +272,8 @@ paths = ["package/*Audio*", "package/*Adsp*", "package/*Gpr*", "scripts/*audio*"
          "package/QcomRpmh*", "package/QcomScm.h", "package/QcomSmem*", "package/QcomSmp2p*", "package/SmmuBypass.h",
          "package/ShengApr*", "package/ShengCs35l43*", "package/ShengQrtr.c", "package/tests/**", "hal/**",
          "patches/xnu/series-audio", "patches/xnu/zzyd-sheng-audio-addon-mount.patch",
-         "scripts/trust-append-module.py", "scripts/addon-add-dir.py"]
+         "scripts/trust-append-module.py", "scripts/addon-add-dir.py",
+         "scripts/extract-afe-firmware.py"]
 
 inputs = ["SM8250 (kona) audio DSP (ADSP, LPASS) and the firmware image inside this unit's own modem partition; the playback graph this machine's vendor kernel defines for it - legacy APR over GLINK with PRI TDM at 0x9000, not MI2S and not a WCD codec - and the four TFA9874 amplifiers on the qupv3_se3 I2C bus.", "Apple audio kexts are in the prelink closure (IOAVFamily, IOAudio2Family, AppleIISController, AppleAudioClockLibs) because the donor roots list requires them."]
 configuration = ["Three arguments are enabled on the audio path and they are a chain, not three switches: sheng-adsp=2 is power.md section 2 tier 2 (start the subsystem and bring up GLINK), dby-audio=2 runs the legacy APR playback ladder in package/DbyAudio.cpp, whose own gate at :709 also demands that tier, and sheng-gpu-addon=1 gates the boot-time addon mount that presents /private/var/ngpu/audio over /System/Library/Audio/Plug-Ins/HAL.",
@@ -541,7 +544,7 @@ result = "23 rows (20 extern entry points) and no glue symbol: the kernel this t
 id = "packaging"
 status = "device-verified"
 components = ["DarwinBoot", "XnuPrelink"]
-paths = ["dts/dby_w09.dts", "package/unixnu.toml", "README.md", "patches/**"]
+paths = ["dts/dby_w09.dts", "package/unixnu.toml", "README.md", "patches/**", "scripts/package.sh", ".github/workflows/package.yml"]
 
 inputs = ["Prelinked kernel image from the donor kernelcache plus board archives.", "Firmware volume, ADT generated by scripts/make-adt.py from the compiled hardware DTB, trust cache bundle and Data seed.", "Payload FAT volume labelled DBYW09ESP, 208 MiB."]
 configuration = ["[payload] loader = firmware places DarwinBoot inside the firmware volume; title, timeout and kernel_args are written into the ESP unixnu.toml of the image.", "[payload.adt] unique_chip_id = required and --unique-chip-id carry the identity at build time.", "[userdata] describes which IPSW components become root windows inside the assembled image.", "XnuPrelink is the kit stage that assembles the prelinked kernel image the payload then carries."]
@@ -573,7 +576,7 @@ result = "native-smp-secondary and native-smp-type-clusters are applied by the s
 id = "diagnostics"
 status = "device-verified"
 components = []
-paths = ["package/QcomXnuUsbDebug/**", "scripts/build-qcom-usb-debug.py", "scripts/check-*", "package/BootProgress.c", "package/BootProgressCore.h", "package/BootProcessProbe.c", "package/BootUiTraceProbe.c", "package/BootFaultProbe.c", "package/BootWatchdogPolicy.c", "package/LinkStubs.c", "package/BootProgressStubs.c", "scripts/patch-xnu-entry-probe.py", "scripts/regression-baseline.json", "scripts/regression-baseline-adt.adt"]
+paths = ["package/QcomXnuUsbDebug/**", "scripts/build-qcom-usb-debug.py", "scripts/check-*", "package/BootProgress.c", "package/BootProgressCore.h", "package/BootProcessProbe.c", "package/BootUiTraceProbe.c", "package/BootFaultProbe.c", "package/BootWatchdogPolicy.c", "package/LinkStubs.c", "package/BootProgressStubs.c", "scripts/patch-xnu-entry-probe.py", "scripts/regression-baseline.json", "scripts/regression-baseline-adt.adt", "package/BootProgressLifecycle.h", "package/BootProgressPulse.h", "package/BootProgressTests.c", "package/BootUiTraceCore.h", "package/BootUiTraceDetails.h"]
 
 inputs = ["Panel text output (boot-progress=2 checkpoints, panic screen, UI trace page) and, since the 2026-11-05 firmware revert, the CDC-ACM kernel console enumerating as 1209:316d.", "An offline QEMU harness reproducing the same image with counters readable as text.", "The same rows written to the UFS log by BootLog.c, which is where they live now that the panel is left alone."]
 configuration = ["[payload] panic_screen = true and kernel_args boot-progress=2, armcpu-diagnostics=1, boot-ui-focus=launchd, boot-ui-focus4=SpringBoard, sheng-build-tag.", "Since 2026-11-05 nothing paints after the scanout hand-off: BootProgress.c:1025 defaults sheng-banner to 0, so the live banner is off, and boot-diag-resume is gone, which leaves resume_after=0 (BootProgress.c:551 clamps <5 to 0) = never retake the panel. sheng-banner=1 can opt the painting back in and was tried once on 2026-11-05; the owner refused it (the panel is not a debug surface) and the accepted configuration leaves the banner off, so a number has to come from the log route.", "LinkStubs/BootProgressStubs provide the zero-value definitions for sheng-specific counters that libBootProgress references."]
@@ -675,3 +678,28 @@ result = "[device_tree] source and include_dirs, and the [payload.adt] handoff s
 kind = "source"
 reference = "dts/dby_w09.dts"
 result = "unixnu,cluster-type is E on cpu0 to cpu3 and P on cpu4 to cpu7. Those rows are only valid together with the feed patch native-smp-type-clusters.patch, which raises MAX_CPU_CLUSTERS to 2 and defines __ARM_AMP__: parsed against MAX_CPU_CLUSTERS 1 the topology parser maps a P core to cluster 1 and writes past the end of cluster_phys_to_logical on the stack, and the kernel dies before the console comes up. scripts/check-smp-topology.py refuses the unpaired form"
+
+[[area]]
+id = "baseband"
+status = "not-applicable"
+components = []
+paths = []
+
+inputs = []
+
+configuration = ["No [components] entry selects a modem, and no [payload] kernel_args entry enables a cellular path. The QRTR, QMP and MDT sources in package/ serve the ADSP audio route recorded in the audio area, not a baseband control stack."]
+
+procedure = ["None for this configuration."]
+
+findings = ["Recorded rather than omitted. The record guide requires every section to exist, and a section with nothing implemented is stated as not-applicable with its scope in limits, so a reader cannot mistake silence for an unreviewed gap. Every silent-skip defect this repository has already paid for was an unclaimed path or an absent section, not a wrong claim."]
+
+completion = ["Not applicable to this configuration; nothing to observe."]
+
+limits = ["No cellular modem, SIM identity, QMI/QRTR baseband control, IPA/QMAP data session, modem firmware or EFS/NV handling is implemented or selected by this board. The board is recorded as a Wi-Fi configuration; were a cellular variant of this hardware to be supported it would need its own areas, components and inputs rather than an extension of this row."]
+
+next_action = ["None. A cellular variant opens its own record."]
+
+[[area.evidence]]
+kind = "source"
+reference = "board.toml"
+result = "[components] include lists no modem component and [payload] kernel_args carries no baseband enable argument"

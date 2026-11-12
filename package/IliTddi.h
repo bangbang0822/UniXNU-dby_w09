@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 // Ilitek TDDI touch controller, host-processing (Huawei THP) profile - the other supplier this board's devicetree
 // describes. Everything below is a transcription of the driver this device's own kernel compiles
-// (E:\dby_w09\Code_Opensource\kernel\drivers\devkit\tpkit\hostprocessing\ilitek_thp.c, enabled by
+// (the vendor kernel's drivers/devkit/tpkit/hostprocessing/ilitek_thp.c, enabled by
 // CONFIG_HUAWEI_THP_ILITEK=y in arch/arm64/configs/merge_kona_defconfig) plus the panel packet format from
 // panel/ilitek_tddi/ilitek.h. Each constant cites its line. Nothing here touches hardware: the caller supplies the
 // SPI transfer and the reset line, exactly like the vendor's spi_device and gpio.

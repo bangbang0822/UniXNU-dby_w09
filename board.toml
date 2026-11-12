@@ -27,6 +27,20 @@ kit = "dby_w09"                # 本仓 package/ 在构建树里出现为 kits/d
 include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi"]
 
 # ---------------------------------------------------------------------------
+# package：scripts/package.sh 与 .github/workflows/package.yml 的输入
+# （docs/porting/packaging.md）。脚本是 UniXNU templates/package.sh 的原样副本，
+# 板级差异只能落在下面两处：UniXNU 检出的相对路径，以及各 OS 配置对应的 defconfig。
+# 这两个键此前缺失，`scripts/package.sh` 会在第一行就以 "board.toml needs [package]
+# unixnu" 退出，上游要求的「一条命令从干净检出产出启动镜像与 payload」因此不成立。
+# ---------------------------------------------------------------------------
+[package]
+unixnu = "../UniXNU"           # UniXNU 检出相对本仓的路径，与 README 的构建命令一致
+
+[package.defconfig]
+# 本仓只有 iPadOS 17.7.11 / 21H461 一个目标；新增目标时在这里加一行，不改脚本。
+"ipados-17.7.11-21H461" = "dby_w09_defconfig"
+
+# ---------------------------------------------------------------------------
 # userdata：已取证（9008 完整备份 gpt_main0.bin，LUN 0）。
 #   GPT header @ LBA 8 (offset 4096)，分区项 128B/条，num_parts=64。
 #   userdata 条目：first_lba=2733568 (0x29B600), last_lba=30692863 (0x1D455FF)。
@@ -472,7 +486,7 @@ kernel_args = [
   # 2026-11-06 改 dby-battery=2（0 字节）：owner 明确批准动 PMIC 充电配置——
   # 「输入限流要动 PMIC 充电配置你确定就改呗，我说不改的是你不要自己乱改，不要自己造轮子」。
   # 所以这一层写的每一个寄存器、位、值、顺序和回退态都逐行抄自本机 Android 源码
-  # /home/wqsqw/kernel/drivers/power/supply/qcom/：APSD_STATUS/APSD_RESULT（smb5-reg.h:207/:217）只读
+  # 本机厂商内核源码包 drivers/power/supply/qcom/：APSD_STATUS/APSD_RESULT（smb5-reg.h:207/:217）只读
   # 不改；USBIN_CURRENT_LIMIT_CFG 0x1370 = ua/50000（qpnp-smb5.c:143-149 + smb5-lib.c:754）；
   # 三条 override 写按 smblib_icl_override() 的 Huawei 第三方形状（smb5-lib.c:189-196，
   # 由 kona/DBY/common/huawei_charger.dtsi:147 的 usb-thd-bc-12 决定）；解除输入悬挂
