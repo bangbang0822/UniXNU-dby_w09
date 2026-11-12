@@ -204,7 +204,7 @@ the firmware tree instead (see Deviations).
 ## Status
 
 Measured on hardware, 2026-11-05 (prelinked kernel `60f3dbac…`, payload `68059cca…`,
-firmware tree `WQSQW/uefi-dby_w09@423e222`). See
+firmware tree `uni-xnu-dby-w09/uefi-dby_w09@423e222`). See
 `porting.toml` for the per-area record and evidence.
 
 | Area | State |
