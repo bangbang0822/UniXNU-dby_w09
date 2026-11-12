@@ -683,9 +683,11 @@ result = "unixnu,cluster-type is E on cpu0 to cpu3 and P on cpu4 to cpu7. Those 
 id = "baseband"
 status = "not-applicable"
 components = []
-paths = []
+# board.toml is where the absence is recorded: [components] selects no modem and
+# [payload] kernel_args enables no cellular path.
+paths = ["board.toml"]
 
-inputs = []
+inputs = ["This configuration has no cellular modem, SIM, baseband firmware, QMI/QRTR baseband control channel or IPA/QMAP data path; the QRTR, QMP and MDT sources in package/ serve the ADSP audio route recorded in the audio area."]
 
 configuration = ["No [components] entry selects a modem, and no [payload] kernel_args entry enables a cellular path. The QRTR, QMP and MDT sources in package/ serve the ADSP audio route recorded in the audio area, not a baseband control stack."]
 
