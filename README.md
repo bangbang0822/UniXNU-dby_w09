@@ -80,6 +80,15 @@ the two copies the repository keeps of the same patch are still byte-identical, 
 committed file names a build host path, and that no generated or private artefact is
 tracked. Exit status is 0 only when all of it holds.
 
+The same two checks run before a push, if you install the hooks once:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+That also checks every commit subject against the convention in `AGENTS.md`, which is the
+one place the rule is written down.
+
 The upstream record validator is a separate, stronger check and needs a UniXNU checkout:
 
 ```sh

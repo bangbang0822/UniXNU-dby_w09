@@ -1,0 +1,46 @@
+#!/bin/sh
+# Two checks before anything leaves the machine:
+#   1. the repository still describes itself (scripts/check-repository.py)
+#   2. every commit being pushed follows the convention (scripts/check-commit-messages.py)
+#
+# Install once per clone:   git config core.hooksPath .githooks
+# Bypass for one push:      git push --no-verify
+#
+# The record check belongs to the push rather than the commit: the upstream record guide
+# wants code and record in separate commits inside one push, so a single commit is the
+# wrong place to insist on it.
+
+root=$(git rev-parse --show-toplevel) || exit 1
+
+# See the note in .githooks/commit-msg: Windows has `python`, not `python3`, and a
+# WindowsApps shim can answer `command -v` without being able to run.
+python=
+for candidate in python3 python; do
+    if "$candidate" -c 'import sys' >/dev/null 2>&1; then
+        python=$candidate
+        break
+    fi
+done
+if [ -z "$python" ]; then
+    echo "pre-push: no working python found; nothing checked." >&2
+    exit 0
+fi
+
+echo "pre-push: checking that the repository still describes itself"
+"$python" "$root/scripts/check-repository.py" --device "$root" || {
+    echo "pre-push: scripts/check-repository.py failed; fix it or push with --no-verify" >&2
+    exit 1
+}
+
+upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)
+if [ -n "$upstream" ]; then
+    range="$upstream..HEAD"
+else
+    range="HEAD~5..HEAD"
+fi
+
+echo "pre-push: checking commit subjects in $range"
+"$python" "$root/scripts/check-commit-messages.py" --device "$root" --range "$range" || {
+    echo "pre-push: commit subjects do not follow the convention; amend them or push with --no-verify" >&2
+    exit 1
+}
