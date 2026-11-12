@@ -97,8 +97,11 @@ python3 scripts/porting-record.py check --device ../UniXNU-dby_w09
 
 ## Contributing
 
-`main` is a protected branch: changes arrive through a pull request, and merging is the
-review step. Two ways to propose one:
+`main` is a protected branch, and merging a pull request is the review step. Repository
+administrators can still push directly -- verified on 2026-11-13, when an administrator push
+succeeded against the protected branch -- so for everyone else the pull request is the gate,
+and the rules that make it one are configured in the repository's branch protection settings.
+Two ways to propose a change:
 
 - **inside this repository**, if you have write access: push a branch and open a pull
   request against `main`;
