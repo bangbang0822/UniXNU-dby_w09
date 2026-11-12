@@ -9,11 +9,7 @@ the SM8250 hardware description and the UFS driver come from the two feeds pinne
 
 Memory and storage are not fixed on this model. MatePad 11 units ship with 6 or 8 GiB of RAM and
 with 128 or 256 GiB of UFS, so both are per-unit inputs rather than board constants, and this
-record was measured on one 6 GiB / 128 GiB unit. Its values are written where they can be found:
-`dram_size` in `board.toml` and the `memory` node in `dts/dby_w09.dts` for DRAM, and the
-`userdata` LBA range in `board.toml` for storage. Any other unit needs its own values read first:
-`dram_size` has to equal the device tree's memory cell or the ADT generator refuses the pair, and
-the partition range has to come from that unit's own backup table rather than from these numbers.
+record was measured on one 6 GiB / 128 GiB unit.
 
 Target software: iPadOS 17.7.11 (build 21H461) with the donor identity `iPad7,1` / `j120ap`, the
 same verified combination as the official [sheng](https://github.com/UniXNU/UniXNU-sheng) port.
@@ -21,6 +17,29 @@ Chip ID `0x8011`, board ID `12`.
 
 - [Documentation](https://unixnu.com) · [Porting](https://unixnu.com/porting/) ·
   [Building](https://unixnu.com/building) · [Device record](porting.toml)
+
+## Values that belong to the unit, not to the board
+
+Everything below was measured on the record's own tablet. Another unit needs its own reading of
+each one before its first boot; copying these numbers is the failure this section exists to
+prevent. The list is the whole of it: nothing else in the repository differs between two DBY-W09
+units, and a value that does not appear here is a board fact rather than a unit fact.
+
+| Value | Where it is written | Read it from |
+| --- | --- | --- |
+| DRAM size | `board.toml` `[payload] dram_size`, and the `memory@80000000` cell in `dts/dby_w09.dts` | The unit itself. The two must be equal or the ADT generator refuses the pair, and `dram_size` is the value the payload hands DarwinBoot. |
+| `userdata` LBA range | `board.toml` `[userdata]` `first_lba` / `last_lba` | A full backup of that unit's GPT (`gpt_main0.bin`, LUN 0). Never the numbers here: they describe one 128 GiB tablet's table. |
+| Data volume UUID | `configs/dby_w09_defconfig` `CONFIG_XNU_OWNER_DATA_VOLUME_UUID` | The APFS volume UUID inside the Data seed you build or reuse for that unit. A seed grown from an existing one keeps its UUID; a fresh fixture does not, and then the kernel must be rebuilt. |
+| Platform seed | `--unique-chip-id` at payload build time, or `UNIXNU_UNIQUE_CHIP_ID` | Per-image, not per-unit-persistent: it seeds the device tree the payload carries. Never commit it. |
+| Touch firmware project | `package/DbyTouch/DbyTouchFw.h` picks among `W2599Z1100` / `1300` / `2700` at run time | The unit's own `oeminfo` partition. The driver scans it and selects; the default is this record's panel. The three images themselves come from the unit's stock package (see `proprietary-files.txt`). |
+
+Two of these interact: the Data seed's volume UUID is compiled into the kernel, so replacing the
+seed without rebuilding the kernel produces `offline scratch Data mount failed: 2`.
+
+Opposite direction: a kernel argument list is measured against the 1000-byte command line and each
+argument has one reader; `board.toml`'s comments name it next to every entry, so a unit does not
+change the arguments, the board does.
+
 
 ## Layout
 
