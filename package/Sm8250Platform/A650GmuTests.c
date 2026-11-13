@@ -153,7 +153,9 @@ int main(int argc, char **argv)
         CHECK(*core(0x5185) == 0x60008000 && *core(0x5184) == 1 && *core(0x5001) == 2 && *core(0x502d) == 0x4052);
         CHECK(*core(0x5182) == chip_gmu && *core(0x5100) == (0x60004000 | 3) && *core(0x9311) == ((1u << 31) | (0xau << 18) | 0xa0));
         CHECK(*core(0x4c0f) == 1 && *core(0x50c0) == 0x9c40400u && (*core(0x50e8) & 0xf11) == 0xf11);
-        CHECK(*core(0x5000) == 0 && *core(0x5193) == ~0x00800000u && *core(0x9306) == ~0x29u);
+        /* 0x5193 is the post-startup HFI interrupt mask, written ~CM3_FATAL: bit 15 unmasked is the CM3 fault
+         * (kgsl_hfi.h:55). The test pinned the old 0x00800000 value, so it failed again as soon as it compiled. */
+        CHECK(*core(0x5000) == 0 && *core(0x5193) == ~0x00008000u && *core(0x9306) == ~0x29u);
         /* The firmware words where a6xx_gmu_fw_load puts them. */
         if (argc <= 1) {
             CHECK(*core(0x0c00 + 0x100) == 0x11 && *core(0x0c00 + 0x102) == 0x33);

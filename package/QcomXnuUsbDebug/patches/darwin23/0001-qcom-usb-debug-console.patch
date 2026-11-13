@@ -225,17 +225,6 @@
  
  #if __arm64__
  #include <machine/machine_routines.h>
-@@ -528,2 +541,10 @@ console_write(char *str, int size)
- 	if (disableConsoleOutput) {
-+		/* Muted means the graphics console is muted, not that the USB copy is: _cnputs tees above its own
-+		 * disableConsoleOutput check and then drops the byte, so this path still reaches USB and the console
-+		 * still gets nothing. Returning here instead lost every console_write() byte on a muted console. */
-+#if XNU_QCOM_USB_DEBUG
-+		if (str && size > 0) {
-+			_cnputs(str, size, false);
-+		}
-+#endif
- 		return;
 @@ -280,6 +283,16 @@ _cnputs
  static inline void
  _cnputs(char *c, int size, bool poll)
@@ -253,7 +242,24 @@
  	if (disableConsoleOutput) {
  		return;
  	}
-@@ -612,2 +633,8 @@ console_write_unbuffered(char c)
+@@ -526,6 +539,14 @@ console_write
+ console_write(char *str, int size)
+ {
+ 	if (disableConsoleOutput) {
++		/* Muted means the graphics console is muted, not that the USB copy is: _cnputs tees above its own
++		 * disableConsoleOutput check and then drops the byte, so this path still reaches USB and the console
++		 * still gets nothing. Returning here instead lost every console_write() byte on a muted console. */
++#if XNU_QCOM_USB_DEBUG
++		if (str && size > 0) {
++			_cnputs(str, size, false);
++		}
++#endif
+ 		return;
+ 	}
+ 
+@@ -610,10 +631,17 @@ console_write_unbuffered
+ void
+ console_write_unbuffered(char c)
  {
 +#if XNU_QCOM_USB_DEBUG
 +	/* Above the check below for the same reason _cnputs tees above its own: muting the graphics console
@@ -262,9 +268,12 @@
 +	(void)qcom_usb_debug_putc(c);
 +#endif
  	if (disableConsoleOutput) {
-@@ -6,2 +12,3 @@
+ 		return;
  	}
+ 
 +
+ 	_cnputc(c, true);
+ }
  
 --- a/osfmk/console/serial_general.c
 +++ b/osfmk/console/serial_general.c

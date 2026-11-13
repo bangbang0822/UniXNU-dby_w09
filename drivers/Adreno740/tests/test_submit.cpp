@@ -263,9 +263,14 @@ int main()
             cp.regs[0x0928]=0x1000*tick;   /* CP_IB1_BASE moves: progress */
             CHECK(p.submit.hangCheck(&hung)==kIOReturnSuccess && !hung);
         }
+        /* The CP stops moving. madeProgress() spends its three retries on the checks that see no change and
+         * reports the hang on the next one; the register moving again is progress and clears them. The old
+         * sequence changed the register and expected a hang, which only held while the counter was inverted. */
+        for(unsigned quiet=0;quiet<3;++quiet)
+            CHECK(p.submit.hangCheck(&hung)==kIOReturnSuccess && !hung);   /* retries 1..3, still not hung */
+        CHECK(p.submit.hangCheck(&hung)==kIOReturnSuccess && hung);        /* fourth quiet check: hang */
         cp.regs[0x0928]=0x9000;
-        CHECK(p.submit.hangCheck(&hung)==kIOReturnSuccess && hung);   /* three retries spent */
-        CHECK(p.submit.hangCheck(&hung)==kIOReturnSuccess && !hung);   /* progress retries start again: one retry for the changed state */
+        CHECK(p.submit.hangCheck(&hung)==kIOReturnSuccess && !hung);       /* movement again: not hung */
         static uint32_t restarted;restarted=~0u;
         auto restart=[](void *,NativeAdrenoRing *ring,uint32_t completed)->IOReturn {restarted=completed;return ring->restart(completed);};
         NativeAdrenoRecovery result{};

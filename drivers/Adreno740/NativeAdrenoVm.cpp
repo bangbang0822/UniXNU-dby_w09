@@ -322,7 +322,7 @@ IOReturn NativeAdrenoVm::map(NativeAdrenoMemory *memory,unsigned upper,uint64_t 
         }
         if(record || !growMappings())break;
     }
-    if(!record) {memory->quarantine();return fail(ArmSmmu4KStateMismatch);}
+    if(!record) {if(!memory->shared())memory->quarantine();return fail(ArmSmmu4KStateMismatch);}
     *record={memory,0,iova,memory->spanCount(),0,permissions,writeback,shareability,0,upper};++objects_;
     if(coherentMapping(writeback))native_adreno_coherent_skips[0]=native_adreno_coherent_skips[0]+1;
     else {

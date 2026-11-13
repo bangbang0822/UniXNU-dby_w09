@@ -576,8 +576,8 @@ result = "23 rows (20 extern entry points) and no glue symbol: the kernel this t
 [[area.evidence]]
 kind = "host"
 reference = "scripts/build-platform-power.py"
-command = "python3 -c \"import ast,pathlib;ast.parse(pathlib.Path(chr(39)+chr(39)).read_text())\""
-revision = "7bd63a8525d52f2283bf3cf4e7455929250d2be6"
+command = "python3 -c \"import ast,pathlib;ast.parse(pathlib.Path('scripts/build-platform-power.py').read_text())\""
+revision = "6988371966077bb332fd0a8418948a7f43aa6200"
 result = "2026-11-14: the .cache/firmware kernelcache link is unlinked when it is a symlink whose target moved, because exists() answers False for it and symlink_to() then fails with FileExistsError on the stale link. The parser accepts the file; the relink path itself needs the IPSW cache, which this host does not have."
 
 [[area]]
@@ -694,7 +694,7 @@ result = "The recorded argument list moves with the board.toml line it pins, in 
 kind = "host"
 reference = "scripts/check-smp-topology.py"
 command = "python3 scripts/check-smp-topology.py"
-revision = "7bd63a8525d52f2283bf3cf4e7455929250d2be6"
+revision = "6988371966077bb332fd0a8418948a7f43aa6200"
 result = "2026-11-14: measured exit=2 without --tree, where the same invocation printed the success line and returned 0. In the same change check-dby_w09.py exits non-zero when a vendor input is missing (it recorded the list and exited 0) and check-regression.py reports an empty .bak snapshot set as skipped rather than failed."
 
 [[area]]

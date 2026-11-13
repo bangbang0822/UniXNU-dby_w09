@@ -19,7 +19,16 @@ directory, pass `--out package/DbyGpu/DbyGpuFirmware.h` and delete that director
 old placeholder instead of keeping both.
 
 --check regenerates into memory and compares, so a reviewer (or CI) can prove the
-committed header still matches its source and that nobody hand-edited a byte.
+parts this generator owns still match their source: the three arrays, their lengths,
+their digests and the pin table built from them.
+
+It does NOT prove the whole file is unedited, and the committed header is not: the
+ZAP image was hand-swapped on 2026-11-05 from the reference board's A650 fork image to
+this tablet's own /vendor/firmware/a650_zap.elf, and the header's preamble carries that
+paragraph while the ZAP pin below carries its provenance. A --check run therefore
+reports a difference in that preamble by design. Teaching the generator the swap means
+passing it the vendor image as the ZAP source; until then the claim is limited to what
+the generator actually emits.
 """
 import argparse
 import hashlib
