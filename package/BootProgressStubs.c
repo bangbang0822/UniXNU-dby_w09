@@ -184,7 +184,7 @@ __attribute__((weak)) uint64_t debug_buf_base;
 __attribute__((weak)) uint64_t kernel_debugger_entry_count;
 __attribute__((weak)) uint64_t native_adreno_cache_stats[5];
 __attribute__((weak)) uint64_t native_adreno_client_log[8];
-__attribute__((weak)) uint64_t native_adreno_client_stats[5][6];
+__attribute__((weak)) uint64_t native_adreno_client_stats[5][8];   // eight words per row, as the writer defines it
 __attribute__((weak)) uint64_t native_adreno_client_text[4];
 __attribute__((weak)) uint64_t native_adreno_coherence[8];
 __attribute__((weak)) uint64_t native_adreno_coherent_skips[4];

@@ -146,7 +146,7 @@ struct native_adreno_client_text {char name[20]; char text[64];};
 extern struct native_adreno_client_text native_adreno_client_text[4] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_mount_fail[4] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_window_overflow[4][3] __attribute__((weak_import));
-extern volatile uint32_t native_adreno_client_stats[5][6] __attribute__((weak_import));
+extern volatile uint32_t native_adreno_client_stats[5][8] __attribute__((weak_import));   // the width the writer defines
 struct native_adreno_asker_record {char name[20]; uint32_t reads;};
 extern struct native_adreno_asker_record native_adreno_metal_askers[12] __attribute__((weak_import));
 extern char native_gpu_coherence_row[120] __attribute__((weak_import));
