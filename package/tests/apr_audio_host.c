@@ -300,14 +300,22 @@ static void test_adm_asm(void)
     apr_set_iid_supported(0);
     check(apr_asm_set_volume(buf, 51, 11, 1, ASM_STREAM_ID_1, ASM_Q13_UNITY) == 0, "a gain packet in a short buffer is refused");
 
-    n = apr_asm_write(buf, sizeof buf, 12, 1, ASM_STREAM_ID_1, 0x100000, 0xABCD, 2048, 5, 0, 0);
+    /* A stream with no session time is written the way q6asm.c takes NO_TIMESTAMP: the flags field
+     * carries 0xFF00, whose bit 31 is clear, and that is what the encoder sends on the wire. Passing 0
+     * here instead means "the timestamp below is valid", which the DSP would read as due at 0 us. */
+    n = apr_asm_write(buf, sizeof buf, 12, 1, ASM_STREAM_ID_1, 0x100000, 0xABCD, 2048, 5, 0, APR_ASM_NO_TIMESTAMP);
     check(n == 52, "write v2 is 52 bytes");
     check32(buf, 20, 0x100000u, "buffer low word");
     check32(buf, 24, 0, "buffer high word");
     check32(buf, 28, 0xABCD, "memory map handle");
     check32(buf, 32, 2048, "buffer size");
     check32(buf, 36, 5, "sequence id");
-    check32(buf, 48, 0, "flags");
+    check32(buf, 48, 0, "NO_TIMESTAMP clears bit 31");
+    check32(buf, 44, 0, "the low timestamp word is zero");
+    n = apr_asm_write(buf, sizeof buf, 12, 1, ASM_STREAM_ID_1, 0x100000, 0xABCD, 2048, 6, 1000, 0);
+    check(n == 52, "write v2 with a timestamp is 52 bytes");
+    check32(buf, 40, 1000, "the timestamp is written where the DSP reads it");
+    check32(buf, 48, 0x80000000u, "a real timestamp sets the valid bit");
 
     n = apr_asm_stream_close(buf, sizeof buf, 13, 1, ASM_STREAM_ID_1);
     check(n == 20, "stream close is header only");
