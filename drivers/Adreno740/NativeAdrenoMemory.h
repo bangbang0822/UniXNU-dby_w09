@@ -53,6 +53,7 @@ class NativeAdrenoMemory final {
     size_t bytes_=0,span_count_=0,span_capacity_=0;
     uint32_t device_references_=0;
     bool prepared_=false,quarantined_=false,write_combined_=false,system_=false,borrowed_=false,owned_=false;
+    bool shared_=false;
     IOReturn takeSegments(IOBufferMemoryDescriptor *,size_t bytes,uint64_t limit,bool contiguous);
     IOReturn maintainImported(size_t offset,size_t bytes,NativeAdrenoCacheOperation);
 public:
@@ -128,6 +129,13 @@ public:
     IOReturn publishForDevice(size_t offset,size_t bytes,bool device_writes,bool include_write_combined=false,unsigned phase=NativeAdrenoPhaseMap);
     IOReturn acquireDeviceWrites(size_t offset,size_t bytes,unsigned phase=NativeAdrenoPhaseUnmap);
     bool quarantined() const {return quarantined_;}
+    /* An object one owner maps into several address spaces (the GPU context's five kernel buffers). A failing
+     * process VM quarantines every memory mapped in it (NativeAdrenoVm::fail), which for a shared object would
+     * take the buffers away from every other user too: the context that allocated them, the GMU context and
+     * every later process, because preflight() refuses a quarantined object. Such a failure poisons the VM and
+     * leaves the shared object alone; its owner releases it, not the address space it happened to be mapped in. */
+    void markShared() {shared_=true;}
+    bool shared() const {return shared_;}
     uint32_t deviceReferences() const {return device_references_;}
     size_t bytes() const {return bytes_;}
     size_t spanCount() const {return span_count_;}

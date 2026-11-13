@@ -89,7 +89,8 @@ ArmSmmu4KStatus NativeAdrenoVm::observeCheap()
 IOReturn NativeAdrenoVm::fail(ArmSmmu4KStatus status)
 {
     poisoned_=true;result_.operation=status;result_.complete=false;
-    for(size_t i=0;mappings_ && i<high_;++i)if(mappings_[i].memory)mappings_[i].memory->quarantine();
+    for(size_t i=0;mappings_ && i<high_;++i)
+        if(mappings_[i].memory && !mappings_[i].memory->shared())mappings_[i].memory->quarantine();
     for(auto &r:regions_)if(r.arena) {r.tables->quarantine();r.state->poisoned=1;}
     if(fault_streams_) {
         ArmSmmu4KStreamResult routes;

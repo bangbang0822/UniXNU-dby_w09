@@ -37,8 +37,13 @@ IOReturn NativeAdrenoGpuContext::bringUp(const ArmSmmu4KIo *io,unsigned bank,uns
         /* Stage-1 input size: smmu->va_size from ID2.UBS (arm_smmu_init_domain_context: ias = smmu->va_size for AArch64 stage 1). */
         input_bits_=NativeAdrenoSmmuInputBits(report->id2);
     }
-    for(unsigned i=0;!status && i<GpuBufferCount;++i)
+    for(unsigned i=0;!status && i<GpuBufferCount;++i) {
         status=buffers_[i].allocate(kBytes[i],report->output_bits,true,kBytes[i]);
+        /* These five belong to the context and are mapped into every process VM that runs on it (createVm
+         * below). One process VM failing must not quarantine them out from under the others, so they are
+         * marked shared before the first map: NativeAdrenoVm::fail leaves a shared object to its owner. */
+        if(!status)buffers_[i].markShared();
+    }
     if(!status) {
         step(Prepare);
         const uint64_t aperture=UINT64_C(1)<<input_bits_;
