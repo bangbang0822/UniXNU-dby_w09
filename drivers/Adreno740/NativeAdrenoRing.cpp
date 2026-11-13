@@ -499,19 +499,30 @@ IOReturn NativeAdrenoRing::busHalt(bool gx_off,unsigned spins)
 {
     enum : uint32_t {RbbmGbifHalt=0x0016,RbbmGbifHaltAck=0x0017,GbifHalt=0x3c45,GbifHaltAck=0x3c46,ClientHalt=1u,ArbHalt=2u};
     if(!attached_)return kIOReturnNotReady;
+    /* A failure used to return with the halts it had already requested still asserted, leaving the GPU bus halted
+     * for everything that runs next. Every failure below undoes what this call asked for. */
+    const auto undo=[this](bool gx) {
+        (void)io_.write32(io_.cookie,GbifHalt,0);
+        if(gx)(void)io_.write32(io_.cookie,RbbmGbifHalt,0);
+    };
     uint32_t ack=0;unsigned i=0;
     if(gx_off) {
         if(io_.write32(io_.cookie,RbbmGbifHalt,1))return kIOReturnIOError;
-        for(i=0;i<spins;++i) {if(io_.read32(io_.cookie,RbbmGbifHaltAck,&ack))return kIOReturnIOError;if(ack&1)break;}
-        if(i==spins)return kIOReturnTimeout;
+        for(i=0;i<spins;++i) {if(io_.read32(io_.cookie,RbbmGbifHaltAck,&ack)){undo(true);return kIOReturnIOError;}if(ack&1)break;}
+        if(i==spins) {undo(true);return kIOReturnTimeout;}
     }
-    if(io_.write32(io_.cookie,GbifHalt,ClientHalt))return kIOReturnIOError;
-    for(i=0;i<spins;++i) {if(io_.read32(io_.cookie,GbifHaltAck,&ack))return kIOReturnIOError;if((ack&ClientHalt)==ClientHalt)break;}
-    if(i==spins)return kIOReturnTimeout;
-    if(io_.write32(io_.cookie,GbifHalt,ArbHalt))return kIOReturnIOError;
-    for(i=0;i<spins;++i) {if(io_.read32(io_.cookie,GbifHaltAck,&ack))return kIOReturnIOError;if((ack&ArbHalt)==ArbHalt)break;}
-    if(i==spins)return kIOReturnTimeout;
-    return io_.write32(io_.cookie,GbifHalt,0)?kIOReturnIOError:kIOReturnSuccess;
+    if(io_.write32(io_.cookie,GbifHalt,ClientHalt)) {undo(gx_off);return kIOReturnIOError;}
+    for(i=0;i<spins;++i) {if(io_.read32(io_.cookie,GbifHaltAck,&ack)){undo(gx_off);return kIOReturnIOError;}if((ack&ClientHalt)==ClientHalt)break;}
+    if(i==spins) {undo(gx_off);return kIOReturnTimeout;}
+    if(io_.write32(io_.cookie,GbifHalt,ArbHalt)) {undo(gx_off);return kIOReturnIOError;}
+    for(i=0;i<spins;++i) {if(io_.read32(io_.cookie,GbifHaltAck,&ack)){undo(gx_off);return kIOReturnIOError;}if((ack&ArbHalt)==ArbHalt)break;}
+    if(i==spins) {undo(gx_off);return kIOReturnTimeout;}
+    /* The success path cleared only the GBIF halt and left the GX one asserted: a caller that turned GX back on
+     * afterwards would find its bus still halted. Both are released now. (No caller in this tree yet -- this is
+     * the one place in the file that reads as a resume, so it is the only reading that stays consistent.) */
+    if(io_.write32(io_.cookie,GbifHalt,0))return kIOReturnIOError;
+    if(gx_off && io_.write32(io_.cookie,RbbmGbifHalt,0))return kIOReturnIOError;
+    return kIOReturnSuccess;
 }
 IOReturn NativeAdrenoRing::detach()
 {
