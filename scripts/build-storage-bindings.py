@@ -78,6 +78,11 @@ def undefined_of(symbols):
 
 data, image, symbols = object_symbols(obj_path)
 imports = undefined_of(symbols)
+if not imports:
+    # Every later step filters the recorded symbols through this set, so an empty set silently produces an archive
+    # whose bindings nothing references -- the shape a wrong or stub object would give.
+    raise SystemExit(f'{obj_path.name} imports no IOStorageFamily symbol, so bindings for it would bind nothing; '
+                     f'check that the object is the storage driver and not a stub')
 
 
 def assemble(source: Path):
