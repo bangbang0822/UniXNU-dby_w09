@@ -16,3 +16,8 @@
 *.bin binary
 *.a binary
 *.o binary
+
+# Handover packages are kept as they arrived, byte for byte, so their checksums stay true: no
+# end-of-line conversion, no whitespace normalisation.
+docs/handover/** -text
+

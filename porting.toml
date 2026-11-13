@@ -215,7 +215,7 @@ result = "The CPU path is alive only while offer() stays gated on gpuClient. Wit
 id = "input"
 status = "device-verified"
 components = ["ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi"]
-paths = ["package/DbyTouch/**", "package/GeniSpi*", "package/HidInputProbe.cpp", "package/IliTddi*", "package/Nvt*", "package/TouchBoard.h", "package/TouchProbe.cpp", "scripts/build-dby-touch.py", "scripts/gen-touch-firmware.py", "scripts/gen-touch-firmware-multi.py"]
+paths = ["package/DbyTouch/**", "package/GeniSpi*", "package/HidInputProbe.cpp", "package/IliTddi*", "package/Nvt*", "package/TouchBoard.h", "package/TouchProbe.cpp", "scripts/build-dby-touch.py", "scripts/gen-touch-firmware.py", "scripts/gen-touch-firmware-multi.py", "docs/handover/2026-11-04-touch/**"]
 inputs = ["Capacitive touch panel (Novatek N9Z family over TDDI) and three physical keys (power, volume up, volume down), polled on the SE14 GENI SPI bus.", "The keys are already usable in firmware; the DbyTouch stack reports them in XNU as an HID consumer as well.", "Touch firmware image for this panel, carried verbatim in package/DbyTouch/DbyTouchFw.h."]
 configuration = ["[components] selects ShengHidInput, ShengNovatekTouch and QcomGeniSpi from the catalog; the board producer DbyTouch reaches the kernel through [kernel] archives and scripts/build-dby-touch.py.", "[kernel.prelink] roots already include com.apple.iokit.IOHIDFamily and com.apple.iokit.IOHIDEventDriver, so the OS side of HID is inside the prelink closure.", "[payload] kernel_args carry the stage ladder: dby-touch=8 dby-touch-se=1 sheng-touch-hid=1 sheng-buttons=1, with offline-hid-input=1 offline-hid-home=1 offline-key-events=1 on the consumer side."]
 procedure = ["Read https://unixnu.com/porting/input completely before writing board code: transport and sensor, publishing reports through the qualified IOHIDDevice ABI, then physical buttons.", "Keep the vendor-verified driver sources byte-identical to the accepted implementation, then change one variable per flash and read the stage ladder."]
@@ -242,7 +242,7 @@ result = "Accepted on the tablet on 2026-11-04: contacts follow the finger, the 
 id = "gpu"
 status = "planned"
 components = ["AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K", "Sm8250Platform"]
-paths = ["package/*Gpu*", "package/*Adreno*", "package/*Metal*", "scripts/*gpu*", "scripts/*adreno*", "scripts/*metal*", "scripts/data/*air*", "scripts/data/ioaccelerator-*", "drivers/Adreno740/**", "drivers/AdrenoMetal/**", "kits/Sm8250Platform/**", "package/*A650*"]
+paths = ["package/*Gpu*", "package/*Adreno*", "package/*Metal*", "scripts/*gpu*", "scripts/*adreno*", "scripts/*metal*", "scripts/data/*air*", "scripts/data/ioaccelerator-*", "drivers/Adreno740/**", "drivers/AdrenoMetal/**", "kits/Sm8250Platform/**", "package/*A650*", "docs/handover/2026-11-12-gpu/**"]
 
 inputs = ["Adreno 650 (SM8250). The shared tree's GPU components target Adreno 740, a different generation.", "Signed ZAP firmware and GMU/HFI bring-up inputs, neither of which this board has recorded."]
 configuration = ["The board selects no GPU component; com.apple.iokit.IOGPUFamily is kept in the prelink roots only because the donor closure requires it.", "IOCoreSurfaceRoot has to be published for the display stack to complete, which was done without any GPU hardware."]

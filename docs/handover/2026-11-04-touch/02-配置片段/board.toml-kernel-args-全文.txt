@@ -1,0 +1,176 @@
+# ============================================================================
+#  警告：这是本板（DBY-W09）的 46 条完整命令行，其中 **只有 4 条可以移植**：
+#      dby-touch / dby-touch-se / sheng-touch-hid / dk
+#  其余 42 条属于本板的显示、存储、复位与日志策略，逐条换成你自己板子的值。
+#
+#  其中 13 条直接改显示，抄错就会花屏（或黑屏/冻结首帧）：
+#      offline-legacy-register / -gop / -validate / -retire / -pm / -transfer
+#      offline-legacy-cpu-present / -phase / -unit-scale
+#      offline-mobile-graphics-load / -client
+#      boot-progress / boot-diag-resume
+#  最像"花屏"的一条：offline-legacy-retire=1 与 -cpu-present=1 都缺时**只出第一帧**。
+#  详见 README §4（含三条硬耦合表）与 work/tracks/bundle-audit/REPORT.md。
+# ============================================================================
+kernel_args = [
+  "-v",
+  "serial=3",
+  "debug=0x14e",
+  "sheng-smp=1",
+  "offline-legacy-register=1",
+  "offline-legacy-gop=1",
+  "offline-legacy-validate=1",
+  "offline-legacy-retire=1",
+  "boot-progress=2",
+  # 触摸普查阶段门（package/DbyTouch 自己解析）：
+  #   0 = 驱动在 mapWindows() 之前直接返回，不碰任何 MMIO（缺省）
+  #   1 = 只读常开域 TLMM 的引脚普查 + 页面两行（SE/QUP 不读）
+  #   2 = 额外运行 applyPinConfig（写引脚，需另行批准）
+  # SE/QUP 的读取**不在 stage 里**，必须额外加 dby-touch-se=1，因为本驱动从不做时钟投票，
+  # 未上电读 SE 会挂死总线（2026-10-31 实测）。当前值 1 = 只读引脚普查。
+  #   5 = 只读帧/采样/dump/FWINFO，不写任何芯片寄存器（2026-11-02 前的行为）。
+#   注意（2026-11-04 更正）：当前驱动只比较 0/1、>=2、>=6、>=7、>=8 四个阈值，
+#   3/4/5 与 =2 行为相同；"5 只读"的说法已不成立（到帧读之前已经写了 pad 与 GENI 引擎）。
+  #   6 = 在 5 之上运行厂商的芯片使能序列（rst98 复位释放 + 0xAA 回 idle），再采样 gpio39
+  #       电平/边沿与 0x3F8 处 4 个原始字节。依据 novatek_thp.c:310-333。
+  #       行 2 追加 " en=<rc> g=<level>/<edges> f=<8hex|->"（lv= 在此阶段不再打印，13 字节让位）。
+  #   7 = 在 6 之上，释放复位并重新识别后，按官方 ShengNovatekTouch 的握手发两条 host command
+  #       （{0xBF,0x19,0,0,0} 空闲基线 → {0xBF,0x01,0,2,0} 开启上报），整块一次传输、35 ms 前置、
+  #       20 ms 后置、最多 5 次，接受条件是命令字节被固件清零且操作码回显仍在。
+  #       行 2 追加 " hc=<idle><active>"，并在 f= 后追加 "*" 表示两次计数器读数不同。
+  #       注意：这是 NT36532E 的应答约定，N9Z 厂商内核用的是 0x2FE77 的 stamp（novatek_thp.c:886-905），
+  #       所以 hc=1 不能当作"N9Z 没有这条命令"的结论；官方顺序里还有一步 doze delay(120)@0x113718
+  #       本轮**故意未发**（该页在 N9Z 上未证实），若 0x01 被接受却不来帧，先怀疑它。
+  #   8 = 在 7 之上执行**固件上传**。实测 2026-11-02 10:07（stage 7）已确认本机芯片没有固件：
+  #       fb=35（不在厂商 HAL 接受的 0xA0..0xAF）、hc=111（无固件就没有东西能处理命令）、
+  #       帧为 8192 字节均匀随机、而识别始终正常（ROM/OTP 可读）。
+  #       上传内容与顺序来自闭源 HAL 的反汇编（work/tracks/n9z-fw-upload/REPORT.md）：
+  #       0x3F0FE←69 → ILM 基址/长度/CRC → DLM 基址/长度/CRC → 0x3F7E8←69 →
+  #       ILM(0x146A4 字节 @SRAM 0x000000) + DLM(0x0BC48 字节 @SRAM 0x020000) →
+  #       0x3F7F1 排空 → 0x3F30E|=0x80 → 0x2FE60←00 → 0x2FE50←AE → 0x3F10D|=0x01 →
+  #       轮询 0x2FE60 ∈ 0xA0..0xAF，整轮最多 3 次。
+  #       镜像编进驱动（DbyTouchFw.h，生成物），厂商校验和已核对：-(Σ u32)=0xDA421D61。
+  #       行 2 追加 " up=<rc>/<attempts>"；此阶段不再打印 f=（行宽不足，计数器仍在读，见 IOLog）。
+  "dby-touch=8",
+  "dby-touch-se=1",
+  # 2026-11-03 12:20 诊断轮。命令行 996/1000 字节已满（payload.py:35-36 按空格连接后数长度），
+  # 这两个参数是从下面两处让出来的：dby-touch-dump=1 撤下（-17 字节，那一帧的离线分析
+  # ——自相关定行距、int16 定字节序、静止/按压差分定矩阵范围——已在 frames40 那轮做完），
+  # sheng-build-tag 撤下（-20 字节，它只决定槽头 tag= 的显示文字，见 BootProgress.c:599）。
+  # 两者都只影响诊断显示，与运行路径无关；恢复任一参数只需从别处再让出同样字节数。
+  #
+  # GPU SMMU 只读普查（G-1 门）。2026-11-03 12:45 重新打开：审查 M1 要求的那道"这块没回答"门已经落地
+  # （DbyGpuSmmuProbe.cpp dbyGpuSmmuSilent()）——三个 ID 寄存器全 0 或全 1 时走 stage 5，只打原始值、
+  # 不解码、不给 gated 结论；ID2[11:8] 落在表外（code ≥ 5）时打 gated=? 而不是把 48 当成"接受客户端"。
+  # 没有这道门时，一个没开时钟的块会读成 0xffffffff → code 15 → input_bits 48 → 假的 gated=N。
+  # 读集仍只有 0x20/0x24/0x28 三个字、零写入；风险（GPUCC 时钟未开时会 SError）记录在
+  # DbyGpuSmmuProbe.cpp 的文件头与 work/tracks/gpu-smmu-probe-review/REPORT.md。
+  "dby-gpu-smmu=1",
+  # EPSS 投票（CPU 轨第二半）。m=1 是只普查，stage19 已实测：3/3 域映射、LUT 步长 4 字节、
+  # 40 行/域、三域 1516/710/844 MHz（work/tracks/stage19-verification/REPORT.md §3）。
+  # m=2 只给 domain 0 投一档"最高非 turbo 行"（CpuFreqProbe.cpp:506-538）：写 PERF_STATE、
+  # 立刻读回校验，行 39 会多出 " v<level>@<MHz>"，读不回则带 "!"。投票只做一次且粘住，
+  # 重启才恢复——本轮就是要看这个"写进去→频率变了"的闭环，而不是长期跑在这个频率上。
+  "sheng-cpufreq=2",
+  # 命令行总长有 1000 字节上限（payload 构建会拒绝更长的），为了放下 sheng-autoreset-write，这里去掉
+  # 了 dby-touch-win=60：那个 6 字窗口只进 IOLog、不进归档行，lv=/vb= 已经覆盖它要看的；不传该参数
+  # 时驱动取"最长连续非空区"的起点。
+  # (dby-touch-dump=1 于 2026-11-03 12:20 撤下，让出 17 字节给上面的 dby-gpu-smmu=1。
+  #  它把一整帧 8208 字节写进导出区尾部 3 块供主机侧离线分析，那项分析已随 frames40 那轮完成；
+  #  再要抓帧时加回来、并从别处让出同样字节数即可。)
+  # 触摸发布开关（上游名 sheng-touch-hid，见 docs/zh/porting/input.md:61）。本板现在有两个消费者：
+  #   1. BootProgress.c:1166-1181 的点阵覆盖层——它读 native_touch_count/xs/ys 并把点画在测试板上，
+  #      这条链不依赖任何 HID 归档，所以一个 payload 就能验证"传感器→坐标"整段是否成立；
+  #   2. 之后的 ShengHidInput 设备（NativeHidInput.cpp:155-206）——它把同样的五个全局量变成
+  #      digitizer 报告交给 stock IOHIDEventDriver；那个归档这一轮还没链，所以参数先放开、
+  #      消费者只有覆盖层。驱动里读到它就进入 100 ms 连续发布循环（DbyTouch.cpp 的 stage5 尾部）。
+  "sheng-touch-hid=1",
+  # DriverKit 侧必须让开：不加 dk=0 时 AppleUserHIDEventDriver 会抢匹配，然后卡在
+  # "user server timeout"（没有 AppleUserHIDDrivers 进程），事件根本出不了内核。同 donor 的
+  # sirius-huajifruit.md:458 就是这个现象，加上 dk=0 后由内核内 IOHIDEventDriver 接管。
+  # 4 字节 + 分隔符：命令行 991 -> 996，仍在 1000 上限内（payload.py:35-36 硬拒超长）。
+  "dk=0",
+  # 官方持久化日志写入器（package/BootLog.c，kits/sheng 的同一份）：
+  #   sheng-log=1 由 boot_log_tick() 读取；区域由 NativeUfs 的 native_ufs_log_open() 给出，
+  #   落点是 userdata 尾部——导出区 0x1D33600..0x1D435FF（256 MiB）+ 日志区 0x1D43600..0x1D455FF（32 MiB）。
+  #   用户 2026-10-31 明确指示"用官方写入器"；该区域在根镜像（结束于 LBA 0x29FBE4）之后 106 GiB，
+  #   不覆盖 iPadOS 根卷（相距 106 GiB），属根镜像之后的死区；备份尝试见
+  #   work/verify/edl/readback-userdata-tail.xml（该区域无内容价值，EDL 备份未完成，如实记录）。
+  "sheng-log=1",
+  # 无人值守循环：内核启动后 N 秒自动复位，让主机自己回收那次开机的日志（否则每次读日志都要人工
+  # 断电重进 fastboot）。计时由 package/BootLog.c 的 boot_log_tick() 完成，起点是日志线程第一个 tick，
+  # 比内核入口晚数秒；到点调用 boot_reset_bootloader()。
+  # 复位机制（package/BootResetDby.c）：先写 IMEM 重启原因 0x146BF65C = 0x77665500
+  # （kona.dtsi:1947-1962 的坐标 + msm-poweroff.c:657 原厂 `reboot bootloader` 的写法），再 PSCI
+  # SYSTEM_RESET（smc #0, 0x84000009）。PEHaltRestart 在本机不可用（PE_halt_restart 恒 NULL）。
+  # 两个门都是板级参数，改动只需重出 payload，不必重编内核：
+  #   sheng-autoreset-write=1  允许 probe 写标记（S3）。不加 = 只读取证（S1），永不复位。
+  #   sheng-autoreset-force=1  忽略"上次标记没被消费"的保险丝，仅供一次性取证。
+  # 默认只读的原因：ABL 是否认这个值、写进去会不会粘住都还没在本机测过，而写错会导致每 60 秒
+  # 复位一次的循环；第一次开写时 N 用 60 秒并全程在场。
+  "sheng-autoreset=60",
+  # 2026-11-02 触摸轮：**故意停在 S1**。这一轮要的是"芯片开扫后设备仍然活着"，好让采样、整帧 dump
+  # 和日志槽都写完，而不是被自复位打断；也是因为 04:29 那次实测暴露了"写标记→ABL 进 fastboot"不是
+  # 每次都成立（第一次 131 s 成功，之后只在 logo 阶段循环重启）。结论记在 porting.toml 的 diagnostics 区。
+  # 重新打开 S3 前必须先解释清楚那次循环：先把下面这行取消注释，并保持"人在旁边"。
+  # "sheng-autoreset-write=1",
+  # 2026-10-31：stage 1 会读 SE14（未上电，疑挂总线），先回 0 恢复可进锁屏；
+  # 安全版普查（只读 TLMM/QUP wrapper）落地后再改回 1。
+  # (sheng-build-tag=uit1 于 2026-11-03 12:20 撤下，让出 20 字节给上面的 sheng-cpufreq=2。
+  #  它只被 BootProgress.c:599 读入、显示在槽头的 tag= 字段上，用来看照片属于哪个镜像；
+  #  本轮靠 payload 的 sha256 区分镜像，那个字段留空不影响任何功能。)
+  "offline-apfs-load=1",
+  "offline-mobile-graphics-load=1",
+  "-apfs_shared_datavolume",
+  # NativeUfs 默认 stream 0x60 是 sheng 的板子；SM8250 走 0x0e0 / 0x4e0。
+  "native-ufs-stream=0xe0",
+  "native-ufs-stream2=0x4e0",
+  # 根设备发布门（NativeUfs.cpp start()：`if (rootMode && !probe) return startRoot(provider)`）。
+  # probe=10 是只读取证，和 root 互斥，所以必须用 root=1，否则永远不发布 IOMedia。
+  "native-ufs-root=1",
+  # AMFI 硬门：payload.py 见到 native-ufs-root=1 就要求恰好一个 sheng-pmgr=2，
+  # 且内核里链了 _sheng_pmgr_run，否则原封不动的目标 AMFI 会 panic "No PMGR"。
+  "sheng-pmgr=2",
+  # watchdogd 因 Data 卷没有 role 而 BRK #1，com.apple.watchdogd.plist 的 _PanicOnCrash
+  # 会把这一下升级成内核 panic。Data 挂载门还没开，所以先按官方 bring-up 做法抑制，
+  # 好让 initproc 之后的失败可读。
+  "panic_on_crash_disabled=1",
+  # 以下每一项都对应本轮从官方 core 补进树里的补丁，参数本身由补丁里的代码读取：
+  #  zzyb-native-cryptex-os-view.patch -> 提供 SystemOS cryptex 视图，配合 -apfs_shared_datavolume
+  #  zzyc-owner-skip-launch-constraints.patch -> 放宽 launch constraints，让原始 iPadOS 用户态可 exec
+  # sheng-staged-apps 关闭：官方 UniXNU-sheng 只有 disable-watchdogd / disable-jobs / data-persist。
+  # 开它内核会把 OS 卷约 25 MiB 的 staged_system_apps 复制进 Data 种子，容器放不下，
+  # BootWatchdogPolicy.c 写 disabled.plist 得到 ENOSPC 28，内核在 kern_exec.c:8201 panic。
+  "kt_fixed_zones=120",
+  # offline-legacy-unit-scale=1 发布 /chosen display-scale，SpringBoard 的
+  # -[FBSDisplayMode _initWithWidth:height:preferredScale:] 读的就是它。缺它 preferredScale=0，
+  # 合法性检查在 FBS+0xf744 触发 brk #0，SpringBoard 永远起不完。上游限定态是
+  # unit_scale_calls==chosen_scale==1、unit_scale_status==0；本板早先传 2 时对拍门没过，
+  # DISPLAY 停在 8，1 才是官方 GOP 1:1 值。
+  "offline-legacy-unit-scale=1",
+  "offline-legacy-pm=1",
+  "offline-legacy-transfer=1",
+  "offline-legacy-cpu-present=1",
+  "offline-legacy-phase=4",
+  "offline-mobile-graphics-client=1",
+  "offline-hid-home=1",
+  "offline-hid-input=1",
+  "offline-key-events=1",
+  # sheng-aks=1 让 AppleKeyStoreState 的 user client 如实回答状态查询（无钥匙串、未锁定）。
+  # 绝不加 offline-keystore=1：两者互斥，KeyStoreProbe.cpp:91 在它存在时直接放弃替身。
+  "sheng-aks=1",
+  # 官方 debugging 文档：boot-ui-focus 替换第二个采样槽（默认 backboardd）。默认 trace_slot[0]=0，
+  # launchd 自身不被追踪；只有 launchd 活着时 boot_ui_trace_ready 永远是 0，UI trace 画不出来。
+  "boot-ui-focus=launchd",
+  "boot-ui-focus4=SpringBoard",
+  "sheng-data-persist=2",
+  "sheng-data-reset=1",
+  "sheng-disable-watchdogd=1",
+  "sheng-disable-jobs=com.apple.identityservicesd,com.apple.locationd,com.apple.CommCenter,com.apple.bluetoothd",
+  "armcpu-diagnostics=1",
+  # boot-diag-resume=3600：面板要交给系统。取 10 时，只要 UI 连续 10 秒没扫出新内容诊断页就抢回去，
+  # 而这对手屏（Always-On）是正常的，于是平板在系统画面和我们那页之间来回。3600 是
+  # BootProgress.c:535 接受的最大值。
+  "boot-diag-resume=3600",
+  "armcpu-spi-ipi=1",
+  "-no_slto_panic",
+]
