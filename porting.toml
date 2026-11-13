@@ -206,7 +206,7 @@ result = "Panic and checkpoint text rendered by the panel build"
 
 [[area.evidence]]
 kind = "device"
-reference = "GopFramebuffer NativeGOPresenter.cpp (offer())"
+reference = "GopFramebuffer NativeGOPresenter.cpp:147 (offer())"
 command = "kernel built from the board tree, replaced into payload_final.img, fastboot flash preload, reboot, BootLog window read over EDL"
 revision = "445d5a9c5755bdeeb2b2eb09638647ba704b967f"
 result = "The CPU path is alive only while offer() stays gated on gpuClient. With the gate dropped, the first board self-test frame was accepted before any client existed, NativeLegacyDisplay set transferred on it, nobody ever completed it and the ladder refused every later frame: COPY calls=0 and the panel froze on one slot. Gated as the component repository has it, that frame is refused and the CPU path keeps running: SWAP calls=656 accepted=1 reason=0 COPY calls=655 status=00000000 bytes=16384000 retired=655, i.e. 655 full 1600x2560x4 frames copied and retired on this boot."
