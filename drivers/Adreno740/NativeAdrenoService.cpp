@@ -181,7 +181,18 @@ int NativeAdrenoGpuService::gpu_barrier(void *cookie)
 int NativeAdrenoGpuService::ring_publish(void *cookie,const volatile uint32_t *words,size_t bytes)
 {
     NativeAdrenoGpuService::RingCache *cache=static_cast<RingCache *>(cookie);
-    return cache && cache->ring && cache->ring->publishForDevice(0,bytes,false)==kIOReturnSuccess?0:1;
+    if(!cache || !words)return 1;
+    /* restart() publishes the fence page first and the ring after it (NativeAdrenoRing.cpp:420), and the
+     * fence is a separate memory object. Publishing cache->ring for both calls would clean the ring twice
+     * and leave the CPU-written fence words in the cache, so the CP would read a fence page that never
+     * changed. Publish the object the words belong to, at their offset inside it. */
+    const uintptr_t at=reinterpret_cast<uintptr_t>(words);
+    NativeAdrenoMemory *memory=cache->ring;
+    if(cache->fence && at==reinterpret_cast<uintptr_t>(cache->fence->mapping()))memory=cache->fence;
+    if(!memory || !memory->mapping())return 1;
+    const uintptr_t base=reinterpret_cast<uintptr_t>(memory->mapping());
+    if(at<base)return 1;
+    return memory->publishForDevice(size_t(at-base),bytes,false)==kIOReturnSuccess?0:1;
 }
 int NativeAdrenoGpuService::fence_acquire(void *cookie,volatile uint32_t *words,size_t bytes)
 {
