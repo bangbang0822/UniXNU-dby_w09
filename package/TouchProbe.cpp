@@ -167,11 +167,11 @@ struct Session {
     // command prefix rwSPIBuf adds) x the six node unfoldings nvt_thp_nodes knows. Every candidate is measured on
     // real frames by the vendor's own acceptance rule (neighbouring nodes must be close) and the smoothest wins;
     // `voted` counts the frames that scored, `roughSkipped` the candidates that would have read past the burst.
-    uint8_t *alt = nullptr;           // second 800-node grid: candidate scoring, then the negated feed
+    int32_t *alt = nullptr;           // second 800-node grid: candidate scoring, then the negated feed
     struct nvt_touch_core *coreNeg = nullptr;   // the same frame with the other sign (see burstPass)
     uint8_t lastPayload[NVT_THP_PAYLOAD_LEN];   // replay test on the bytes themselves, not on a header field
     uint8_t haveLast, matrixLive;
-    uint32_t replay, voted, roughSkipped;
+    uint32_t replay, voted, roughSkipped, roughFrames[4];   // scored frames per payload offset
     uint32_t roughSum[4][NVT_THP_V_KINDS];
     unsigned payloadOff, variant, polarity, polaritySet;
     // The vendor's own point-report branch (nt36xxx_ops.c novatek_irq_bottom_half), run on every burst that carries no
@@ -873,7 +873,8 @@ static void touchThread(void *, wait_result_t) {
         s->rx = static_cast<uint8_t *>(IOMalloc(NVT_FRAME_READ_MAX));
         s->frame = static_cast<uint8_t *>(IOMalloc(NVT_THP_FRAME_LEN + 8));
         s->matrix = static_cast<int32_t *>(IOMalloc(NVT_NODES * sizeof(int32_t)));
-        if (!s->tx || !s->rx || !s->frame || !s->matrix) {fail(6, -12); break;}
+        s->alt = static_cast<int32_t *>(IOMalloc(NVT_NODES * sizeof(int32_t)));   // negated feed, see burstPass
+        if (!s->tx || !s->rx || !s->frame || !s->matrix || !s->alt) {fail(6, -12); break;}
         s->bus = (struct nvt_bus){s, busXfer, busDelay};
         s->chip = {};
         s->chip.bus = &s->bus;
@@ -928,8 +929,10 @@ static void touchThread(void *, wait_result_t) {
         rows(*s);
         if (stage < 4) break;
         s->core = static_cast<struct nvt_touch_core *>(IOMalloc(sizeof *s->core));
-        if (!s->core) {fail(8, -12); break;}
+        s->coreNeg = static_cast<struct nvt_touch_core *>(IOMalloc(sizeof *s->coreNeg));
+        if (!s->core || !s->coreNeg) {fail(8, -12); break;}
         nvt_touch_reset(s->core);
+        nvt_touch_reset(s->coreNeg);
         s->lastCounter = 0xffffffffu;
         mark(*s, 8);
         // Which half of the official bring-up this part still needs is measured, not assumed. nvt_identify() has just
