@@ -299,6 +299,11 @@ void NativeUfs::inspect (void)
   uint32_t aux = read32 (gcc, GCC_UFS_PHY_PHY_AUX_ENABLE - 0x77000);
   uint32_t memGdsc = read32 (memPhy, 0);
   // GDSCR bit31 PWR_ON; CBCR bit31 CLK_OFF.
+  // The map behind these offsets is SM8550's (GccUfs.h), and this board is SM8250: the two values
+  // below are read from whatever unrelated register happens to live at that offset on kona, so the
+  // gate they form is a heuristic here, not a measurement. It is kept because skipping the
+  // host-controller reads on a powered-down controller is the safer failure, and the dump records
+  // what was read so a kona session can correct the offsets with a source.
   bool powered = (gdsc & 0x80000000U) != 0;
   // Hardware 2026-10-17: AXI running, AHB enabled but CLK_OFF (bit31). With bit1 (HW gating)
   // set the branch wakes on access, so enable bits, not CLK_OFF, gate the read-only probe.
@@ -1414,8 +1419,10 @@ extern "C" int native_ufs_log_open (uint64_t *firstLba, uint64_t *blocks, const 
   else {
     uint64_t partition = gStoreGeometry.last - gStoreGeometry.first + 1;
     uint64_t imageBlocks = (gStoreGeometry.imageBytes + 4095) / 4096;
-    if (reserveBlocks () < kLogReserveBlocks + kExportBlocks) reason = "reserve too small for the log";
-    else if (partition - reserveBlocks () < imageBlocks + 1024) reason = "overlaps the root image";
+    const uint64_t reserve = reserveBlocks ();
+    if (reserve < kLogReserveBlocks + kExportBlocks) reason = "reserve too small for the log";
+    else if (reserve >= partition) reason = "size";
+    else if (partition - reserve < imageBlocks + 1024) reason = "overlaps the root image";
     else {
       uint64_t first = gStoreGeometry.last + 1 - kLogReserveBlocks;
       // One write window covers the export region and the log: [first - kExportBlocks, first + kLogReserveBlocks).
