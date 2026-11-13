@@ -51,7 +51,18 @@ PROT_EXEC = 0x4  # vm_prot_t PROT_EXEC, the initprot bit that lets the CPU fetch
 # Segments to host the caves, in order: __TEXT_EXEC is where the official padding
 # lives, __PLK_TEXT_EXEC is the other code segment of an arm64 prelinked kernel.
 PREFERRED_CAVE_HOSTS = ('__TEXT_EXEC', '__PLK_TEXT_EXEC')
+# The ARM generic timer's frequency on this board: cntfrq_el0 reads 19.2 MHz, and package/BootProgress.c
+# (lines 1060, 1080, 1125, 1259) reads the same register and falls back to this very constant. The probe
+# cannot read the register -- it patches the kernel before it runs -- so it uses the constant, and only
+# --reset-delay multiplies it: a wrong value scales that delay, it cannot corrupt the paint.
 TIMEBASE = 19200000
+
+# The three words the paint stub loads out of the boot_args pointer. Their meaning is fixed by how the stub
+# uses them, not assumed: 0x38 is the row stride (the stub computes columns per band as 0x38 >> 6, which is
+# 100 for this 1600-wide 32-bpp panel, i.e. 6400 >> 6), 0x48 is the row count (the outer loop runs it), and
+# 0x28 is the frame buffer base (the only one the stub stores through). They are the BootVideo fields of
+# XNU's boot_args (pexpert/pexpert/boot.h); the offsets are the ones this build lays out, and the tool
+# refuses a kernel whose instructions at the patch sites differ, though it cannot check the layout itself.
 
 PAINT = """
   ldr x1, [{args}, #0x28]
