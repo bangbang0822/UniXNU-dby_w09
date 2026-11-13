@@ -137,7 +137,10 @@ CONFIG_XNU_DT_PANIC_REGION=y
 # package/DbyTouch/DbyTouch.cpp 提供（强定义），native_legacy_transfer_calls 由 LegacyDisplayProbe.cpp
 # 提供；归档内的 DbyHidSinkStubs.o 只有 weak 桩，真定义自动赢过它，不需要改桩。
 # 回退 = 删掉本行末尾的 {tree}/build/dby-hid-input/libDbyHidInput.a 这一个词。
-CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/link-stubs/libLinkStubs.a {tree}/build/dby-touch/libDbyTouch.a {tree}/build/dby-torch/libDbyTorch.a {tree}/build/dby-camera/libDbyCamera.a {tree}/build/gpusmmu/libDbyGpuSmmuProbe.a {tree}/build/gpupower/libDbyGpuPowerProbe.a {tree}/build/adreno-kits/libAdrenoKits.a {tree}/build/adreno740/libAdreno740.a"
+# GPU SMMU 探针同理必须 force_load，原因和上面 HID 那条一样：BootProgressStubs.c:369-370 已经用 weak 桩
+# 满足了 sheng_gpu_smmu_probe / native_gpusmmu_census，普通归档路径下 DbyGpuSmmuProbe.o 一个条目都不会被
+# 拉进来，探针静默不跑。scripts/build-gpu-smmu-probe.py 的文档一直说它是 force_load 的，这句现在是事实。
+CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/link-stubs/libLinkStubs.a {tree}/build/dby-touch/libDbyTouch.a {tree}/build/dby-torch/libDbyTorch.a {tree}/build/dby-camera/libDbyCamera.a -Wl,-force_load,{tree}/build/gpusmmu/libDbyGpuSmmuProbe.a {tree}/build/gpupower/libDbyGpuPowerProbe.a {tree}/build/adreno-kits/libAdrenoKits.a {tree}/build/adreno740/libAdreno740.a"
 # DbyTouch 用普通归档路径（不 force_load）：BootProgress.c 强引用 dby_touch_probe_entry()，
 # 惰性拉取一定会发生；它内部的 stage 轮询线程由驱动自己起，不靠初始化函数被扫到。
 # The two sides each defined this key; the merge keeps one line - ours above, with

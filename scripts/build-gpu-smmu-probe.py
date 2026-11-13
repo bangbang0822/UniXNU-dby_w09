@@ -27,9 +27,10 @@ The defconfig force-loads it through CONFIG_XNU_EXTRA_LD_ARCHIVES:
 
 force_load, not a plain archive path, because every reference to this probe is a WEAK import
 (`package/BootProgress.c` declares `sheng_gpu_smmu_probe` weak, `package/BootLog.c` reads
-`native_gpusmmu_census` weak), so an ordinary archive member is never pulled in by the linker and the
-probe would silently never run. (`package/BootProgressStubs.c` does NOT provide stubs for this probe's
-symbols - it carries the CPU-frequency ones; the weak references are the whole reason for force_load.)
+`native_gpusmmu_census` weak) and `package/BootProgressStubs.c:369-370` already answers both with empty
+weak definitions. A plain archive path therefore leaves the linker with nothing undefined to pull, so
+DbyGpuSmmuProbe.o never enters the link and the probe silently never runs. configs/dby_w09_defconfig
+carried the plain path until 2026-11-14; it force-loads it now.
 
 Usage:
   python3 scripts/build-gpu-smmu-probe.py --tree /root/unixnu-out/.../tree
