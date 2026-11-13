@@ -6,7 +6,9 @@
 enum : size_t { HeaderBytes=16, PairBytes=8, TripletBytes=12 };
 size_t NativeAdrenoPwrupList::requiredBytes(const NativeAdrenoPwrupCounts &counts)
 {
-    return HeaderBytes+size_t(counts.ifpc+counts.preemption)*PairBytes+
+    /* Both counts are uint32_t. Adding them before widening lets a sum above 2^32 wrap and under-report the list
+     * length, which the packer below then trusts. */
+    return HeaderBytes+(size_t(counts.ifpc)+size_t(counts.preemption))*PairBytes+
         size_t(counts.dynamic)*TripletBytes;
 }
 IOReturn NativeAdrenoPwrupList::buildA740(int (*read)(void *,uint32_t,uint32_t *),

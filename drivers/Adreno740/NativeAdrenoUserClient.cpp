@@ -534,11 +534,14 @@ IOReturn NativeAdrenoUserClient::dispatch(uint32_t method,const void *input,
     vm_clock=clock;
     native_adreno_vm_now_us=[]()->uint64_t{return vm_clock && vm_clock->now_us?vm_clock->now_us(vm_clock->cookie):0;};
     IOReturn tally_result=kIOReturnSuccess;
-    Tally tally(method,&tally_result,clock);
+    /* The shape checks run before the Tally is built. The tally records *tally_result, which starts as success and
+     * is only assigned at the end of a dispatched call, so a refusal returning between construction and that
+     * assignment used to be counted as a method that succeeded. */
     const size_t expected_in=inputSize(method),expected_out=outputSize(method);
     if(expected_in==SIZE_MAX || expected_out==SIZE_MAX)return kIOReturnUnsupported;
     if(input_size!=expected_in || output_size!=expected_out)return kIOReturnBadArgument;
     if((expected_in && !input) || (expected_out && !output))return kIOReturnBadArgument;
+    Tally tally(method,&tally_result,clock);
     IOReturn status=kIOReturnSuccess;
     switch(method) {
     case NativeAdrenoMethodQuery: {
