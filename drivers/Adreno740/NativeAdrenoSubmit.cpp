@@ -973,13 +973,17 @@ IOReturn NativeAdrenoSubmit::retireCompleted()
 }
 bool NativeAdrenoSubmit::madeProgress()
 {
-    if(progress_retries_>=3)return false;
+    /* hangCheck() reads this as "the CP is still moving, do not declare a hang"; the counter therefore
+     * has to bound the checks that saw NOTHING move, not the ones that did. msm does the same: it resets
+     * its retries when the state changes. Counting progress here turned the third good observation into
+     * a hang report. */
     uint32_t state[6]={};
     if(ring_->progressState(state))return false;
     bool progress=false;
     for(unsigned i=0;i<6;++i)if(state[i]!=last_cp_[i])progress=true;
     for(unsigned i=0;i<6;++i)last_cp_[i]=state[i];
-    if(!progress)return false;
+    if(progress) {progress_retries_=0;return true;}
+    if(progress_retries_>=3)return false;
     ++progress_retries_;
     return true;
 }
