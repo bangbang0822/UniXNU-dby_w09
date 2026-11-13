@@ -171,6 +171,9 @@ IOReturn NativeAdrenoRing::stallState(uint32_t *out)
          * overwrites both with index 1 = the PM4 header the SQE holds. */
         0x0949,0x0823,SqeStatAddr,SqeStatData};
     if(!out)return kIOReturnBadArgument;
+    /* Every other register-reading entry point of this ring refuses an unattached one first; this one used to go
+     * straight to io_.read32, which is the zeroed IO handle before attach(). */
+    if(!attached_)return kIOReturnNotReady;
     for(uint32_t i=0;i<NativeAdrenoRingStallWords;++i)
         if(io_.read32(io_.cookie,regs[i],&out[i]))return poison();
     /* One CP register write during a stall, the same one the vendor makes to read this pair (adreno_a6xx.c:1207-1208

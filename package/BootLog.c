@@ -83,6 +83,7 @@ extern volatile uint32_t native_adreno_stall[28] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_stall_mem[76] __attribute__((weak_import));
 extern volatile uint32_t native_adreno_unstick[15] __attribute__((weak_import));
 extern volatile uint64_t native_adreno_wait_outer[5] __attribute__((weak_import));   // five: the writer's width
+extern volatile uint32_t native_adreno_wptr_fence[4] __attribute__((weak_import));   // writes, dropped at least once, repeats, still dropped
 extern volatile uint32_t native_adreno_export_stats[4] __attribute__((weak_import));
 extern volatile int32_t native_touch_strokes[16][7] __attribute__((weak_import));
 extern volatile uint32_t native_touch_stroke_count __attribute__((weak_import));
@@ -1170,6 +1171,15 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
                (unsigned long long)native_adreno_wait_outer[0], (unsigned long long)native_adreno_wait_outer[1],
                (unsigned long long)native_adreno_wait_outer[2], (unsigned long long)native_adreno_wait_outer[3],
                (unsigned long long)native_adreno_wait_outer[4]);
+      at = put(out, at, cap, row, sizeof row);
+    }
+    if (&native_adreno_wptr_fence && native_adreno_wptr_fence[0]) {
+      /* [3] is the count the ring records and nothing read: a WPTR write still flagged dropped after all 200
+       * retries. The ring keeps going on the stall handler's later write, so it is not an error -- but it has to
+       * be visible, or the one case the counter exists for is the one case nobody sees. */
+      snprintf(row, sizeof row, "[ring wptr] writes=%u dropped at least once=%u retries=%u still dropped=%u",
+               native_adreno_wptr_fence[0], native_adreno_wptr_fence[1],
+               native_adreno_wptr_fence[2], native_adreno_wptr_fence[3]);
       at = put(out, at, cap, row, sizeof row);
     }
   }
