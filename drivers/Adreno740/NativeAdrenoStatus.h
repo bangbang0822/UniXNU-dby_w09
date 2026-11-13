@@ -17,10 +17,29 @@ struct NativeAdrenoStatusCounts {
 class NativeAdrenoStatus final {
     uint64_t faults_=0,suspends_=0;
 public:
-    void noteFault() {if(faults_!=UINT64_MAX)++faults_;}
-    void noteSuspend() {if(suspends_!=UINT64_MAX)++suspends_;}
-    uint64_t faults() const {return faults_;}
-    uint64_t suspends() const {return suspends_;}
-    NativeAdrenoStatusCounts counts() const {return {faults_,suspends_};}
+    /* The counts are written from the interrupt and recovery threads and read from a client's Query on another
+     * one, so every access is atomic: a plain `++faults_` there is a data race, and a lost increment is a fault
+     * Turnip never sees -- the one signal this object exists to deliver. The saturation at UINT64_MAX stays,
+     * because a wrapped count reads as a decrease and Turnip only looks for a change. */
+    void noteFault() {
+        uint64_t current=__atomic_load_n(&faults_,__ATOMIC_RELAXED);
+        while(current!=UINT64_MAX &&
+              !__atomic_compare_exchange_n(&faults_,&current,current+1,false,__ATOMIC_RELAXED,__ATOMIC_RELAXED)) {}
+    }
+    void noteSuspend() {
+        uint64_t current=__atomic_load_n(&suspends_,__ATOMIC_RELAXED);
+        while(current!=UINT64_MAX &&
+              !__atomic_compare_exchange_n(&suspends_,&current,current+1,false,__ATOMIC_RELAXED,__ATOMIC_RELAXED)) {}
+    }
+    uint64_t faults() const {return __atomic_load_n(&faults_,__ATOMIC_RELAXED);}
+    uint64_t suspends() const {return __atomic_load_n(&suspends_,__ATOMIC_RELAXED);}
+    NativeAdrenoStatusCounts counts() const {
+        /* One read each: a client that compares the fault count must not see it move between the two cells of
+         * the same reply. */
+        NativeAdrenoStatusCounts out;
+        out.faults=__atomic_load_n(&faults_,__ATOMIC_RELAXED);
+        out.suspends=__atomic_load_n(&suspends_,__ATOMIC_RELAXED);
+        return out;
+    }
 };
 #endif
