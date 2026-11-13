@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Count real frontend no-copy imports/releases, forwarding every call to the
 // unmodified bridge. Use actual GPU pixels and bounded pending-work lifetimes.
+// The frontend imports both an IOSurface and a caller's pages through
+// nmb_buffer_new_no_copy_releasing() (NativeBridgeMetalFrontend.mm:400 and :1646); the plain
+// nmb_buffer_new_no_copy() wrapper below is kept for the bridge's own callers. Whichever of the two
+// wrappers the harness interposes on, the counters move only if that symbol is the one the frontend
+// resolved -- an uninterposed run reports imports=0 and its PASS is not evidence.
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #import <IOSurface/IOSurfaceRef.h>
@@ -22,6 +27,15 @@ static std::set<NmbBuffer *> handles;
 static uint64_t (*vkImports)();
 extern "C" NmbBuffer *tracked_surface_import(NmbDevice *d, void *p, uint64_t n, uint64_t options) {
     NmbBuffer *buffer = nmb_buffer_new_no_copy(d,p,n,options);
+    if (buffer) {std::lock_guard<std::mutex> lock(handlesLock);handles.insert(buffer);imports++;}
+    return buffer;
+}
+// The form the frontend actually calls: it carries the owner's release callback, which the plain
+// wrapper cannot express, so an interposer built on tracked_surface_import alone never sees an
+// IOSurface import at all.
+extern "C" NmbBuffer *tracked_surface_import_releasing(NmbDevice *d, void *p, uint64_t n, uint64_t options,
+                                                       void (*release)(void *, void *, uint64_t), void *context) {
+    NmbBuffer *buffer = nmb_buffer_new_no_copy_releasing(d,p,n,options,release,context);
     if (buffer) {std::lock_guard<std::mutex> lock(handlesLock);handles.insert(buffer);imports++;}
     return buffer;
 }
