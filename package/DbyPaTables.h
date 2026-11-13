@@ -1,5 +1,5 @@
 /* 自动生成，不要手改。源: 工厂包 odm/etc/audio/{awinic,nxp,cs} 三个目录下的 _configs.xml */
-/* 生成脚本不在本仓：它从上面三个 _configs.xml 抽表，换表必须重新生成而不是手改。 */
+/* 生成脚本: extract_pa_tables.py（在工厂包解包目录下运行） */
 #ifndef DBY_PA_TABLES_H
 #define DBY_PA_TABLES_H
 

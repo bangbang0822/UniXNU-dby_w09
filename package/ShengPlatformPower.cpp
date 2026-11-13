@@ -22,12 +22,6 @@ volatile uint64_t sheng_pmgr_observation[16];
 __attribute__((noinline)) void sheng_pmgr_checkpoint(void) { __asm__ volatile("" ::: "memory"); }
 }
 
-// An unimplemented slot is a contract violation, and panicking is the point: the kernel asked
-// this provider for something the board cannot do, and returning success would let AMFI's latch
-// be satisfied by a provider that never honoured it. The one way to reach this on purpose is
-// the sheng-pmgr=3 self-test further down, which calls disableCPUCore(1); board.toml passes
-// sheng-pmgr=2 and the payload gate requires exactly one such argument, so a shipped boot cannot
-// arrive here. The slot number lands in sheng_pmgr_observation[0] as 0x100+slot for the post-mortem.
 __attribute__((noreturn)) static void unavailable(unsigned slot)
 {
   sheng_pmgr_observation[0] = 0x100 + slot;
@@ -80,16 +74,6 @@ extern "C" void sheng_pmgr_run(void)
   sheng_pmgr_observation[0] = 1;
   kern_return_t result = OSKextLoadKextWithIdentifier("com.apple.driver.ApplePMGR");
   if (result) { sheng_pmgr_observation[1] = static_cast<uint32_t>(result); sheng_pmgr_checkpoint(); return; }
-  // Provenance, because three numbers here are contract values rather than choices:
-  //   0x4b8a8  ApplePMGR's class size
-  //   0x740    ApplePMGRNub's class size
-  //   nub+0x88 the nub's provider field
-  // All three are recorded by UniXNU's own scripts/audit-amfi-pmgr-contract.py, which pins the untouched
-  // AMFI -> PMGR boundary: provider_field_offset '0x88', service class 'ApplePMGRNub', read and write
-  // vtable slots 320 and 321 at byte offsets 0xa00 and 0xa08, and the null-provider behaviour (read
-  // 0xffffffff, write returns without an operation) that lets a provider-less nub satisfy the latch.
-  // The two sizes are compared against the classes this boot actually loaded, so a donor that changes
-  // either one stops the bridge here instead of letting it write through a stale layout.
   const OSMetaClass *parent = lookup("ApplePMGR"), *nubMeta = lookup("ApplePMGRNub");
   if (!parent || parent != &ApplePMGR::gMetaClass || parent->getClassSize() != 0x4b8a8 ||
       !nubMeta || nubMeta->getClassSize() != 0x740) { sheng_pmgr_checkpoint(); return; }
@@ -114,9 +98,6 @@ extern "C" void sheng_pmgr_run(void)
     nub = sheng_original_pmgr_nub_create(description, provider);
     sheng_pmgr_observation[5] = reinterpret_cast<uintptr_t>(nub);
     if (!nub || nub->getMetaClass() != nubMeta || !provider->metaCast("ApplePMGR")) break;
-    // Read the provider field back before touching anything else: 0x88 is provider_field_offset in
-    // the AMFI-PMGR contract named above, so a mismatch here means the nub published against a
-    // different provider than the one this driver built.
     uintptr_t bound = 0;
     memcpy(&bound, reinterpret_cast<const char *>(nub) + 0x88, sizeof(bound));
     sheng_pmgr_observation[6] = bound;

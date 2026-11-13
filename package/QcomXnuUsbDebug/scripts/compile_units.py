@@ -11,18 +11,14 @@ XNU tree is read-write; outputs go to the directory given after the records.
 
   compile_units.py <port-relative fixture root> <module include dir> <out dir>
 
-Run it on the host that produced the compile records (they name that host's paths).
+Run it on orb (the compile records name the original workspace paths).
 """
 import json
-import os
 import pathlib
 import subprocess
 import sys
 
-# The assembled tree is per machine and per build, so it is an input, never a committed path.
-TREE = pathlib.Path(os.environ.get('UNIXNU_TREE', '')).resolve()
-if not (TREE / 'build/xnu/ios-obj').is_dir():
-    raise SystemExit('set UNIXNU_TREE to the assembled tree of the build being measured')
+TREE = pathlib.Path('out/alioth/ipados-17.7.11-21H461/alioth/tree')  # relative to the UniXNU checkout
 RECORDS = TREE / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837'
 UNITS = {
     'pexpert/DEVELOPMENT/pe_kprintf.o.json': 'pexpert/arm/pe_kprintf.c',

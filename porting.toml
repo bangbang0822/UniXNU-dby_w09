@@ -143,7 +143,7 @@ result = "the 2026-11-08 audio round adds the cpu cluster tags and nothing else 
 id = "storage"
 status = "device-verified"
 components = ["ShengUfs", "VirtioMmioBlock", "RamBlock", "SoftwareAES", "AppleKeyStoreState", "VerifiedRoot"]
-paths = ["README.md", "scripts/build-link-stubs.py", "package/BootWatchdogPolicy.c", "package/KeyStoreProbe.cpp", "scripts/*storage*"]
+paths = ["README.md", "scripts/build-link-stubs.py", "package/BootWatchdogPolicy.c", "package/KeyStoreProbe.cpp", "scripts/*storage*", "drivers/ShengUfs/**"]
 
 inputs = ["UFS on LUN 0 with 4096-byte logical blocks; this model ships with 128 or 256 GiB and the tested unit has 128 GiB, so the capacity is read from the device instead of assumed.", "Backup GPT read from a full 9008 dump: the userdata entry spans first_lba 0x29B600 to last_lba 0x1D455FF, i.e. 27,959,296 blocks = 114,521,276,416 bytes.", "fastboot in the same session reports the userdata partition size as 0x14651E0000 = 87,595,810,816 bytes, so the two sources disagree and neither number is used to write anything.", "OS and Cryptex1,SystemOS root images, mounted read-only as disk windows.", "A scratch Data volume seed carrying the writable /private/var."]
 configuration = ["[userdata] records the two windows and the LBA range read from the backup; nothing about the geometry is estimated.", "[kernel.prelink] roots keep com.apple.filesystems.apfs and com.apple.iokit.IOStorageFamily, so offline-apfs-load=1 can resolve the identifier it loads.", "[payload.adt] root_match_volume_uuid and packed_data_ramdisk = true describe the delivered form; CONFIG_XNU_OWNER_DATA_VOLUME_UUID in the defconfig must equal the seed's volume UUID.", "The selected components split by role: ShengUfs drives the UFS host on hardware, RamBlock backs the packed Data seed as a block device, VirtioMmioBlock is the root block device of the offline harness, AppleKeyStoreState publishes the key-store events userspace waits for (package/KeyStoreProbe.cpp, sheng-aks=1), VerifiedRoot carries the OS and SystemOS root trust and SoftwareAES is chosen because no Qualcomm crypto engine driver is ported."]
@@ -174,7 +174,7 @@ result = "sheng_policy_unmodified() reads the on-disk disabled.plist and skips t
 id = "display"
 status = "device-verified"
 components = ["GopFramebuffer"]
-paths = ["scripts/build-boot-progress.py", "scripts/build-gop-legacy-display.py", "scripts/patch-xnu-entry-probe.py", "scripts/xnu-panic-screen.c", "package/BootProgressDisplay.h", "package/BootUiTraceProbe.c", "package/AppleARMBacklight*", "package/BacklightProbe*", "package/LegacyDisplayProbe.cpp"]
+paths = ["scripts/build-boot-progress.py", "scripts/build-gop-legacy-display.py", "scripts/patch-xnu-entry-probe.py", "scripts/xnu-panic-screen.c", "package/BootProgressDisplay.h", "package/BootUiTraceProbe.c", "package/AppleARMBacklight*", "package/BacklightProbe*", "package/LegacyDisplayProbe.cpp", "drivers/GopFramebuffer/**"]
 
 inputs = ["Firmware GOP framebuffer handed over by the UEFI port.", "Panel mode published through /chosen display-scale.", "Unmodified IOMobileFramebufferLegacy and IOMobileGraphicsFamily from the donor kernelcache."]
 configuration = ["[kernel] archives build the legacy display backend with build-gop-legacy-display.py and force_load it.", "[payload] kernel_args keep the official offline-legacy-* sequence with offline-legacy-unit-scale=1 and offline-legacy-phase=4.", "panic_screen = true patches the panic screen into the payload copy of the kernel.", "GopFramebuffer is the selected shared component that publishes the firmware framebuffer to that backend."]
@@ -241,8 +241,8 @@ result = "Accepted on the tablet on 2026-11-04: contacts follow the finger, the 
 [[area]]
 id = "gpu"
 status = "planned"
-components = []
-paths = ["package/*Gpu*", "package/*Adreno*", "package/*Metal*", "scripts/*gpu*", "scripts/*adreno*", "scripts/*metal*", "scripts/data/*air*", "scripts/data/ioaccelerator-*"]
+components = ["AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K", "Sm8250Platform"]
+paths = ["package/*Gpu*", "package/*Adreno*", "package/*Metal*", "scripts/*gpu*", "scripts/*adreno*", "scripts/*metal*", "scripts/data/*air*", "scripts/data/ioaccelerator-*", "drivers/Adreno740/**", "drivers/AdrenoMetal/**", "kits/Sm8250Platform/**", "package/*A650*"]
 
 inputs = ["Adreno 650 (SM8250). The shared tree's GPU components target Adreno 740, a different generation.", "Signed ZAP firmware and GMU/HFI bring-up inputs, neither of which this board has recorded."]
 configuration = ["The board selects no GPU component; com.apple.iokit.IOGPUFamily is kept in the prelink roots only because the donor closure requires it.", "IOCoreSurfaceRoot has to be published for the display stack to complete, which was done without any GPU hardware."]
@@ -441,7 +441,7 @@ paths = ["package/ShengPlatformPower.cpp", "scripts/build-platform-power.py",
          "package/DbyBattery*", "package/BatteryProbe*", "package/DbyTorch/**", "scripts/build-dby-torch.py", "scripts/check-dby-torch-host.py",
          "scripts/test-dby-torch-media-mount-patch.py", "patches/xnu/series-torch",
          "patches/xnu/zze-dby-torch-media-mount.patch", "package/DbyCamera/**", "package/DbyTorch/ios/**",
-         "scripts/build-dby-camera-plugin.py", "scripts/add-dby-camera-data.py", "scripts/add-dby-camera-trust.py"]
+         "scripts/build-dby-camera-plugin.py", "scripts/add-dby-camera-data.py", "scripts/add-dby-camera-trust.py", "scripts/build-dby-camera.py"]
 
 inputs = ["ApplePMGR from the donor kernelcache (original __TEXT_EXEC hash 2c433279d004…).", "SM8250 PMGR/regulator contract as reached by the shared board scripts.", "The payload's native-ufs-root gate, which demands exactly one sheng-pmgr=2 and a linked _sheng_pmgr_run."]
 configuration = ["[kernel] archives runs scripts/build-platform-power.py after the driver recipes so the audit reads the original kernelcache from the pinned cache.", "[payload] kernel_args set sheng-pmgr=2."]
@@ -570,7 +570,7 @@ result = "23 rows (20 extern entry points) and no glue symbol: the kernel this t
 id = "packaging"
 status = "device-verified"
 components = ["DarwinBoot", "XnuPrelink"]
-paths = ["dts/dby_w09.dts", "package/unixnu.toml", "README.md", "patches/**", "scripts/package.sh", ".github/workflows/package.yml"]
+paths = ["dts/dby_w09.dts", "package/unixnu.toml", "README.md", "patches/**", "scripts/package.sh", ".github/workflows/package.yml", "scripts/make-owner-trust-bundle.py", "scripts/macho-late.py"]
 
 inputs = ["Prelinked kernel image from the donor kernelcache plus board archives.", "Firmware volume, ADT generated by scripts/make-adt.py from the compiled hardware DTB, trust cache bundle and Data seed.", "Payload FAT volume labelled DBYW09ESP, 208 MiB."]
 configuration = ["[payload] loader = firmware places DarwinBoot inside the firmware volume; title, timeout and kernel_args are written into the ESP unixnu.toml of the image.", "[payload.adt] unique_chip_id = required and --unique-chip-id carry the identity at build time.", "[userdata] describes which IPSW components become root windows inside the assembled image.", "XnuPrelink is the kit stage that assembles the prelinked kernel image the payload then carries."]
@@ -602,7 +602,7 @@ result = "native-smp-secondary and native-smp-type-clusters are applied by the s
 id = "diagnostics"
 status = "device-verified"
 components = []
-paths = ["package/QcomXnuUsbDebug/**", "scripts/build-qcom-usb-debug.py", "scripts/check-*", "package/BootProgress.c", "package/BootProgressCore.h", "package/BootProcessProbe.c", "package/BootUiTraceProbe.c", "package/BootFaultProbe.c", "package/BootWatchdogPolicy.c", "package/LinkStubs.c", "package/BootProgressStubs.c", "scripts/patch-xnu-entry-probe.py", "scripts/regression-baseline.json", "scripts/regression-baseline-adt.adt", "package/BootProgressLifecycle.h", "package/BootProgressPulse.h", "package/BootProgressTests.c", "package/BootUiTraceCore.h", "package/BootUiTraceDetails.h"]
+paths = ["package/QcomXnuUsbDebug/**", "scripts/build-qcom-usb-debug.py", "scripts/check-*", "package/BootProgress.c", "package/BootProgressCore.h", "package/BootProcessProbe.c", "package/BootUiTraceProbe.c", "package/BootFaultProbe.c", "package/BootWatchdogPolicy.c", "package/LinkStubs.c", "package/BootProgressStubs.c", "scripts/patch-xnu-entry-probe.py", "scripts/regression-baseline.json", "scripts/regression-baseline-adt.adt", "package/BootProgressLifecycle.h", "package/BootProgressPulse.h", "package/BootProgressTests.c", "package/BootUiTraceCore.h", "package/BootUiTraceDetails.h", "package/BootResetDby.c"]
 
 inputs = ["Panel text output (boot-progress=2 checkpoints, panic screen, UI trace page) and, since the 2026-11-05 firmware revert, the CDC-ACM kernel console enumerating as 1209:316d.", "An offline QEMU harness reproducing the same image with counters readable as text.", "The same rows written to the UFS log by BootLog.c, which is where they live now that the panel is left alone."]
 configuration = ["[payload] panic_screen = true and kernel_args boot-progress=2, armcpu-diagnostics=1, boot-ui-focus=launchd, boot-ui-focus4=SpringBoard, sheng-build-tag.", "Since 2026-11-05 nothing paints after the scanout hand-off: BootProgress.c:1045 defaults sheng-banner to 0, so the live banner is off, and boot-diag-resume is gone, which leaves resume_after=0 (BootProgress.c:556 clamps <5 to 0) = never retake the panel. sheng-banner=1 can opt the painting back in and was tried once on 2026-11-05; the owner refused it (the panel is not a debug surface) and the accepted configuration leaves the banner off, so a number has to come from the log route.", "LinkStubs/BootProgressStubs provide the zero-value definitions for sheng-specific counters that libBootProgress references."]

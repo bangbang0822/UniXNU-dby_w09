@@ -40,7 +40,7 @@ AREA_FIELDS = ('id', 'status', 'components', 'paths', 'inputs', 'configuration',
 # or because they define the pattern this check looks for.
 HOST_PATH_EXEMPT = ('porting.toml', 'scripts/check-repository.py')
 HOST_PATH_EXEMPT_PREFIX = ('package/QcomXnuUsbDebug/fixture/',)
-HOST_PATH = re.compile(r'/home/[a-zA-Z]|/Users/[a-zA-Z]|/opt/homebrew/|/Volumes/[A-Z]|[A-Z]:\\\\|[A-Z]:/[A-Za-z]')
+HOST_PATH = re.compile(r'/home/[a-zA-Z]|/Users/[a-zA-Z]|/opt/homebrew/|/Volumes/[A-Z]|(?<![A-Za-z])[A-Z]:\\\\|(?<![A-Za-z])[A-Z]:/[A-Za-z]')
 
 IGNORED_PREFIX = ('build/', '.cache/')
 

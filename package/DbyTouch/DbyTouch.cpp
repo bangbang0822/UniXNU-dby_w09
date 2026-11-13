@@ -32,7 +32,7 @@
  * WHERE THE RESULT IS VISIBLE ON DEVICE
  *   This board has no kernel console after IONVRAM (AGENTS.md), so the boot
  *   progress page is the only place a result can be read back.  That page
- *   already renders a touch row: package/BootProgress.c:436-438 prints
+ *   already renders a touch row: package/BootProgress.c:571-573 prints
  *   native_touch_rows[0] on row 42 and switches into "touch mode" while
  *   native_touch_stage_req is non-zero, and BootProgressStubs.c:75/88 declares
  *   both weak so a driver may own them.  This file now owns them; both stay
@@ -98,15 +98,15 @@ struct dby_touch_snapshot gDbyTouchSnapshot;
 /* ------------------------------------------------------------------ */
 
 /* These two symbols are the sheng/umi page ABI, not this driver's invention:
- *   char            native_touch_rows[8][120]   BootProgress.c:95/438
- *   volatile unsigned native_touch_stage_req    BootProgress.c:105/331/436
+ *   char            native_touch_rows[4][120]   BootProgress.c:191/573
+ *   volatile unsigned native_touch_stage_req    BootProgress.c:201/571/1297
  * Both are declared weak in package/BootProgressStubs.c:75 and :88 precisely so
  * a touch driver can replace them, and BootProgress guards every use with
- * `&native_touch_rows && native_touch_stage_req` (BootProgress.c:436), so a
+ * `&native_touch_rows && native_touch_stage_req` (BootProgress.c:466/571), so a
  * zero value means "no touch this boot" and the page is unchanged.
  *
  * Only the text row is published.  The dot overlay is not: it maps contacts
- * into a fixed 30480 x 20320 space (BootProgress.c:1066/1094) which is the
+ * into a fixed 30480 x 20320 space (BootProgress.c:1308/1330) which is the
  * sheng/umi panel's, not this panel's 12800 x 20480, so enabling it would draw
  * dots in the wrong place and look like a driver bug.  See README §13. */
 extern "C" {
@@ -429,7 +429,7 @@ static uint32_t gCrcComputed[2] = { 0xFFFFFFFFu, 0xFFFFFFFFu };
  * The OS side of touch is not this board's code.  Whenever the ShengHidInput device is linked it
  * turns the five globals below into absolute digitizer reports and hands them to the stock
  * IOHIDEventDriver (NativeHidInput.cpp:155-206), and the boot page already draws a dot overlay from
- * the same five globals (BootProgress.c:101, read at :1087).  Both read them over this seqlock, so the
+ * the same five globals (BootProgress.c:1166-1181).  Both read them over this seqlock, so the
  * producer below is the whole contract - the same one sheng's touch core fills
  * (work/refs/sheng/TouchProbe.cpp:340-358).
  *
@@ -444,7 +444,7 @@ volatile int native_touch_ys[12];
 volatile int native_touch_ids[12];
 
 /* Axis maxima of the domain the consumers scale by.  Both hardcode this pair
- * (NativeHidInput.cpp:172, BootProgress.c:1094), so the producer has to publish in it, not in pixels. */
+ * (NativeHidInput.cpp:172, BootProgress.c:1175), so the producer has to publish in it, not in pixels. */
 #define DBY_TOUCH_HID_LONG_AXIS  30480
 #define DBY_TOUCH_HID_SHORT_AXIS 20320
 

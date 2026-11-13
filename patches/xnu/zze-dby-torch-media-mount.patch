@@ -1,7 +1,7 @@
 diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
 --- a/bsd/kern/kern_exec.c
 +++ b/bsd/kern/kern_exec.c
-@@ -7214,6 +7214,12 @@
+@@ -7214,6 +7214,16 @@
  volatile int native_gpu_addon3_status = -1;
  volatile int native_gpu_addon4_stage = 0;
  volatile int native_gpu_addon4_status = -1;
@@ -11,10 +11,14 @@ diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
 +/* DbyTorch (package/DbyTorch/DbyTorchIos.h), on boards that link it: publishes the capture service and the
 + * /product/camera flash property, or not, from what the overlay shows. */
 +extern void dby_torch_ios_commit(int plugin_visible) __attribute__((weak_import));
++/* DbyCamera (package/DbyCamera/DbyCameraIos.cpp), on boards that link it: the log service the H6ISP
++ * camera plug-in writes its "[cam] ios:" lines through, which is the stage-1a provider's only readout.
++ */
++extern void dby_camera_ios_publish(void) __attribute__((weak_import));
  static void
  native_gpu_addon_mount(proc_t p, user_addr_t scratch, user_addr_t offset, const char *source, size_t source_size,
      const char *point, size_t point_size, const char *visible, const char *own, volatile int *stage, volatile int *status)
-@@ -7676,6 +7682,27 @@
+@@ -7676,6 +7686,35 @@
  	native_gpu_addon_mount(p, scratch, 0xa00, audio_source, sizeof(audio_source), audio_point, sizeof(audio_point),
  	    "/System/Library/Audio/Plug-Ins/HAL/BuiltinAudioPlugin.driver", "/System/Library/Audio/Plug-Ins/HAL/ShengAudio.driver/Info.plist",
  	    &native_gpu_addon4_stage, &native_gpu_addon4_status);
@@ -37,6 +41,14 @@ diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
 +		    &native_gpu_addon5_status);
 +		if (dby_torch_ios_commit) {
 +			dby_torch_ios_commit(native_gpu_addon5_stage == 5);
++		}
++		if (dby_camera_ios_publish) {
++			/* The mother calls the camera publish from the stage-2 camera driver's start(), PaganiCamera.cpp:242,
++			 * under the same pagani-torch-ios gate. This board has no stage-2 driver yet (#212 has no converted
++			 * SM8250/kona constant table), so this stop holds that gate, and the weak import keeps a kernel built
++			 * without libDbyCamera.a linking - the same shape dby_torch_ios_commit() above uses.
++			 */
++			dby_camera_ios_publish();
 +		}
 +	}
  	native_cryptex_os_view(p, scratch);

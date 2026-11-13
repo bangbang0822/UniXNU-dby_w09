@@ -100,7 +100,13 @@ subprocess.run(policy_command, cwd=policy_record['directory'], check=True, timeo
 # osfmk startup.o.json command (it carries -I <tree>/.cache/xnu-work/osfmk for the kern/vm/ipc
 # source headers); the package directory supplies BootUiTraceCore.h.
 probe_objs = []
-for probe_name in ('BootProcessProbe.c', 'BootUiTraceProbe.c'):
+# BootLog.c is the official persistent-log writer (kits/sheng). BootProgress.c:1126 already calls
+# its weak entry boot_log_tick(), so compiling it here is what turns 'sheng-log=1' from a no-op
+# into a real writer. It only writes when that boot argument is present.
+# BootResetDby.c provides the strong boot_reset_* definitions the log writer's autoreset path
+# needs; the weak stubs in BootProgressStubs.c stay as the fallback for other boards.
+# 2026-11-10 合并 GPU 交接包时摘掉 BootResetDby.c：它 #include "BootResetSpmb.h"，而这个头在交接包与本机任何副本里都不存在（全盘 find 零命中）。旧树本来就没有这个 TU，boot_reset_* 的弱桩在 BootProgressStubs.c 里，链接不缺符号。等拿到 BootResetSpmb.h 再把它加回清单。
+for probe_name in ('BootProcessProbe.c', 'BootUiTraceProbe.c', 'BootLog.c'):
     probe_source = source.parent / probe_name
     probe_obj = OUT / (probe_source.stem + '.o')
     probe_command = [str(probe_source) if arg == str(source) else str(probe_obj) if arg == str(obj) else arg for arg in command]
@@ -115,9 +121,20 @@ fw_obj = OUT / 'AdspFirmware.o'
 fw_command = [str(fw_source) if arg == str(policy_source) else str(fw_obj) if arg == str(policy_obj) else arg for arg in policy_command]
 subprocess.run(fw_command, cwd=policy_record['directory'], check=True, timeout=90)
 
+adsp_objs = [fw_obj]
+# AdspFirmware.c reads the DSP image out of a FAT partition and splits it as an MDT, so fat_* and
+# qcom_mdt_* have to come with it. Both TUs are board package sources and touch no hardware.
+for extra in ('FatVolume.c', 'QcomMdt.c'):
+    extra_source = ROOT / 'kits/dby_w09' / extra
+    extra_obj = OUT / (extra[:-2] + '.o')
+    extra_command = [str(extra_source) if arg == str(policy_source) else str(extra_obj) if arg == str(policy_obj) else arg
+                     for arg in policy_command]
+    subprocess.run(extra_command, cwd=policy_record['directory'], check=True, timeout=90)
+    adsp_objs.append(extra_obj)
+
 archive = OUT / 'libBootProgress.a'
 archive.unlink(missing_ok=True)
-subprocess.run(['xcrun', 'ar', 'rcs', str(archive), str(obj), str(fault_obj), str(policy_obj), str(fw_obj), *probe_objs], check=True, timeout=30)
+subprocess.run(['xcrun', 'ar', 'rcs', str(archive), str(obj), str(fault_obj), str(policy_obj), *adsp_objs, *probe_objs], check=True, timeout=30)
 (OUT / 'build-report.json').write_text(json.dumps({
     'watchdog_policy_sha256': hashlib.sha256(policy_source.read_bytes()).hexdigest(),
     'fault_sha256': hashlib.sha256(fault_source.read_bytes()).hexdigest(),

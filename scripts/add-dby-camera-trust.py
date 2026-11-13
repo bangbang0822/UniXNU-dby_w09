@@ -31,7 +31,7 @@ import uuid
 from pathlib import Path
 
 # The namespaces this repository's two trust-bundle builders derive the owner module's identifier from.
-OWNER_NAMESPACES = ('org.unixnu.owner:', 'org.unixnu.sheng.audio:')
+OWNER_NAMESPACES = ('org.unixnu.owner:', 'org.unixnu.sheng.audio:', 'org.blu-sharky.adreno-metal:')
 ORIGINAL_SHA256 = '7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7'
 
 

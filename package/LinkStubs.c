@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
-// No-op definitions of the probe hooks the patched XNU references while their component is left out of the link.
-// A hook whose component IS selected is compiled out here by the #if below, because the real producer is linked in.
-// The rest are weak so the link succeeds either way; several of their boot arguments ARE passed by board.toml
-// (sheng-gpu-addon=1, dby-bl=1, dby-pa=3, dby-battery=2, sheng-buttons=1), and for those the real implementation is
-// what runs -- the stub is the fallback, not the path.
+// No-op definitions of the probe hooks the patched XNU references while alioth_defconfig leaves their component out.
+// Each hook runs only on its boot argument, which board.toml does not pass; the kernel link needs the symbol anyway.
 
 // offline-component-load-probes.patch, bsd_init: called on offline-legacy-register=1.
 // CONFIG_XNU_NATIVE_LEGACY_DISPLAY is now on, so libNativeLegacyDisplay.late.a defines this
@@ -66,7 +63,7 @@ __attribute__((weak)) uint32_t native_ufs_dpu_map(unsigned slot, const uint64_t 
 	return 0;
 }
 
-// BootProgress.c:1129 calls boot_log_tick() as a weak_import, and the official provider of that
+// BootProgress.c:1070 calls boot_log_tick() as a weak_import, and the official provider of that
 // counter is package/BootLog.c (sheng 38,585 B / alioth 81,678 B), which our device repo does not ship.
 // Same rule as the boot_progress_poll stub above: a static kernel link refuses an undefined weak_import,
 // so the hook gets a no-op here; weak, so linking the real BootLog.c later wins without editing this file.
@@ -171,3 +168,56 @@ __attribute__((weak)) int boot_reset_bootloader(char *text, unsigned cap)
 	(void)cap;
 	return 1;
 }
+
+// ---- optional weak_import symbols that this host's clang cannot leave undefined ----
+//
+// Ubuntu's clang, compiling a Mach-O object, ignores __attribute__((weak_import)): what macOS links as
+// an undefined weak reference - and what the consumers test with `if (&f)` - becomes a STRONG undefined
+// reference here. Each such name therefore needs a definition, and the definition has to behave like
+// the symbol being absent: the pointer test passes and the call fails.
+//
+// AdspFirmware.c:88 is `if (!native_ufs_part_find || !native_ufs_part_read) return ENXIO;`, so a
+// zero-returning stub would take its success path and read a partition nobody opened. These return a
+// failure instead. The storage layer this board ships (FFT-infra/NativeUfs-alioth) exports
+// native_ufs_store_*/native_ufs_export_*, not these partition helpers, and the audio DSP stack that
+// would supply qcom_mdt_* is compiled only by upstream's build-gop-legacy-display.py, which this
+// board's -linux display recipe does not run.
+
+__attribute__((weak)) int native_ufs_part_find(const char *, uint32_t *, uint64_t *, uint64_t *);
+__attribute__((weak)) int native_ufs_part_find(const char *name, uint32_t *lun, uint64_t *first, uint64_t *blocks)
+{
+	(void)name; (void)lun; (void)first; (void)blocks;
+	return 6;			/* ENXIO: this board's storage layer has no such partition helper */
+}
+
+__attribute__((weak)) int native_ufs_part_read(uint32_t, uint64_t, uint32_t, void *);
+__attribute__((weak)) int native_ufs_part_read(uint32_t lun, uint64_t lba, uint32_t blocks, void *dst)
+{
+	(void)lun; (void)lba; (void)blocks; (void)dst;
+	return 6;			/* ENXIO */
+}
+
+// DbyTouch.cpp:2759 tests `if (!native_ufs_abs_read(lba, chunk, buf))`, so 0 is the failure it already
+// handles; the touch firmware is then simply not picked out of a partition.
+__attribute__((weak)) int native_ufs_abs_read(uint64_t, uint32_t, void *);
+__attribute__((weak)) int native_ufs_abs_read(uint64_t lba, uint32_t blocks, void *dst)
+{
+	(void)lba; (void)blocks; (void)dst;
+	return 0;
+}
+
+// BootLog.c:1114 prints these and never divides by them, and its row is already gated on a captured
+// stroke, so zero is the honest value when no producer defines them.
+__attribute__((weak)) volatile int native_touch_x_max;
+__attribute__((weak)) volatile int native_touch_y_max;
+
+// ---- 2026-11-10 合并 GPU 交接包：两个本机没有生产者的符号 ----
+// BootLog.c:162 读 char[24][120] 的 CPU 频点普查表；它由上游 core 的 scripts/build-cpufreq.py 产出的
+// libCpuFreqProbe.a 提供，而这个脚本在本机 core（旧版）里不存在，交接包也没带。放一个全零的同型数组，
+// 日志行会如实显示「没有普查数据」，而不是链接失败。
+__attribute__((weak)) char native_cpufreq_census[24][120];
+// BootProgress.c:513 在复位原因页面上画这三个标记；它们由 kits 里的 BootResetDby.c 定义，而那个 TU 依赖
+// 交接包未带的 BootResetSpmb.h（全盘 find 零命中），已从 build-boot-progress.py 的清单里摘掉。
+__attribute__((weak)) uint32_t dby_reset_mark_rc;
+__attribute__((weak)) uint32_t dby_reset_mark_before;
+__attribute__((weak)) uint32_t dby_reset_mark_after;

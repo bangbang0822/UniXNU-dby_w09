@@ -30,6 +30,7 @@ PATCH = PATCHES / 'zze-dby-torch-media-mount.patch'
 SERIES = PATCHES / 'series-torch'
 GLUE_H = ROOT / 'package/DbyTorch/DbyTorchIos.h'
 GLUE_CPP = ROOT / 'package/DbyTorch/DbyTorchIos.cpp'
+CAMERA_IOS = ROOT / 'package/DbyCamera/DbyCameraIos.cpp'
 BOOT_LOG = ROOT / 'package/BootLog.c'
 STUBS = ROOT / 'package/BootProgressStubs.c'
 BOARD = ROOT / 'board.toml'
@@ -71,6 +72,11 @@ class MountPatch(unittest.TestCase):
         self.assertIn('void dby_torch_ios_commit(int plugin_visible);', GLUE_H.read_text())
         self.assertIn('extern "C" void dby_torch_ios_commit(int plugin_visible)', GLUE_CPP.read_text())
 
+    def test_the_camera_publish_shares_that_stop(self):
+        self.assertIn('extern void dby_camera_ios_publish(void) __attribute__((weak_import));', patch_text)
+        self.assertIn('dby_camera_ios_publish();', patch_text)
+        self.assertIn('extern "C" void dby_camera_ios_publish(void)', CAMERA_IOS.read_text())
+
     def test_the_ladder_reaches_the_log(self):
         for counter in ('native_gpu_addon5_stage', 'native_gpu_addon5_status'):
             self.assertIn(f'volatile int {counter}', patch_text, f'{counter} is not declared by the patch')
@@ -95,13 +101,21 @@ class MountPatch(unittest.TestCase):
         inputs = json.loads(Path(INPUTS).read_text())
         for patch in inputs['patches']:
             self.assertTrue(Path(patch['path']).is_file(), f'{patch["path"]} is not here any more')
+        # A recording made by a build that already applied this patch lists it as its own last entry, and a
+        # replay of the recorded series then applying PATCH again is a double apply, not a test. What has to
+        # land first is the series up to this patch's predecessors: zzyd-sheng-audio-addon-mount.patch, whose
+        # block this patch quotes as context.
+        series = [patch['path'] for patch in inputs['patches'] if Path(patch['path']).name != PATCH.name]
+        if len(series) != len(inputs['patches']):
+            self.assertEqual(Path(inputs['patches'][-1]['path']).name, PATCH.name,
+                             'the recording applies this patch somewhere other than last')
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / 'xnu'
             subprocess.run(['git', 'clone', '--quiet', '--shared', '--no-checkout', inputs['source'], str(root)], check=True)
             subprocess.run(['git', '-C', str(root), 'checkout', '--quiet', '--detach', inputs['commit']], check=True)
-            for patch in inputs['patches']:
-                result = subprocess.run(['git', '-C', str(root), 'apply', patch['path']], capture_output=True, text=True)
-                self.assertEqual(result.returncode, 0, f'{patch["path"]}: {result.stderr[-400:]}')
+            for patch in series:
+                result = subprocess.run(['git', '-C', str(root), 'apply', patch], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, f'{patch}: {result.stderr[-400:]}')
             result = subprocess.run(['git', '-C', str(root), 'apply', str(PATCH)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, f'{PATCH.name}: {result.stderr[-400:]}')
             text = (root / FILE).read_text()
@@ -112,6 +126,7 @@ class MountPatch(unittest.TestCase):
             self.assertEqual(len(set(offsets)), 5, f'two mounts share a scratch window: {offsets}')
             self.assertEqual(offsets[-1], '0xe00', 'the torch mount is not the last one in the block, before the cryptex view')
             self.assertIn('dby_torch_ios_commit(native_gpu_addon5_stage == 5);', body)
+            self.assertIn('dby_camera_ios_publish();', body, 'the camera publish is not in the patched kern_exec.c')
             self.assertEqual(subprocess.run(['git', '-C', str(root), 'apply', '--reverse', '--check', str(PATCH)],
                                             capture_output=True, text=True).returncode, 0,
                              'the patched file is not this patch applied and nothing else')

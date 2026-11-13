@@ -1,18 +1,8 @@
 # Qualification-only configuration used to produce the candidate that scripts/audit-storage-interface.py
-# reads, because a kernel that re-exports the IOBlockStorageDevice methods cannot be used to qualify the
-# original Apple IOStorageFamily dispatch (the audit requires 176 of 190 slots bound to the untouched
-# class). Deliverable builds use dby_w09_defconfig.
-#
-# It is NOT dby_w09_defconfig minus the block driver, which is what this header used to claim. The real
-# differences are:
-#   turned off here  CONFIG_XNU_NATIVE_PAN, CONFIG_XNU_NATIVE_UFS, CONFIG_XNU_NATIVE_AES,
-#                    CONFIG_XNU_TRUST_CACHE_RUNTIME, CONFIG_XNU_BOOT_PROGRESS
-#   zeroed here      CONFIG_XNU_OWNER_DATA_VOLUME_UUID (a placeholder; the real UUID lives in the
-#                    deliverable defconfig and is compiled into the kernel)
-#   absent entirely  the OWNER_* chain, SHENG_PMGR, NATIVE_VIRTIO_BLOCK, NATIVE_RAM_BLOCK,
-#                    VERIFIED_ROOT_PROBE/ARCHIVE, QCOM_USB_DEBUG, NATIVE_LEGACY_DISPLAY,
-#                    EXTRA_LD_ARCHIVES -- the kernel' defaults apply, which is why this file is a
-#                    qualification input and never a deliverable one.
+# reads. It is identical to dby_w09_defconfig except that the block driver is left out, because a
+# kernel that re-exports the IOBlockStorageDevice methods cannot be used to qualify the original
+# Apple IOStorageFamily dispatch (the audit requires 176 of 190 slots bound to the untouched class).
+# Deliverable builds use dby_w09_defconfig.
 
 CONFIG_XNU_ARM_DT_PLATFORM=y
 CONFIG_XNU_ARMCPU=y

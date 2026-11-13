@@ -38,7 +38,70 @@
 #include "DbyCameraPattern.h"
 #include "DbyCameraProvider.h"
 
+void dbc_kernel_line(const char *line);
+
 volatile int32_t dbc_status[8];
+
+// ---- 1b：内建相机的字段事实 ----
+// 官方 README 的阶段 1b 是"内建假设备，进相机 App"，它要 FigCaptureSource 的字段布局；母本是从 21H461 的静态反汇编拿的，
+// 这台机器上没有 dyld 共享缓存可反汇编，所以只能在这里取一次等价的事实：类名、ivar 的名字/类型/偏移、方法在不在。
+// 有界：最多 40 行，走上面那个 [cam] ios: 通道（内核那侧一次启动最多 48 行）。
+static int gShapeLines;
+static id gShapeDevice;
+
+static int shape_interesting(const char *name)
+{
+    static const char *keys[] = {"type", "Type", "position", "source", "stream", "format", "unique", "model", "transport", "built", "Built"};
+    for (unsigned i = 0; i < sizeof keys / sizeof *keys; ++i)
+        if (strstr(name, keys[i])) return 1;
+    return 0;
+}
+
+static void shape_emit(const char *tag, char kind, const char *name, const char *extra, int value)
+{
+    if (gShapeLines >= 40) return;
+    char line[DbcLogMax];
+    snprintf(line, sizeof line, "%s %c %s %s %d", tag, kind, name ? name : "-", extra ? extra : "-", value);
+    dbc_kernel_line(line);
+    ++gShapeLines;
+}
+
+static void shape_dump(const char *tag, Class cls)
+{
+    if (!cls) {
+        shape_emit(tag, 'c', "missing", "-", 0);
+        return;
+    }
+    Class super = class_getSuperclass(cls);
+    shape_emit(tag, 'c', class_getName(cls), super ? class_getName(super) : "-", 0);
+    unsigned total = 0, shown = 0;
+    Ivar *ivars = class_copyIvarList(cls, &total);
+    for (unsigned i = 0; ivars && i < total && shown < 12; ++i) {
+        const char *name = ivar_getName(ivars[i]);
+        if (!name || !shape_interesting(name)) continue;
+        const char *encoding = ivar_getTypeEncoding(ivars[i]);
+        shape_emit(tag, 'i', name, encoding ? encoding : "-", (int)ivar_getOffset(ivars[i]));
+        ++shown;
+    }
+    if (ivars) free(ivars);
+    shape_emit(tag, 'n', "ivars", "-", (int)total);
+    static const char *sels[] = {"deviceType", "position", "isBuiltIn", "isExternal", "sourceType", "uniqueID", "modelID", "localizedName",
+                                 "deviceTypeString"};
+    char bits[16];
+    unsigned used = 0;
+    for (unsigned i = 0; i < sizeof sels / sizeof *sels; ++i) bits[used++] = class_getInstanceMethod(cls, sel_registerName(sels[i])) ? '1' : '0';
+    bits[used] = 0;
+    shape_emit(tag, 's', "dt,pos,bi,ext,st,uid,mid,lname,dtstr", bits, 0);
+}
+
+static void shape_dump_once(void)
+{
+    static int done;
+    if (done) return;
+    done = 1;
+    shape_dump("1b.dev", gShapeDevice ? object_getClass(gShapeDevice) : Nil);
+    shape_dump("1b.fcs", objc_getClass("FigCaptureSource"));
+}
 
 // 这些类在 iOS 的 SDK 里没有头文件，CoreMediaIO.tbd 里有，运行时按名字取。签名和 macOS SDK 的 CMIOExtension*.h 一致，21H461 逐个核对过（README.md）。
 @interface NSObject (DbyCameraCmio)
@@ -209,6 +272,7 @@ static id gFormats;
     (void)client;
     (void)error;
     __atomic_fetch_add(&dbc_status[0], 1, __ATOMIC_RELAXED);
+    shape_dump_once();
     return YES;
 }
 - (void)disconnectClient:(id)client
@@ -390,6 +454,7 @@ static void session_register(id session, xpc_endpoint_t endpoint)
         [provider setBundleID:@DBC_BUNDLE];
         [providers setObject:provider forKey:@DBC_BUNDLE];
         [provider release];
+        dbc_kernel_line("session register ok");
     } @catch (NSException *exception) {
         record_error(DbcStartListener);
         os_log_error(OS_LOG_DEFAULT, "DbyCamera: session provider: %{public}@", exception);
@@ -425,12 +490,14 @@ int dbc_provider_start(void)
         // 进程里只能有一个（0x21ccde3a0，第二个抛异常）；mediaserverd 本来一个都没有。
         provider = [[objc_getClass("CMIOExtensionProvider") providerWithSource:provider_source clientQueue:nil] retain];
         id device = [objc_getClass("CMIOExtensionDevice") deviceWithLocalizedName:@"Dby Camera Test Pattern" deviceID:device_id legacyDeviceID:nil source:device_source];
+        gShapeDevice = device;
         gStream = [[objc_getClass("CMIOExtensionStream") streamWithLocalizedName:@"Dby Camera Test Pattern" streamID:stream_id direction:0 clockType:0 source:stream_source] retain];
         NSError *error = nil;
         if (![device addStream:gStream error:&error] || ![provider addDevice:device error:&error]) {
             os_log_error(OS_LOG_DEFAULT, "DbyCamera: %{public}@", error);
             return DbcStartProvider;
         }
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5ull * NSEC_PER_SEC), dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{shape_dump_once();});
     } @catch (NSException *exception) {
         os_log_error(OS_LOG_DEFAULT, "DbyCamera: provider: %{public}@", exception);
         return DbcStartProvider;
@@ -441,10 +508,14 @@ int dbc_provider_start(void)
     Class context_class = objc_getClass("CMIOExtensionProviderContext");
     xpc_connection_set_event_handler(listener, ^(xpc_object_t peer) {
         if (xpc_get_type(peer) != XPC_TYPE_CONNECTION) return;
+        dbc_kernel_line("listener peer");
         @autoreleasepool {
             @try {
                 id context = [[[context_class alloc] initWithConnection:peer] autorelease];
-                if (context) [provider beginProviderContextRegistration:context];
+                if (context) {
+                    [provider beginProviderContextRegistration:context];
+                    dbc_kernel_line("context reg");
+                }
             } @catch (NSException *exception) {
                 record_error(DbcStartListener);
                 os_log_error(OS_LOG_DEFAULT, "DbyCamera: connection: %{public}@", exception);

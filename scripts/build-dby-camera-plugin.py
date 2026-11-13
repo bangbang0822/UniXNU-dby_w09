@@ -6,7 +6,7 @@
   build-dby-camera-plugin.py [--out DIR]
 
 写 DIR/H6ISP.mediacapture 和 DIR/trust.json（属主信任包要的 CDHash）。DIR 默认是 UniXNU-dby_w09 下的 build/dby-camera-plugin（Git 忽略）。
-手电筒的 ios/DbyTorchPlugin.m 原样编入本 bundle（本仓没有单独的 torch 插件构建脚本）；同一路径只能放一个文件，种子里放哪个由
+手电筒的 scripts/build-dby-torch-plugin.py 不动，它编出来的是没有这些代码的版本；同一路径只能放一个文件，种子里放哪个由
 scripts/add-dby-camera-data.py 决定。
 
 检查：iOS 17.0 的 arm64 MH_DYLIB，install name 是 CMCapture 打开的路径；不导出任何 CaptureDeviceCreate（导出了厂商类就会相信有默认设备，DbyTorchIos.h）；

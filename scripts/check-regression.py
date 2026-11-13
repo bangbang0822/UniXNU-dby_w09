@@ -9,9 +9,9 @@
 #
 # Usage: python3.11 scripts/check-regression.py [-D <device-repo>] [--verbose]
 import argparse
+import os
 import hashlib
 import json
-import os
 import re
 import subprocess
 import tempfile
@@ -124,17 +124,12 @@ def out_line(name, ok, detail):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-D", "--device", default=str(Path(__file__).resolve().parent.parent))
-    # The output tree is per machine, so it is an input, never a committed path.
-    ap.add_argument("--out", default=os.environ.get("UNIXNU_OUT"),
-                    help="resolved output tree of the build being gated "
-                         "(out/<device>/<os_profile>/<config>); or set UNIXNU_OUT")
+    ap.add_argument("--out", default=os.environ.get(
+        "UNIXNU_OUT", "out/dby-w09/ipados-17.7.11-21H461/dby_w09"))
     ap.add_argument("--baseline", default=str(Path(__file__).resolve().parent / "regression-baseline.json"))
     ap.add_argument("--write-baseline", action="store_true")
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args()
-    if not a.out:
-        ap.error('--out is required: pass the resolved output tree of the build '
-                 'being gated, or set UNIXNU_OUT')
 
     dev = Path(a.device)
     out = Path(a.out)

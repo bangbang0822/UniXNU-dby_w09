@@ -27,19 +27,6 @@ extern "C" {volatile uint64_t native_audio_clock[4];}
 // 21.3 ms and fell behind until a time stamp pulled it forward (i546: 858 of 1474 cycles 25 to 40 ms apart, skew down to -13052 frames,
 // stutter). The constant lives in the dyld shared cache, on a page with code, so the caller cannot write it; this sets the shared page
 // itself, once for every process. Only a 24 MHz value inside the shared region is changed.
-// What this is allowed to reach, stated so it can be checked rather than assumed:
-//   * the task is the one that opened this user client (initWithTask, :91), so the write can never
-//     address another process;
-//   * the address is refused unless it is 8-byte aligned and inside [0x180000000, 0x400000000),
-//     which is where CoreAudio's shared cache region lives;
-//   * the 8 bytes there must already equal the Apple 24 MHz double or the value this board computes
-//     from its own timer, so nothing new can be injected -- only a read-only constant the caller can
-//     already read can be made to match the timer this kernel runs on.
-// Without that, the audio server sleeps 26.7 ms for every 21.3 ms cycle and stutters (i546).
-// The write goes through pmap_find_pa + phystokv because IOKit's getPhysicalSegment returned 0 for
-// this page here (i549, i551) -- a failure of the physical-address query, not of the user write.
-// copyout(get_task_pmap(task), address, &bits, 8) needs no physical address; the swap is recorded
-// as this area's next_action in porting.toml.
 static IOReturn setHostClock(task_t task, uint64_t address) {
     constexpr uint64_t kApple = 0x4176e36000000000ULL;   // 24000000.0
     native_audio_clock[1] = address;

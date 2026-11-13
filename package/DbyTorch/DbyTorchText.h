@@ -38,6 +38,12 @@ static inline void dbt_text_str(DbtText *t, const char *s)
 {
     for (size_t i = 0; s && s[i]; ++i) dbt_text_char(t, s[i]);
 }
+/* 最多 n 个字符, 不可打印的写成点。逐字来自母本 PaganiCamera/CamUtil.h:71 的 pcam_text_printable: 那个头文件
+ * 没有移植, 而相机内核半 (package/DbyCamera/DbyCameraIos.cpp) 收插件的一行文本时需要的就是这一个函数。 */
+static inline void dbt_text_printable(DbtText *t, const uint8_t *s, size_t n)
+{
+    for (size_t i = 0; s && i < n && s[i]; ++i) dbt_text_char(t, s[i] >= 32 && s[i] < 127 ? (char)s[i] : '.');
+}
 static inline void dbt_text_udec(DbtText *t, uint64_t v)
 {
     char digits[20];

@@ -181,7 +181,7 @@ void native_hid_input_probe(void) {
         // readout QEMU gave (resource_found=0, then no sink, no report, no touchSend).
         // IOService::getResourceService() is the official provider for an owned offline service and needs no matching: it
         // returns the IOResources instance IOKit creates at init (IOService.cpp:652), and the reference board already
-        // attaches its two other offline services to it (package/KeyStoreProbe.cpp:97, package/LegacyDisplayProbe.cpp:517).
+        // attaches its two other offline services to it (package/KeyStoreProbe.cpp:97, package/LegacyDisplayProbe.cpp:523).
         // Keep the real resource wherever it exists - hardware behaviour is unchanged - and only fall back where it does not.
         IOService *provider=resource;
         if(!provider) provider=IOService::getResourceService();

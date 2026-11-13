@@ -336,8 +336,7 @@ class DbyBacklight : public IOService {
         uint32_t control = 1;
         PE_parse_boot_argn("dby-bl-control", &control, sizeof control);
         // backboardd's sandbox profile refuses FadePeriod on this service (int-276), and CoreBrightness sends it with every brightness:
-        // the grant (UniXNU core: patches/xnu/zzwb-native-sandbox-grant-set-properties.patch, applied to every board
-        // through profiles/arch/arm64/patches/xnu/series) lets backboardd alone set its properties, which
+        // the grant (patches/xnu/zzwb-native-sandbox-grant-set-properties.patch) lets backboardd alone set its properties, which
         // setProperties checks itself.
         if (control == 1 && impersonate()) {setProperty("NativeSandboxGrantProcess", "backboardd"); setProperty("backlight-control", true);}
         const bool impersonated = control == 1 && gAppleClass;
