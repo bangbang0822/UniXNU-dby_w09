@@ -12,7 +12,7 @@ IOReturn NativeAdrenoMaintainOwnedPages(void *mapping,size_t bytes,NativeAdrenoC
 int main()
 {
     NativeAdrenoGmuAllocator allocator;
-    CHECK(allocator.allocate(NativeAdrenoGmuDefaultSizes(0x10000))==kIOReturnSuccess);
+    CHECK(allocator.allocate(NativeAdrenoGmuDefaultSizes())==kIOReturnSuccess);
     uint8_t image[16]={1,2,3};
     NativeAdrenoFirmwareView firmware{image,sizeof(image),{}};
     ShengGmuConfig config{};
@@ -39,7 +39,7 @@ int main()
     CHECK(empty.chip_id==0 && empty.firmware==nullptr);
     /* A profile with non-startup payload sizes is refused, not assembled. */
     NativeAdrenoGmuAllocator small;
-    CHECK(small.allocate({0x4000,0x1000,0x2000,0x1000,0x1000,0x10000})==kIOReturnSuccess);
+    CHECK(small.allocate({0x4000,0x1000,0x2000,0x1000,0x1000})==kIOReturnSuccess);
     CHECK(NativeAdrenoAssembleGmuConfig(&firmware,&small,1,100,&empty)==kIOReturnBadArgument);
     CHECK(empty.firmware==nullptr);
     CHECK(small.release()==kIOReturnSuccess && allocator.release()==kIOReturnSuccess);
