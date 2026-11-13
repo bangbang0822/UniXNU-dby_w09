@@ -23,6 +23,13 @@ int main(int argc,char **argv) {
     const std::string cache=std::string(prefix)+".cache",empty=std::string(prefix)+".empty",copy=std::string(prefix)+".archive";
     std::array<unsigned char,128> initial={};
     if(first){summarize();memcpy(initial.data(),snapshot,initial.size());}
+    /* KNOWN CONTRADICTION, not run: this branch is the cold producer, and it requires prefix+".archive" NOT to exist (stop(3)
+     * otherwise) so that the run starts from nothing -- but the summarize() call at the end of the case loop digests exactly that
+     * archive (quartzcore_cache_ios.cpp:93-94 takes prefix+".cache" and prefix+".archive") and stops(80) when the archive is
+     * missing. On the cold path both cannot hold, so this instrument cannot reach its own final comparison. The repair is to give
+     * summarize() the set of paths it should digest (the cold producer would pass only prefix+".cache") or to have the cold case
+     * serialize prefix+".archive" before summarizing; either needs a run against a real QuartzCore image, which is not available
+     * on this host, so it is recorded rather than guessed. */
     else {struct stat old={};if(!lstat(copy.c_str(),&old) || errno!=ENOENT)stop(3);}
     if(unlink(workerLog) && errno!=ENOENT)stop(5);
     posix_spawn_file_actions_t actions;

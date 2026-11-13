@@ -82,6 +82,13 @@ private:
     // The compositor cycles through a few surfaces and the kernel keeps each one's mapping under one id, so the GPU import (pinning and
     // mapping the pages, milliseconds per frame otherwise) is made once per surface. The kernel keeps more mappings (6) than kSources, so
     // every import cached here still has its mapping.
+    //
+    // INERT ON THIS BOARD: the only in-tree producer of Frame fills `mapping` from NGPSwap.reserved, and the GOP presenter sets that to 0
+    // on every frame (drivers/GopFramebuffer/NativeGOPPresenter.cpp -- both returns end with `out->reserved=0`). sourceFor() therefore
+    // always takes the `!frame.mapping` branch and imports the surface again, so the cost this cache exists to remove is still paid on
+    // every frame. Activating it needs the presenter to publish a stable per-surface id in that field, which is a change to the GOP ABI in
+    // another component plus a measurement of the import cost it would save; deleting the cache instead would be the same behaviour with
+    // less code, but it is the wrong call while a presenter that does fill the field may still appear. Neither is done here.
     static constexpr unsigned kSources = 4;
     struct Source { uint32_t mapping; const void *base; size_t bytes; uint64_t used; id<MTLBuffer> buffer; };
     id<MTLBuffer> sourceFor(const Frame &frame) {

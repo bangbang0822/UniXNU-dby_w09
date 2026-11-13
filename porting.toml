@@ -261,6 +261,13 @@ result = "A files=-1 wr=0 same=0 fail=0 err=0 mount=1/2 mount2=1/2 mount3=1/2 mo
 
 evidence = []
 
+[[area.evidence]]
+kind = "host"
+reference = "drivers/AdrenoMetal/GpuScanoutPresenter.h"
+command = "grep -n reserved=0 drivers/GopFramebuffer/NativeGOPresenter.cpp"
+revision = "b3ad5eebd2a4acf778e0fadf4661bdeafc0fb1d6"
+result = "2026-11-14: both returns in NativeGOPresenter.cpp end with out->reserved=0, so Frame.mapping is 0 on every frame this board produces and the presenter cache never activates. Not repairable without a GOP ABI change plus a measurement; the header records it."
+
 [[area]]
 id = "network"
 status = "planned"
