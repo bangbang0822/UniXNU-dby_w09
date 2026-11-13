@@ -182,12 +182,18 @@ void A650GpuBringup(const A650GpuIo *io, unsigned mode, unsigned have_windows, A
     } else if (!A650GpuCfgAhbIsEnabled(r->cfg_ahb_after)) {
         r->cc = A650GpuSkippedPrereq;
     } else {
-        A650GpuRead(io, r, A650GpuWinGpucc, A650_CC_CX_GDSCR, &r->cx_gdscr);
-        A650GpuRead(io, r, A650GpuWinGpucc, A650_CC_GX_GDSCR, &r->gx_gdscr);
-        A650GpuRead(io, r, A650GpuWinGpucc, A650_CC_AHB_CLK, &r->cc_ahb);
-        A650GpuRead(io, r, A650GpuWinGpucc, A650_CC_SMMU_VOTE_CLK, &r->cc_smmu);
-        A650GpuRead(io, r, A650GpuWinGpucc, A650_CC_CX_GMU_CLK, &r->cc_gmu);
-        r->cc = A650GpuDone;
+        /* Every word here decides whether a later write happens: cx_gdscr gates the
+         * mode-3 GDSCR sequence below, and cc_smmu/cc_ahb are re-read into the
+         * powered-clock verdict. A650GpuRead zeroes the destination when the read
+         * fails, so a failure is not "the register reads zero" -- it must not leave
+         * the block recorded as done. `|` keeps all five attempts, not just the first. */
+        const int failed =
+            A650GpuRead(io, r, A650GpuWinGpucc, A650_CC_CX_GDSCR, &r->cx_gdscr) |
+            A650GpuRead(io, r, A650GpuWinGpucc, A650_CC_GX_GDSCR, &r->gx_gdscr) |
+            A650GpuRead(io, r, A650GpuWinGpucc, A650_CC_AHB_CLK, &r->cc_ahb) |
+            A650GpuRead(io, r, A650GpuWinGpucc, A650_CC_SMMU_VOTE_CLK, &r->cc_smmu) |
+            A650GpuRead(io, r, A650GpuWinGpucc, A650_CC_CX_GMU_CLK, &r->cc_gmu);
+        r->cc = failed ? A650GpuSkippedPrereq : A650GpuDone;
     }
 
     /* Mode 3: gdsc_enable for gpu_cx_gdsc.  It is VOTABLE with gds_hw_ctrl, so
