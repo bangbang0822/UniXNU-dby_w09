@@ -183,7 +183,21 @@ IOReturn NativeGOPPresenter::waitSwap(task_t task,uint64_t timeoutMs,NGPSwap *ou
     IOMemoryMap *map=memory->createMappingInTask(task,0,kIOMapAnywhere);
     memory->release();
     IOLockLock(gate);
-    if(!map || !map->getVirtualAddress() || !swap.offered || swap.sequence!=sequence) {
+    if(!map || !map->getVirtualAddress()) {
+        /* The frame never reached the client. Take it back off the hand-off the way abandonSwap() does:
+         * offer() only reclaims an outstanding *undelivered* swap (line 136), and this one was marked
+         * delivered before the mapping ran, so leaving it behind refused every later frame while the
+         * display driver was never told that this one failed. */
+        decltype(swap) failed{};
+        if(swap.offered && swap.sequence==sequence) {failed=swap;swap={};}
+        IOLockUnlock(gate);
+        OSSafeReleaseNULL(map);OSSafeReleaseNULL(failed.map);
+        if(failed.memory)failed.memory->release();
+        if(failed.offered && failed.display)native_legacy_gpu_complete(failed.display,kIOReturnNoMemory);
+        __atomic_fetch_add(&native_gop_gpu_failures,1,__ATOMIC_RELAXED);
+        return kIOReturnNoMemory;
+    }
+    if(!swap.offered || swap.sequence!=sequence) {
         IOLockUnlock(gate);OSSafeReleaseNULL(map);__atomic_fetch_add(&native_gop_gpu_failures,1,__ATOMIC_RELAXED);return kIOReturnNoMemory;
     }
     swap.map=map;
