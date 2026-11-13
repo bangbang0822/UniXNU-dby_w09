@@ -119,10 +119,20 @@ def main():
                     return raw.split(b'\0', 1)[0].decode('ascii', 'replace')
             return ''
         project = text('PROJECT_ID') or 'unknown'
-        print(f'{name}: project "{project}" chipid {word("guiCHIPID"):#010x} mailbox {word("guiDRAMCMDADDR"):#08x} '
-              f'cmd tx/rx {word("guiTX_SIZE")}/{word("guiRX_SIZE")} info {word("guiDRAMINFOBUF"):#08x}')
+
+        def shown(key, digits=8):
+            """A register word for the report, or 'unknown' when the HAL does not carry that symbol.
+
+            The image symbols are what the extraction needs; the informational ones are not, and a candidate that
+            carries the image without them used to abort the whole run in the format strings below with a TypeError.
+            """
+            value = word(key)
+            return 'unknown' if value is None else format(value, '#0%dx' % digits)
+
+        print(f'{name}: project "{project}" chipid {shown("guiCHIPID", 10)} mailbox {shown("guiDRAMCMDADDR")} '
+              f'cmd tx/rx {shown("guiTX_SIZE", 4)}/{shown("guiRX_SIZE", 4)} info {shown("guiDRAMINFOBUF")}')
         print(f'         image {length} bytes sha256 {hashlib.sha256(blob).hexdigest()}')
-        print(f'         container checksum field {word("NT36523_THP_CHECKSUM"):#010x}; the bytes add to '
+        print(f'         container checksum field {shown("NT36523_THP_CHECKSUM", 10)}; the bytes add to '
               f'{sum(blob) & 0xffffffff:#010x}, so that field is a second function over the image and is reported, '
               f'not used to gate anything')
         if args.list:

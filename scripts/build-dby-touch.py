@@ -216,7 +216,8 @@ def main():
     (out / 'build-report.json').write_text(json.dumps(report, indent=2) + '\n')
     print('PASS: libDbyTouch.a built from ' + str(source_dir))
     print(f'      archive {archive} ({report["archive_bytes"]} bytes)')
-    print('      link it with CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/dby-touch/libDbyTouch.a"')
+    # f-string: {tree} here is the assembled tree this archive was built into, not a placeholder to substitute.
+    print(f'      link it with CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/dby-touch/libDbyTouch.a"')
 
 
 if __name__ == '__main__':

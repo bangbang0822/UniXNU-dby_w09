@@ -29,10 +29,14 @@ assert count == 2
 offsets = struct.unpack_from('<2I', original, 4)
 originals = [original[offsets[0]:offsets[1]], original[offsets[1]:]]
 trust = json.loads(trust_path.read_text())
-# DarwinBoot's ValidTrustCaches (and the kernel's binary search) need the hashes of a module in strictly ascending order.
-hashes = sorted({bytes.fromhex(trust['cdhash'])})
-if len(hashes) != 1:
+# DarwinBoot's ValidTrustCaches (and the kernel's binary search) need the hashes in strictly ascending order. This
+# bundle carries one module, so sorting is trivial -- but a module whose CDHash repeats one already in the input
+# would break the ordering and the search, and that is the case to refuse. The previous test could not fire: a set
+# built from a single cdhash always has exactly one element.
+own_hash = bytes.fromhex(trust['cdhash'])
+if any(module[:20] == own_hash for module in originals):
     sys.exit('Duplicate CDHash')
+hashes = [own_hash]
 identifier = uuid.uuid5(uuid.NAMESPACE_URL, 'org.unixnu.sheng.audio:' + ''.join(h.hex() for h in hashes))
 own = struct.pack('<I16sI', 2, identifier.bytes, len(hashes)) + b''.join(h + bytes([2, 0, 0, 0]) for h in hashes)
 modules = [own, *originals]
