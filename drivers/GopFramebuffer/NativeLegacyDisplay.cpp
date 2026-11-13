@@ -264,6 +264,18 @@ public:
         directToBoot();latchRequest=nullptr;pendingSlot=-1;
         if(latchTimer){latchTimer->cancelTimeout();if(IOWorkLoop *loop=getWorkLoop())loop->removeEventSource(latchTimer);OSSafeReleaseNULL(latchTimer);}
         directOn=false;
+        /* Everything the direct path allocated, released here and nowhere else: the four slots' surface and
+         * memory references (taken by directSlot(), dropped when a slot is reused but never at stop), the
+         * page array handed to the DPU, the MDP window and the differential-copy shadow (up to 64 MiB). The
+         * DPU's own map has no unmap entry point on this driver, so the slot iovas go with the pages. */
+        for(auto &slot:directSlots) {
+            if(slot.memory){slot.memory->complete();OSSafeReleaseNULL(slot.memory);}
+            OSSafeReleaseNULL(slot.surface);
+        }
+        if(directPages){IOFreeData(directPages,8192*sizeof(uint64_t));directPages=nullptr;}
+        mdp=nullptr;OSSafeReleaseNULL(mdpMap);
+        if(shadow){IOFreeAligned(shadow,(vm_size_t)shadowBytes);shadow=nullptr;}
+        shadowBytes=0;shadowValid=false;
         if(logicalPM){PMstop();logicalPM=false;}
         primary=false;IOMobileFramebufferLegacy::stop(provider);OSSafeReleaseNULL(bootMapping);
     }
