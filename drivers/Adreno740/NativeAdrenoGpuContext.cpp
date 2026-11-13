@@ -184,6 +184,16 @@ IOReturn NativeAdrenoGpuContext::destroyVm(NativeAdrenoProcessVm *p)
     delete p;
     return kIOReturnSuccess;
 }
+/* SMMU_GR0_sGFSR (0x48) latches the faulting access as well, and clearing the context bank's FSR does
+ * not clear it: every later observation keeps reporting the fault this call has just ended. The register
+ * is write-one-to-clear, so the bits read back are the bits written. */
+static IOReturn clearGlobalFaultStatus(const ArmSmmu4KIo *io)
+{
+    uint32_t gfsr=0;
+    if(!io || io->read32(io->cookie,0x48,&gfsr))return kIOReturnIOError;
+    if(gfsr && (io->write32(io->cookie,0x48,gfsr) || io->barrier(io->cookie)))return kIOReturnIOError;
+    return kIOReturnSuccess;
+}
 IOReturn NativeAdrenoGpuContext::observeContext(uint32_t *kit_status,uint32_t out[8]) const
 {
     if(!kit_status || !out)return kIOReturnBadArgument;
@@ -206,7 +216,7 @@ IOReturn NativeAdrenoGpuContext::clearFault(uint32_t fsr,uint32_t far[3])
     if(io->read32(io->cookie,(size_t)offset+0x60,&far[0]) || io->read32(io->cookie,(size_t)offset+0x64,&far[1]) ||
         io->read32(io->cookie,(size_t)offset+0x68,&far[2]))return kIOReturnIOError;
     if(io->write32(io->cookie,(size_t)offset+0x58,fsr) || io->barrier(io->cookie))return kIOReturnIOError;
-    return kIOReturnSuccess;
+    return clearGlobalFaultStatus(io);
 }
 IOReturn NativeAdrenoGpuContext::endFault(uint32_t out[4])
 {
@@ -224,7 +234,7 @@ IOReturn NativeAdrenoGpuContext::endFault(uint32_t out[4])
     /* CB_RESUME (0x08) bit 0 TnR: terminate the stalled transaction; the GPU sees an error response instead of waiting forever. */
     if((out[0]&(1u<<30)) && io->write32(io->cookie,(size_t)offset+0x08,1))return kIOReturnIOError;
     if(io->write32(io->cookie,(size_t)offset+0x58,out[0]) || io->barrier(io->cookie))return kIOReturnIOError;
-    return kIOReturnSuccess;
+    return clearGlobalFaultStatus(io);
 }
 IOReturn NativeAdrenoGpuContext::readTtbr0(uint64_t *out) const
 {
