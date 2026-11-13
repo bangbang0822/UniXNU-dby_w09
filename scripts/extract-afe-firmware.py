@@ -45,11 +45,28 @@ def loads(data):
     return out
 
 
+def project_files():
+    """The name the build looks for, per project, taken from the generator that defines it.
+
+    scripts/gen-touch-firmware-multi.py owns the PROJECTS table and
+    scripts/build-dby-touch.py looks for exactly one of its file names in .cache/firmware/novatek. Reading the
+    table instead of re-deriving the name is what keeps this extractor's output reachable: the old default was
+    libafehalW2599Z1100.bin, a name no consumer asks for.
+    """
+    import importlib.util
+    path = ROOT / 'scripts/gen-touch-firmware-multi.py'
+    spec = importlib.util.spec_from_file_location('gen_touch_firmware_multi', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return {project: file for project, file, _ilm, _dlm in module.PROJECTS}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--list', action='store_true', help='report the candidates and write nothing')
-    parser.add_argument('--out', help='write one image here (with more than one candidate, name it per project)')
+    parser.add_argument('--out', help='write the image here instead of .cache/firmware/novatek/<project>.bin')
     args = parser.parse_args()
+    wanted = project_files()
 
     written = 0
     for name in CANDIDATES:
@@ -110,10 +127,20 @@ def main():
               f'not used to gate anything')
         if args.list:
             continue
-        target = Path(args.out) if args.out and len(CANDIDATES) == 1 else OUT_DIR / (name[:-3] + '.bin')
+        # --out applies to whatever was found; the old condition required a single candidate and there are three,
+        # so the option could never do anything. Without --out the name comes from the generator's own table,
+        # because a name the build does not look for is the same as not extracting the image at all.
+        target = Path(args.out) if args.out else None
+        if target is None:
+            file_name = wanted.get(project)
+            if file_name is None:
+                print(f'         SKIPPED  project "{project}" is not in gen-touch-firmware-multi.py PROJECTS, so no '
+                      f'consumer reads a file extracted from it; pass --out to write it anyway')
+                continue
+            target = OUT_DIR / file_name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(blob)
-        print(f'extracted {target.relative_to(ROOT)} ({length} bytes)')
+        print(f'extracted {target.relative_to(ROOT) if target.is_relative_to(ROOT) else target} ({length} bytes)')
         written += 1
     if args.list or written:
         return 0
