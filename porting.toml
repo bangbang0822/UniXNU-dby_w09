@@ -241,15 +241,15 @@ result = "Accepted on the tablet on 2026-11-04: contacts follow the finger, the 
 [[area]]
 id = "gpu"
 status = "planned"
-components = ["AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K", "Sm8250Platform"]
-paths = ["package/*Gpu*", "package/*Adreno*", "package/*Metal*", "scripts/*gpu*", "scripts/*adreno*", "scripts/*metal*", "scripts/data/*air*", "scripts/data/ioaccelerator-*", "drivers/Adreno740/**", "drivers/AdrenoMetal/**", "kits/Sm8250Platform/**", "package/*A650*", "docs/handover/2026-11-12-gpu/**"]
+components = ["AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K"]
+paths = ["package/*Gpu*", "package/*Adreno*", "package/*Metal*", "scripts/*gpu*", "scripts/*adreno*", "scripts/*metal*", "scripts/data/*air*", "scripts/data/ioaccelerator-*", "drivers/Adreno740/**", "drivers/AdrenoMetal/**", "package/Sm8250Platform/**", "package/*A650*", "docs/handover/2026-11-12-gpu/**"]
 
 inputs = ["Adreno 650 (SM8250). The shared tree's GPU components target Adreno 740, a different generation.", "Signed ZAP firmware and GMU/HFI bring-up inputs, neither of which this board has recorded."]
 configuration = ["The board selects no GPU component; com.apple.iokit.IOGPUFamily is kept in the prelink roots only because the donor closure requires it.", "IOCoreSurfaceRoot has to be published for the display stack to complete, which was done without any GPU hardware."]
 procedure = ["Before porting, confirm an SM8250 GPU path exists upstream or scope the bring-up as its own project; do not adapt an Adreno 740 source line by line."]
 findings = ["Everything currently on the panel is CPU-rendered scanout, so GPU work is an optimization and not the next blocker.", "The display stack reaching its started state without GPU proves the surface path is separable from rendering."]
 completion = ["A GPU-backed surface presents and the frame counters move without the CPU renderer."]
-limits = ["No GPU code is implemented for this SoC.", "drivers/Adreno740 and drivers/AdrenoMetal are forks of their components, not pins: 59 of 92 and 53 of 71 files respectively are byte-identical to the component repositories, the rest differ, and this board builds from these copies."]
+limits = ["No GPU code is implemented for this SoC.", "drivers/Adreno740 and drivers/AdrenoMetal are forks of their components, not pins: 59 of 92 and 53 of 71 files respectively are byte-identical to the component repositories, the rest differ, and this board builds from these copies.", "The A650 GMU power kit is board-owned in package/Sm8250Platform rather than a feed kit: upstream components.toml has no Sm8250Platform entry, so it could only be selected with a catalogue patch applied to the core checkout on the author's machine, and a clean core refuses the tree. scripts/build-gpu-power-probe.py compiles it from the board package."]
 next_action = ["Decide the SM8250 GPU route after the system is usable."]
 
 [[area.evidence]]

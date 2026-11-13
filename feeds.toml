@@ -45,12 +45,7 @@ kind = "driver"
 git = "https://github.com/xVanTuring/ArmCpu"
 commit = "a9c4585dbb1b75b8594dd0ae54962cc59969d98f"
 
-# A650 GMU 的电源/时钟模型。它和上面那条 sm8250 是同一个仓库、同一棵树里的 kits/Sm8250Platform，
-# 只是被当作 kit 组件单独钉一次（板级脚本 build-adreno650.py 产 build/adreno-kits/libAdrenoKits.a）。
-# 本机没有网络（feeds 的 ghfast.top 代理不解析），所以这里钉的 commit 必须是已落盘的 checkout：
-# a6e7e36 那条 sm8250 就是本树一直在用的 pin，它的 kits/Sm8250Platform 正是这一份。
-[[source]]
-name = "Sm8250Platform"
-kind = "kit"
-git = "https://github.com/FFT-infra/UniXNU-sm8250-common"
-commit = "a6e7e36caab58f5b9a5625dbdb8da2bf290fa5cc"
+# A650 GMU 的电源/时钟模型曾经在这里单独钉成 kind = "kit" 的 Sm8250Platform 源，但那条源只有配合
+# 作者本机 core 里的目录补丁才能被选中：components.toml 只从 core 软链，上游从来没有这条 id，干净 core 会
+# 报 “unknown component: Sm8250Platform”。2026-11-13 起这些源码归板级所有，在 package/Sm8250Platform/，
+# 由 [kernel] archives 的脚本位编译，所以这里不再需要这条源。

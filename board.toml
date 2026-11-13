@@ -28,9 +28,13 @@ kit = "dby_w09"                # 本仓 package/ 在构建树里出现为 kits/d
 # 目录规范 ID（components.toml）。Adreno740/AdrenoMetal 不在这里：SM8250 的 A650
 # 没有任何目录组件覆盖（soc:configs/sm8250.config 明写 # CONFIG_XNU_NATIVE_ADRENO is not set），
 # 是未移植项，不是省略。ShengHidInput/ShengNovatekTouch/QcomGeniSpi 已经在
-# porting.toml 的 input area 里记为 device-verified（真机触摸与按键可用）。QcomXnuUsbDebug 不在这里，但并不是没接：core 的 components.toml 里还没有这条 spec，而 components.toml 只从 core 软链，设备仓不能添加组件规格。它的归档走 [kernel] archives 的脚本位（scripts/build-qcom-usb-debug.py），模块放在本仓 package/ 里 （构建树里的 kits/dby_w09/QcomXnuUsbDebug，和 DbyTouch 同一层：components.py:resolve 只保留 refer/patch/package/script 加目录选中的组件，设备仓 drivers/ 下没有目录规格的模块会被丢掉），补丁走 [kernel] patch_series 的第五条 device:patches/xnu/series-usb。
+# porting.toml 的 input area 里记为 device-verified（真机触摸与按键可用）。
+# Sm8250Platform 也不在这里（2026-11-13）：它是上游从来没列进 components.toml 的 kit，过去靠作者本机
+# 的目录补丁才被选中，干净 core 会直接报 “unknown component”。现在源码归板级所有，放在 package/Sm8250Platform/，
+# 由 [kernel] archives 的脚本位编译（scripts/build-gpu-power-probe.py），和 QcomXnuUsbDebug 同一种形状。
+# QcomXnuUsbDebug 不在这里，但并不是没接：core 的 components.toml 里还没有这条 spec，而 components.toml 只从 core 软链，设备仓不能添加组件规格。它的归档走 [kernel] archives 的脚本位（scripts/build-qcom-usb-debug.py），模块放在本仓 package/ 里 （构建树里的 kits/dby_w09/QcomXnuUsbDebug，和 DbyTouch 同一层：components.py:resolve 只保留 refer/patch/package/script 加目录选中的组件，设备仓 drivers/ 下没有目录规格的模块会被丢掉），补丁走 [kernel] patch_series 的第五条 device:patches/xnu/series-usb。
 [components]
-include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "Sm8250Platform", "AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K", "ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi"]
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K", "ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi"]
 
 # ---------------------------------------------------------------------------
 # userdata：已取证（9008 完整备份 gpt_main0.bin，LUN 0）。

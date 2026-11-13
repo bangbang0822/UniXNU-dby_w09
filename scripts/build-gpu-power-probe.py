@@ -43,15 +43,25 @@ ROOT = Path(__file__).resolve().parents[1]
 ARCH = 'DEVELOPMENT_ARM64_BCM2837'
 OUT_DIR = 'build/gpupower'
 ARCHIVE = 'libDbyGpuPowerProbe.a'
-# The feed source pins path = "kits/Sm8250Platform" (feeds.toml), so the tree links the module directory
-# itself and the kit file sits exactly here. An unpinned source would link the repository root and the
-# file would be one level deeper; that mismatch is what pinned the path (review 2026-11-03 15:30).
-KIT_CANDIDATES = (Path('kits/Sm8250Platform/A650GmuPower.c'),)
+# The SM8250 GPU power kit is board-owned since 2026-11-13. It used to arrive as the `Sm8250Platform`
+# kit source in feeds.toml, which only worked because the author's core carried a local catalogue
+# entry for it: components.toml is symlinked from the core and upstream never listed that id, so a
+# clean core refused the tree ("unknown component: Sm8250Platform"). The sources now live in
+# package/Sm8250Platform/ and the assembled tree places the board package inside the board kit
+# directory, so the file sits at kits/<board kit>/Sm8250Platform/.
+KIT_DIR = Path('Sm8250Platform')
+
+
+def kit_candidates(tree):
+    """Where the board-owned kit lands in an assembled tree."""
+    return (Path('kits') / board_kit(tree) / KIT_DIR / 'A650GmuPower.c',)
+
+
 # Round 2 (cold start + GX) needs two more kit TUs, and the AdrenoFirmware headers they include.
 # The cold start is board-owned: package/DbyA650Gmu.c plus package/DbyA650Gmu.h (see their headers:
 # 100 ms poll, CM3 fault BIT(15), GBIF clear before the release through a fourth GPU window).  The
-# feed's copies are no longer compiled; the other kit TUs still come from the feed.
-KIT_REGIONS_PATH = Path('kits/Sm8250Platform/A650GmuRegions.c')
+# other kit TUs come from the same board-owned directory.
+KIT_REGIONS_NAME = 'A650GmuRegions.c'
 FIRMWARE_SOURCES = ('AdrenoFirmware.c', 'AdrenoHfi.c', 'AdrenoHfiStartup.c', 'AdrenoHfiVotes.c')
 FIRMWARE = 'FIRM:'
 FIRMWARE_CANDIDATES = (
@@ -222,12 +232,13 @@ def main():
         raise SystemExit(f'no compile records under {records}')
     records_by_lang = {'c': read_record(c_record), 'cxx': read_record(cxx_record)}
 
-    kit = next((tree / candidate for candidate in KIT_CANDIDATES if (tree / candidate).is_file()), None)
+    candidates = kit_candidates(tree)
+    kit = next((tree / candidate for candidate in candidates if (tree / candidate).is_file()), None)
     if kit is None:
-        raise SystemExit('the Sm8250Platform kit is not materialised under '
-                         + ' or '.join(str(tree / c) for c in KIT_CANDIDATES)
-                         + ': it comes from the component of that name; select it in board.toml '
-                           '[components] include and run `unixnu fetch` + `unixnu tree`.')
+        raise SystemExit('the board-owned SM8250 platform kit is not in the tree under '
+                         + ' or '.join(str(tree / c) for c in candidates)
+                         + ': it comes from package/Sm8250Platform/ in this repository, so the tree '
+                           'is stale -- run `unixnu tree` again.')
     kit_dir = kit.parent
 
     # A650Gmu.c includes AdrenoFirmware.h and AdrenoHfiVotes.h, which live in the AdrenoFirmware kit.
@@ -297,7 +308,7 @@ def main():
             # and the CM3 fault bit at BIT(15).  Read from THIS repository, not the tree snapshot.
             source = package / 'DbyA650Gmu.c' 
         elif relative == KIT_REGIONS:
-            source = tree / KIT_REGIONS_PATH
+            source = kit_dir / KIT_REGIONS_NAME
         elif relative.startswith(SMMU):
             source = smmu_dir / relative[len(SMMU):]
         elif relative.startswith(FIRMWARE):
