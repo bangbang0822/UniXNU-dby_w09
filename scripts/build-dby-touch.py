@@ -142,6 +142,29 @@ def main():
         raise SystemExit(f'{geni_dir} missing: the official QcomGeniSpi component must be selected')
 
     out.mkdir(parents=True, exist_ok=True)
+    # This part has no flash: the host uploads a 0x30000-byte vendor image on every boot.
+    # Those bytes are vendor data and never enter Git (proprietary-files.txt), so the header
+    # that carries them is generated here, before the compile, from wherever the firmware
+    # actually lives on this host.
+    firmware_candidates = []
+    if os.environ.get('UNIXNU_FIRMWARE_DIR'):
+        firmware_candidates.append(Path(os.environ['UNIXNU_FIRMWARE_DIR']))
+    firmware_candidates += [
+        tree / '.cache/firmware/novatek',
+        ROOT / '.cache/firmware/novatek',
+        Path.cwd() / '.cache/firmware/novatek',
+    ]
+    firmware_dir = next((c for c in firmware_candidates
+                         if c and (c / 'nt36523_Z2700.bin').is_file()), None)
+    generator = [sys.executable, str(ROOT / 'scripts/gen-touch-firmware-multi.py'), '--out', str(out)]
+    if firmware_dir is not None:
+        generator += ['--firmware-dir', str(firmware_dir)]
+    else:
+        print('warning: no Novatek firmware found (looked in ' +
+              ', '.join(str(c) for c in firmware_candidates) +
+              '); the image will have no touch upload. See proprietary-files.txt.', file=sys.stderr)
+    subprocess.run(generator, check=True, timeout=300)
+
     objects = []
     skipped_all = []
     built = {}
@@ -155,8 +178,9 @@ def main():
             raise SystemExit(f'{record_path} missing: build the kernel once before this archive')
         obj = out / (source.stem + '.o')
         # Every translation unit may include the upstream QUPv3 GENI/SPI header, so its directory
-        # is on the include path for all of them, not just for GeniSpi.c itself.
-        include_dirs = [source_dir, geni_dir]
+        # is on the include path for all of them, not just for GeniSpi.c itself. `out` carries
+        # the generated DbyTouchFwImages.h that DbyTouchFw.h includes.
+        include_dirs = [source_dir, geni_dir, out]
         if source.parent != source_dir:
             include_dirs.insert(1, source.parent)
         command, directory, skipped = build_command(record_path, source, obj, include_dirs)
