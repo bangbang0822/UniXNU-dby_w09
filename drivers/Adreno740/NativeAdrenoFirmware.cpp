@@ -7,8 +7,10 @@ IOReturn NativeAdrenoFirmware::validate(const uint8_t *image,uint64_t length,
 {
     if(!view)return kIOReturnBadArgument;
     *view={};
-    if(!rules || !image || !length || length!=rules->bytes ||
-        length>uint64_t(SIZE_MAX))return kIOReturnBadArgument;
+    /* `length > SIZE_MAX` used to be tested here as well. size_t is 64 bits on this target and length is a
+     * uint64_t, so that comparison is never true and the cast below cannot truncate; what bounds the image is
+     * the rule's own byte count, which is checked first. */
+    if(!rules || !image || !length || length!=rules->bytes)return kIOReturnBadArgument;
     uint8_t digest[32];
     NativeAdrenoSha256::hash(image,size_t(length),digest);
     if(memcmp(digest,rules->sha256,32))return kIOReturnIOError;

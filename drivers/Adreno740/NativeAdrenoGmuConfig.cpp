@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 #include "NativeAdrenoGmuConfig.h"
 #include <IOKit/IOLib.h>
-enum : uint64_t {
-    IcacheBytes=0xffc000, DummyBytes=0x4000, DebugBytes=0x7000,
-    LogBytes=0x4000, HfiBytes=0x4000
-};
+/* The five payload sizes used to be restated here as their own enum. They have one definition --
+ * NativeAdrenoGmuDefaultSizes() in NativeAdrenoGmuMemory.cpp, which is what the allocator actually reserves
+ * -- so this file reads them from there instead of carrying a second copy that could drift. */
 static bool matches(const NativeAdrenoMemory &memory,uint64_t bytes,uint64_t iova,
     ShengGmuMemory *out)
 {
@@ -25,12 +24,13 @@ IOReturn NativeAdrenoAssembleGmuConfig(const NativeAdrenoFirmwareView *firmware,
         !allocator->ready() || !chip_id || !poll_budget || poll_budget>1024)
         return kIOReturnBadArgument;
     const NativeAdrenoGmuMemoryLayout &layout=allocator->layout();
+    const NativeAdrenoGmuSizes sizes=NativeAdrenoGmuDefaultSizes();
     ShengGmuConfig built{};
-    if(!matches(allocator->icache(),IcacheBytes,layout.icache_iova,&built.icache) ||
-        !matches(allocator->dummy(),DummyBytes,layout.dummy_iova,&built.dummy) ||
-        !matches(allocator->debug(),DebugBytes,layout.debug_iova,&built.debug) ||
-        !matches(allocator->log(),LogBytes,layout.log_iova,&built.log) ||
-        !matches(allocator->hfi(),HfiBytes,layout.hfi_iova,&built.hfi))
+    if(!matches(allocator->icache(),sizes.icache,layout.icache_iova,&built.icache) ||
+        !matches(allocator->dummy(),sizes.dummy,layout.dummy_iova,&built.dummy) ||
+        !matches(allocator->debug(),sizes.debug,layout.debug_iova,&built.debug) ||
+        !matches(allocator->log(),sizes.log,layout.log_iova,&built.log) ||
+        !matches(allocator->hfi(),sizes.hfi,layout.hfi_iova,&built.hfi))
         return kIOReturnBadArgument;
     built.chip_id=chip_id;
     built.firmware=firmware->bytes;
