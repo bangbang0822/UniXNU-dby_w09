@@ -247,7 +247,15 @@ A650GmuStatus A650GmuLoadAndStartHfi(A650GmuDevice *d, const A650GmuConfig *c, A
         if (core_read(d, GMU_RPMH_CTRL, &value, r)) {status = A650GmuIoError; goto failed;}
         if ((value & RPMH_CTRL_VOTES) != RPMH_CTRL_VOTES) {status = A650GmuStateMismatch; goto failed;}
     }
-    /* Phase 6, a6xx_gmu_start: the firmware version in DTCM picks the ready value, then reset, the log index, release. */
+    /* Phase 6, a6xx_gmu_start: the firmware version in DTCM picks the ready value, then reset, the log index, release.
+     *
+     * The kit's cold start is the upstream-shaped reference and is NOT what this board runs: package/DbyA650Gmu.c is the
+     * board's own copy of this sequence, and it is the one the kernel compiles. The difference that matters is here, between
+     * the reset write and the release: the vendor clears GBIF's halt immediately before releasing the CM3
+     * (adreno_a6xx_gmu.c:375-381), and the board's own run recorded GBIF's ACK still reading 0x3 when it skipped that clear.
+     * Doing it here needs a window into the GPU block, which this kit's three windows (core, RSCC, PDC) do not carry --
+     * adding a fourth is an ABI change to A650GmuConfig that belongs with a build that can test it. Until then the board
+     * copy is the implementation that has the clear, and this one says so instead of looking equivalent. */
     r->phase = 6;
     if (core_read(d, GMU_CM3_DTCM_START + 0xff8, &r->firmware_version, r)) {status = A650GmuIoError; goto failed;}
     {

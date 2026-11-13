@@ -5,6 +5,9 @@
  * path argument it loads that a650_gmu.bin; otherwise a synthetic image with ITCM, DTCM and icache blocks.
  * cc -std=c11 -Wall -Wextra -Werror -I <UniXNU>/kits/AdrenoFirmware package/A650Gmu.c package/A650GmuTests.c \
  *    <UniXNU>/kits/AdrenoFirmware/{AdrenoFirmware,AdrenoHfi,AdrenoHfiStartup,AdrenoHfiVotes}.c */
+/* posix_memalign under -std=c11: glibc hides it unless a POSIX level is asked for, and the register
+ * windows need page alignment like the kernel's. A650GmuPowerTests.c asks for the same level. */
+#define _POSIX_C_SOURCE 200809L
 #include "A650Gmu.h"
 #include <stdio.h>
 #include <stdlib.h>
