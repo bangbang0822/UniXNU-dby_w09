@@ -77,7 +77,7 @@ struct nvt_map {
 struct nvt_chip {
     const struct nvt_bus *bus;
     uint8_t *scratch;                 // transmit buffer: caller supplied, at least NVT_TRANSFER_LEN + 8 bytes
-    uint8_t *rxbuf;                   // receive buffer: caller supplied, at least NVT_READ_MAX + 2 bytes
+    uint8_t *rxbuf;                   // receive buffer: caller supplied, at least NVT_FRAME_READ_MAX bytes (a burst read fills len of it)
     const struct nvt_map *map;
     uint32_t chip_ver_trim, swrst_sif;
     int cascade;                      // cascade variant selected by ENB_CASC_REG

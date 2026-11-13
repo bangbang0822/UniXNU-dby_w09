@@ -61,7 +61,7 @@ static int xfer(void *ctx, const uint8_t *tx, uint8_t *rx, size_t len) {
 static void delay_ms(void *ctx, unsigned ms) { (void)ctx; (void)ms; ++delays; }
 
 static const struct nvt_bus bus = {NULL, xfer, delay_ms};
-static uint8_t scratch[NVT_TRANSFER_LEN + 8], rxbuf[NVT_READ_MAX + 8];
+static uint8_t scratch[NVT_TRANSFER_LEN + 8], rxbuf[NVT_FRAME_READ_MAX];
 static struct nvt_chip chip = {.bus = &bus, .scratch = scratch, .rxbuf = rxbuf};
 
 static void reset_model(void) {
