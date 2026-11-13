@@ -1032,8 +1032,11 @@ IOReturn NativeAdrenoSubmit::recover(NativeAdrenoRestart restart,void *cookie,co
     Job *guilty=fence<last?find(hung):nullptr;
     out->fence=hung;
     if(guilty) {
+        /* The job on the hung fence is the guilty one (NativeAdrenoSubmit.h:141): the VM that submitted it is
+         * marked whether or not it is this submit object's own. The old argument here said the opposite, and
+         * NativeAdrenoVm::noteHang dropped it anyway. */
         NativeAdrenoVm *vm=guilty->vm?guilty->vm:vm_;
-        vm->noteHang(vm!=vm_);out->guilty=vm;
+        vm->noteHang(true);out->guilty=vm;
     }
     IOReturn status=restart(cookie,ring_,hung);
     out->status=status;

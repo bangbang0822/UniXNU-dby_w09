@@ -185,8 +185,15 @@ public:
     /* A GPU hang this VM's submission caused. As Metal does after a GPU restart, only the hung command buffer is lost: the process keeps
      * its device, its queued submissions run again and new ones are taken (msm instead makes the VM unusable, and the client then
      * reports its device lost; when that client was the render server, backboardd ended and SpringBoard's restart stalled, untagged-1f4ba0a24).
-     * hangs() counts them; faults(), which a client turns into a lost device, stays for a VM whose table failed. */
-    void noteHang(bool) {++hangs_;}
+     * hangs() counts every hang; a hang this VM caused also counts a fault, which is what the client folds into its status reply, and the
+     * second one makes the VM unusable -- submit() then refuses with kIOReturnNotPermitted (the rule test_submit.cpp pins: the first
+     * recovery leaves faults=1 and the VM usable, the next guilty hang stops it). A VM whose table failed is poisoned instead. */
+    void noteHang(bool guilty) {
+        ++hangs_;
+        if(!guilty)return;
+        if(faults_!=UINT64_MAX)++faults_;
+        if(faults_>=2)unusable_=true;
+    }
     uint64_t hangs() const {return hangs_;}
     uint64_t faults() const {return faults_;}
     bool unusable() const {return unusable_;}
