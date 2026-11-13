@@ -104,6 +104,14 @@ static DisplaySample sampleDisplay(id first, intptr_t slide) {
     return out;
 }
 static void markSample(Gpu &gpu, const DisplaySample &x, unsigned base) {
+    /* KNOWN COLLISION, not a marker of its own: reportDisplayState() calls this with base 0x7000 and 0xA000,
+     * so the three values below land in 0x7000/0x8000/0x9000 and 0xA000/0xB000/0xC000. 0x8000-0xFFFF is the
+     * two-characters-per-marker telemetry channel (this file's own `0x8000u | (a << 7) | b`), and 0x7Kvv is
+     * decoded by stream, so these samples are appended to the GPU7/GPU8 text rows or dropped rather than
+     * stored as samples. Moving them needs the decoder's map for a free open-type range -- the ranges that
+     * are known to be taken are 0x6800-0x68FF (GPU6 progress), 0x6A00 (diagnostics bits) and 0x8000-0xFFFF
+     * (telemetry text) -- so it is a wire-format change to make against a running system, not a constant to
+     * guess. Until then, do not read a display sample out of these markers. */
     gpu.mark(base | (x.flags << 4) | x.globals);                  // display flags (bit 3 deep), globals: deep/compression/default/universal
     gpu.mark((base + 0x1000) | (x.display >> 4));                 // display limits word: 0x200 compression support, 0x1c00 type
     gpu.mark((base + 0x2000) | (x.mode << 4) | x.behaviour);     // mode colour field, ICC/other behaviour bytes
