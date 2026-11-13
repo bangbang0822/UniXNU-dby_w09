@@ -616,7 +616,14 @@ bool start() {
         waitUntil(1000, [] {return qcom_qmp_step(&gQmp) == QcomQmpOpen || gQmp.state < 0;});
     native_adsp_stats[5] = (native_adsp_stats[5] & ~0xff) | (gQmp.state & 0xff);
     if (gQmp.state != QcomQmpOpen) {fail(StLoadState, gQmp.state); release(adsp); return false;}
-    qcom_qmp_send(&gQmp, "{class: image, res: load_state, name: adsp, val: on}");
+    /* QcomQmpSending when the mailbox took it, QcomQmpBusy or QcomQmpTooLong otherwise (QcomQmp.h:39-40).
+     * A refused message leaves nothing to wait for, and the -60 below would name a timeout that never
+     * happened; the refusal itself is what the ladder records. */
+    const int queued = qcom_qmp_send(&gQmp, "{class: image, res: load_state, name: adsp, val: on}");
+    if (queued != QcomQmpSending) {
+        qcom_qmp_abandon(&gQmp);
+        fail(StLoadState, queued); release(adsp); return false;
+    }
     if (!waitUntil(1000, [] {return qcom_qmp_step(&gQmp) == QcomQmpOpen;})) {
         qcom_qmp_abandon(&gQmp);
         fail(StLoadState, -60); release(adsp); return false;
