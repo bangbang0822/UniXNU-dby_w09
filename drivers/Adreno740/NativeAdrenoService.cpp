@@ -512,16 +512,29 @@ bool NativeAdrenoGpuService::start(IOService *provider)
                                                         IOLog("NativeAdreno: CP start stopped at 0x%x\n",ring_status);
                                                     else
                                                     {
-                                                        execbuf_=new NativeAdrenoSubmit;
-                                                        core_=new NativeAdrenoUserClient;
-                                                        if(execbuf_ && core_ &&
-                                                            execbuf_->attach(&vm_,&ring_)==kIOReturnSuccess &&
-                                                            core_->open(NativeAdrenoAbiVersion,&vm_,execbuf_,
-                                                                &ring_,32,40)==kIOReturnSuccess)
-                                                            core_ready_=true;
-                                                        ready_=true;
-                                                        IOLog("NativeAdreno: CP started, fence=%u, interrupts masked=%08x\n",
-                                                            start_fence,NativeAdrenoIrq::mask());
+                                                        /* A service with no user client cannot be submitted to: the ring is
+                                                         * running but nothing can open it. That has to keep ready_ false, or
+                                                         * registerService() publishes an interface every client call fails on. */
+                                                        NativeAdrenoSubmit *execbuf=new NativeAdrenoSubmit;
+                                                        NativeAdrenoUserClient *core=new NativeAdrenoUserClient;
+                                                        IOReturn client_status=kIOReturnNoMemory;
+                                                        if(execbuf && core) {
+                                                            client_status=execbuf->attach(&vm_,&ring_);
+                                                            if(!client_status)
+                                                                client_status=core->open(NativeAdrenoAbiVersion,&vm_,execbuf,
+                                                                    &ring_,32,40);
+                                                        }
+                                                        if(!client_status) {
+                                                            execbuf_=execbuf;core_=core;
+                                                            core_ready_=true;ready_=true;
+                                                            IOLog("NativeAdreno: CP started, fence=%u, interrupts masked=%08x\n",
+                                                                start_fence,NativeAdrenoIrq::mask());
+                                                        } else {
+                                                            IOLog("NativeAdreno: CP started but the user client stopped at 0x%x;"
+                                                                " the service stays unpublished\n",client_status);
+                                                            if(core)delete core;
+                                                            if(execbuf)delete execbuf;
+                                                        }
                                                     }
                                                 }
                                             }
