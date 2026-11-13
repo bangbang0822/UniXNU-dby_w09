@@ -127,22 +127,41 @@ static IOBufferMemoryDescriptor *systemDescriptor(size_t bytes,bool write_combin
      * 64 MiB) took 163 ms each at the median and 21.7 s in all, synchronously in the caller (the render server's and the widget
      * renderer's allocations, the stalls at an app launch and on the widget page), while every success was 64 to 128 KiB. So larger
      * BOs never ask, and after a failure no request of that size or larger asks again for 5 s. */
+    /* This function runs in prepareSystem(), the deliberately lock-free phase (NativeAdrenoMemory.h:80-82), so the
+     * four fields below are accessed atomically. The boot argument is parsed once behind an atomic sentinel -- a
+     * plain `static` init let a second thread see the 0 written before the parse and skip the contiguous request
+     * for that allocation. The failure/backoff pair is only an optimisation: a lost update costs one contiguous
+     * attempt too many, never a wrong one. */
     static uint32_t contigKiB=UINT32_MAX;
-    if(contigKiB==UINT32_MAX) {contigKiB=0;PE_parse_boot_argn("sheng-gpu-bo-contig",&contigKiB,sizeof contigKiB);}
+    uint32_t contig=__atomic_load_n(&contigKiB,__ATOMIC_ACQUIRE);
+    if(contig==UINT32_MAX) {
+        uint32_t parsed=0,expected=UINT32_MAX;
+        PE_parse_boot_argn("sheng-gpu-bo-contig",&parsed,sizeof parsed);
+        __atomic_compare_exchange_n(&contigKiB,&expected,parsed,false,__ATOMIC_RELEASE,__ATOMIC_ACQUIRE);
+        contig=__atomic_load_n(&contigKiB,__ATOMIC_ACQUIRE);
+    }
     static const size_t contigMax=size_t(128)*1024;
-    static size_t failedBytes=0;
-    static uint64_t failedAt=0,backoff=0;
-    if(!backoff)nanoseconds_to_absolutetime(UINT64_C(5000000000),&backoff);
+    static uint64_t failedBytes=0,failedAt=0;
+    uint64_t backoff=0;
+    nanoseconds_to_absolutetime(UINT64_C(5000000000),&backoff);
     const uint64_t now=mach_absolute_time();
-    if(failedBytes && now-failedAt>=backoff)failedBytes=0;
-    if(contigKiB && bytes>=size_t(contigKiB)*1024 && bytes<=contigMax && !(failedBytes && bytes>=failedBytes)) {
+    uint64_t stalled=__atomic_load_n(&failedBytes,__ATOMIC_ACQUIRE);
+    if(stalled && now-__atomic_load_n(&failedAt,__ATOMIC_ACQUIRE)>=backoff) {
+        stalled=0;
+        __atomic_store_n(&failedBytes,0,__ATOMIC_RELEASE);
+    }
+    if(contig && bytes>=size_t(contig)*1024 && bytes<=contigMax && !(stalled && bytes>=stalled)) {
         IOBufferMemoryDescriptor *run=IOBufferMemoryDescriptor::inTaskWithPhysicalMask(nullptr,
             (options&~static_cast<IOOptionBits>(kIOMemoryPageable))|static_cast<IOOptionBits>(kIOMemoryPhysicallyContiguous),bytes,UINT64_C(0xfffffffff000));
         if(run && run->prepare()==kIOReturnSuccess) {native_adreno_bo_contig[0]=native_adreno_bo_contig[0]+1;return run;}
         if(run)run->release();
         native_adreno_bo_contig[1]=native_adreno_bo_contig[1]+1;
-        if(!failedBytes || bytes<failedBytes)failedBytes=bytes;
-        failedAt=now;
+        __atomic_store_n(&failedAt,now,__ATOMIC_RELEASE);
+        /* Shrink-only: a larger failure must not hide a smaller one that would still be retried. */
+        uint64_t current=__atomic_load_n(&failedBytes,__ATOMIC_RELAXED);
+        while(!current || bytes<current) {
+            if(__atomic_compare_exchange_n(&failedBytes,&current,bytes,false,__ATOMIC_RELEASE,__ATOMIC_RELAXED))break;
+        }
     }
     IOBufferMemoryDescriptor *descriptor=IOBufferMemoryDescriptor::inTaskWithOptions(nullptr,options,bytes,4096);
     if(made)*made=mach_absolute_time();
