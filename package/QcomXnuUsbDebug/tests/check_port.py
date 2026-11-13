@@ -232,6 +232,12 @@ static void debug_putc(char c) { (void)c; }
         m = re.search(r'^static inline void\n' + fn + r'\(.*?\n\}\n', sc, re.M | re.S)
         assert m, fn
         driver.write_text(driver.read_text() + m.group(0) + '\n')
+    # console_write_unbuffered is taken from the patched source rather than modelled: the darwin23 patch moved
+    # the tee into _cnputs, which this function does not call, so it carries its own and a hand-written copy
+    # of it here would be the one place the model could disagree with the kernel.
+    m = re.search(r'^void\nconsole_write_unbuffered\(char c\)\n\{.*?\n\}\n', sc, re.M | re.S)
+    assert m, 'console_write_unbuffered moved; update the model'
+    driver.write_text(driver.read_text() + m.group(0) + '\n')
     pr = (PORT / 'fixture' / 'ported' / 'osfmk/kern/printf.c').read_text()
     m = re.search(r'static inline bool\nqcom_usb_pe_kputc_reenters_console\(void\)\n\{.*?\n\}\n', pr, re.S)
     assert m, 'printf re-entry predicate moved; update the model'
@@ -262,10 +268,8 @@ size_t qcom_usb_debug_write(const void *b, size_t n)
 static void boot_progress_putc(char c) { (void)c; bp_bytes++; }
 bool boot_progress_active(void) { return PE_kputc == boot_progress_putc; }
 static bool console_is_serial(void) { return false; }
-/* console_write_char and console_write_unbuffered feed _cnputs, which is
- * where this port tees. */
+/* console_write_char still goes through console_write -> _cnputs, which is where this port tees. */
 void console_write_char(char c) { _cnputs(&c, 1, true); }
-void console_write_unbuffered(char c) { _cnputs(&c, 1, true); }
 static void serial_putc_crlf(char c) { (void)c; serial_bytes++; }
 
 static int fails;
@@ -299,6 +303,13 @@ int main(void)
 	PE_kputc = serial_putc_crlf;
 	qcom_usb_tee('x');
 	expect("serial PE_kputc: 1 byte", 1, 0);
+
+	/* The sink the port installs once USB is up. It ends in USB by itself, so qcom_usb_tee must not
+	 * tee it too: this is the only PE_kputc value the steady state actually uses, and it was the one
+	 * case the model never exercised. */
+	PE_kputc = qcom_usb_debug_putc;
+	qcom_usb_tee('x');
+	expect("usb sink installed: 1 byte, no duplicate", 1, 0);
 
 	PE_kputc = console_write_unbuffered;
 	console_write_char('p');
