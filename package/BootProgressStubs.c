@@ -257,7 +257,7 @@ __attribute__((weak)) uint64_t native_touch_hold[14];
  * other entry shifted.  Keep the stub's type identical to the contract. */
 __attribute__((weak)) volatile int native_touch_ids[12];
 __attribute__((weak)) uint64_t native_touch_jitter[3];
-__attribute__((weak)) char native_touch_rows[4][120];
+__attribute__((weak)) char native_touch_rows[8][120];
 __attribute__((weak)) volatile uint32_t native_touch_seq;
 __attribute__((weak)) uint64_t native_touch_strokes[16][7];
 __attribute__((weak)) volatile int native_touch_xs[12];

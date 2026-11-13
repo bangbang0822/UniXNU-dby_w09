@@ -107,7 +107,7 @@ extern void sheng_gpu_smmu_probe(void) __attribute__((weak_import));
 extern void sheng_gpu_power_probe(void);
 extern char boot_process_rows[10][120] __attribute__((weak_import));
 extern unsigned boot_ui_trace_role_rows(unsigned,char [][120],unsigned,unsigned) __attribute__((weak_import));
-extern char native_touch_rows[4][120] __attribute__((weak_import));
+extern char native_touch_rows[8][120] __attribute__((weak_import));
 /* DBY-W09 触摸普查自证：这三个计数由 boot_progress_poll() 维护，独立于驱动，
  * 页面第 42 行会显示它们。目的：在没有串口/日志通道时，一次拍照就能区分
  *   "poll 根本没被调用" / "钩子被调用但守卫挡住" / "驱动返回了错误码"。

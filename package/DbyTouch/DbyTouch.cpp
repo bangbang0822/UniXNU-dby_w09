@@ -98,7 +98,7 @@ struct dby_touch_snapshot gDbyTouchSnapshot;
 /* ------------------------------------------------------------------ */
 
 /* These two symbols are the sheng/umi page ABI, not this driver's invention:
- *   char            native_touch_rows[4][120]   BootProgress.c:191/573
+ *   char            native_touch_rows[8][120]   BootProgress.c:191/573
  *   volatile unsigned native_touch_stage_req    BootProgress.c:201/571/1297
  * Both are declared weak in package/BootProgressStubs.c:75 and :88 precisely so
  * a touch driver can replace them, and BootProgress guards every use with
