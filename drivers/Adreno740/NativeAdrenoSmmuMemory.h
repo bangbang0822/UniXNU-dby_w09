@@ -46,6 +46,8 @@ IOReturn NativeAdrenoPrepareSmmuMemory(NativeAdrenoTablePages *,unsigned input_b
 /* Bind only the native PoC publisher to the arena's table pages. No caller-supplied success callback or page-table copy. */
 IOReturn NativeAdrenoBindSmmuVisibility(NativeAdrenoTablePages *,ArmSmmu4KLiveVisibility *);
 /* The stage-1 input size of a context: ID2.UBS as arm_smmu_device_cfg_probe reads it (arm_smmu_id_size_to_bits, 48 for any larger
- * code), the 4 KiB granule's 48-bit maximum (io-pgtable-arm arm_lpae_restrict_pgsizes). 0 for an unreadable ID2. */
+ * code), the 4 KiB granule's 48-bit maximum (io-pgtable-arm arm_lpae_restrict_pgsizes). Every code maps to a size, so there is no
+ * "unreadable" answer here -- this file used to claim 0 for one, which it never returned: the caller reads ID2 itself and only
+ * calls this after a successful read (NativeAdrenoGpuContext.cpp:30-38 turns a failed read into kIOReturnIOError). */
 unsigned NativeAdrenoSmmuInputBits(uint32_t id2);
 #endif

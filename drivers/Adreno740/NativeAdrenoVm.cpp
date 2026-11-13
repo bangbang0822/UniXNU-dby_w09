@@ -117,6 +117,10 @@ IOReturn NativeAdrenoVm::attach(const ArmSmmu4KIo *io,ArmSmmu4KContextConfig *co
     if(lower)regions_[0]=*lower;if(upper)regions_[1]=*upper;
     for(unsigned i=0;i<2;++i)if(regions_[i].arena) {
         if(NativeAdrenoBindSmmuVisibility(regions_[i].tables,&visibility_[i])!=kIOReturnSuccess) {
+            /* freeTables() releases alias_scratch_, and a region bound on the earlier iteration already points at
+             * it with alias_scratch_entries set: clear those the way detach() does, or the caller's arena keeps a
+             * pointer to memory this function just freed. */
+            for(auto &region:regions_)if(region.arena) {region.arena->alias_scratch=nullptr;region.arena->alias_scratch_entries=0;}
             freeTables();regions_[0]={};regions_[1]={};return kIOReturnBadArgument;
         }
         regions_[i].arena->alias_scratch=alias_scratch_;regions_[i].arena->alias_scratch_entries=capacity_;
