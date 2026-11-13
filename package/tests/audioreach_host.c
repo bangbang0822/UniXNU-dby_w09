@@ -89,7 +89,9 @@ int main(void)
     /* Shared memory endpoint media format goes to the endpoint's own port. */
     n = ar_config_playback_shmem(b, sizeof b, 1, 11, &stereo);
     CHECK(n && gpr_decode(b, n, &p) == GprOk && p.dst_port == AR_IID_PLAY_SHMEM && blocks(b, n, iid, id, off, 8) == 1);
-    CHECK(id[0] == 0x0800100C && le32(b + off[0] - 8) == 32 && le32(b + off[0] + 8) == 36 && le32(b + off[0] + 12) == 48000);
+    /* The declared block is the format body alone: 16 header bytes plus one per channel, padded to four --
+     * the same 20 the stream encoder's pcm_output declares for this stereo format. */
+    CHECK(id[0] == 0x0800100C && le32(b + off[0] - 8) == 32 && le32(b + off[0] + 8) == 20 && le32(b + off[0] + 12) == 48000);
     CHECK(le16(b + off[0] + 26) == 2 && b[off[0] + 28] == 1 && b[off[0] + 29] == 2);
 
     /* Graph commands list one subgraph. */

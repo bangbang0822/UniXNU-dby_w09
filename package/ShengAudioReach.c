@@ -244,8 +244,12 @@ uint32_t ar_config_playback_shmem(uint8_t *out, uint32_t capacity, uint32_t port
     begin(&w, out, capacity, port, AR_IID_PLAY_SHMEM, token, AR_OP_SET_CFG);
     const uint32_t cmd = cmd_payload_start(&w);
     const uint32_t at = param_begin(&w, AR_IID_PLAY_SHMEM, PARAM_MEDIA_FORMAT);
-    const uint32_t body = align8(12u + 16u + f->channels);
-    put32(&w, 1); put32(&w, MEDIA_PCM); put32(&w, body + PARAM_HEADER - 12u);
+    /* The media format body is its 16-byte header plus one byte per channel, padded to four: the stream
+     * encoder (pcm_output, which the host test reads back as 20 for a stereo format) declares exactly that.
+     * The old value was align8(12 + 16 + channels) + PARAM_HEADER - 12, which folded the two words written
+     * before it and the parameter header into the length -- 36 for stereo -- so the endpoint was told its
+     * format block ran 16 bytes past where it ends. */
+    put32(&w, 1); put32(&w, MEDIA_PCM); put32(&w, (16u + f->channels + 3u) & ~3u);
     put32(&w, f->rate); put16(&w, f->bits); put16(&w, 1); put16(&w, f->bits); put16(&w, f->bits - 1u); put16(&w, 1);
     put16(&w, f->channels);
     channel_map(&w, f->channels);
