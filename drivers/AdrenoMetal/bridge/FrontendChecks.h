@@ -31,6 +31,9 @@ __attribute__((format(printf, 2, 3))) static void fail(Report *r, const char *fo
     vsnprintf(text, sizeof text, format, args);
     va_end(args);
     std::printf("FAIL %s\n", text);
+    /* Only run() installs gReport, and the other host instruments include this header without it: a
+     * CHECK that fails there used to dereference a null report instead of reporting the failure. */
+    if (!r) return;
     if (!r->failed++) snprintf(r->first, sizeof r->first, "%x %s", r->last, text);
 }
 static void step(Report *r, uint32_t marker) {

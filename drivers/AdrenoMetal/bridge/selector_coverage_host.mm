@@ -19,7 +19,15 @@ int main(int argc, char **argv) {
         id<MTLDevice> device = native_bridge_metal_open(argv[1], argv[2], 0x6e6d62, nullptr);
         if (!device) {std::printf("FAIL device\n"); return 1;}
         NSData *json = [NSData dataWithContentsOfFile:[NSString stringWithUTF8String:argv[3]]];
-        NSDictionary *all = [NSJSONSerialization JSONObjectWithData:json options:0 error:nil][@"kinds"];
+        /* Every one of these can be nil, and the old line chained them: a missing file, a document that is not
+         * JSON, or one without a "kinds" dictionary left `all` nil, the loop below ran zero times and the
+         * instrument printed a pass over nothing. Say which of the three failed instead. */
+        if (!json) {std::printf("FAIL read %s\n", argv[3]); return 1;}
+        NSError *jsonError = nil;
+        id document = [NSJSONSerialization JSONObjectWithData:json options:0 error:&jsonError];
+        if (!document) {std::printf("FAIL parse %s: %s\n", argv[3], jsonError.localizedDescription.UTF8String ?: ""); return 1;}
+        NSDictionary *all = [document isKindOfClass:[NSDictionary class]] ? document[@"kinds"] : nil;
+        if (![all isKindOfClass:[NSDictionary class]] || !all.count) {std::printf("FAIL kinds %s\n", argv[3]); return 1;}
         size_t bytes = 0;
         const void *air = nmb_fixture_air(&bytes);
         id<MTLLibrary> library = native_bridge_metal_library_with_air(air, bytes);
