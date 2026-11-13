@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include "GpuScanoutPresenter.h"
-#include "../NativeMobileDisplay/NativeGOPWire.h"
+#include "../GopFramebuffer/NativeGOPWire.h"   // the wire header ships with the display component in this tree
 
 extern "C" void NBWaitInFlight(uint64_t beforeUs) __attribute__((weak_import));
 extern "C" void NBTraceSwap(uint64_t offered,uint64_t copied,uint64_t completed,uint32_t sequence,uint32_t result) __attribute__((weak_import));
