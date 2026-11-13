@@ -104,4 +104,8 @@ if __name__ == '__main__':
     print(f'{len(errors)} static errors; {len(missing)} vendor inputs missing')
     for error in errors:
         print(error)
-    raise SystemExit(bool(errors))
+    for path in missing:
+        print(f'missing vendor input: {path}')
+    # A vendor binary the .inc files need is as much a failure as a static error: the platform will not
+    # build against the UEFI tree without it, so it has to reach the exit status.
+    raise SystemExit(bool(errors or missing))

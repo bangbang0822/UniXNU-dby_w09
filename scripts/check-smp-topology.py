@@ -88,7 +88,11 @@ def main():
         else:
             failures.append(f'{config} not found; build the kernel first')
     else:
-        print('check-smp-topology: no --tree given, so the kernel half was not checked')
+        # Without the tree there is no board_config.h to read, so nothing below proves the kernel half.
+        # Printing the success line here made the invocation in the docstring look like a full check.
+        print('check-smp-topology: no --tree given, so the kernel half was not checked; this run says '
+              'nothing about the cluster patch', file=sys.stderr)
+        return 2
 
     if failures:
         print('check-smp-topology: REFUSING this configuration', file=sys.stderr)
