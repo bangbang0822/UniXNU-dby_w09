@@ -20,7 +20,7 @@ static int write32(void *c,uint32_t reg,uint32_t v)
     peer.regs[reg]=v;peer.writes.push_back(reg);return 0;
 }
 static int read32(void *c,uint32_t reg,uint32_t *v)
-{CHECK(c==&peer && v);*v=peer.regs[reg];return 0;}
+{CHECK(c==&peer && v && reg<0x10000);*v=peer.regs[reg];return 0;}
 static int barrier(void *c){CHECK(c==&peer);++peer.barriers;return 0;}
 static int publish(void *c,const volatile uint32_t *w,size_t bytes)
 {CHECK(c==&peer && w && bytes==32768);++peer.publish;return peer.publish==peer.fail_publish;}

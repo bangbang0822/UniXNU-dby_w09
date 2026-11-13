@@ -146,6 +146,12 @@ int main(int argc, char **argv)
    freeMem(device, memory, NULL);
    destroyDevice(device, NULL);
    printf("device destroyed, kernel objects live: %u\n", live());
+   /* PASS only when nothing leaked: this used to print PASS first and let the exit status disagree, so a run
+    * that leaked every kernel object still read as a pass in the log it was captured from. */
+   if (live() != 0) {
+      printf("FAIL: %u kernel object(s) still live\n", live());
+      return 2;
+   }
    printf("PASS\n");
-   return live() == 0 ? 0 : 2;
+   return 0;
 }

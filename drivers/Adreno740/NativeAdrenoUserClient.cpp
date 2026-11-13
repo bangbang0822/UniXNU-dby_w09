@@ -392,6 +392,9 @@ IOReturn NativeAdrenoUserClient::submit(const NativeAdrenoAbiSubmit *request,
         return kIOReturnBadArgument;
     if(request->wait_fence) {
         if(!clock)return kIOReturnBadArgument;
+        /* The wire field is 64-bit and the ring's fences are 32-bit: a value above UINT32_MAX used to truncate
+         * silently into some other fence, so the call waited on work it was never given. */
+        if(request->wait_fence>UINT32_MAX)return kIOReturnBadArgument;
         const uint32_t wait_us=request->wait_timeout_ns==0?0:
             (request->wait_timeout_ns>UINT64_C(0xffffffff)*1000u?0xffffffffu:
             (uint32_t)(request->wait_timeout_ns/1000));
@@ -747,6 +750,7 @@ IOReturn NativeAdrenoUserClient::waitFence(const NativeAdrenoAbiWaitFence *reque
     if(!request || !clock)return kIOReturnBadArgument;
     if(!open_)return kIOReturnNotReady;
     if(!request->fence)return kIOReturnBadArgument;
+    if(request->fence>UINT32_MAX)return kIOReturnBadArgument;   /* same truncation as the submit path */
     const uint32_t timeout_us=request->timeout_ns==0?0:
         (request->timeout_ns>UINT64_C(0xffffffff)*1000u?0xffffffffu:
         (uint32_t)(request->timeout_ns/1000));
