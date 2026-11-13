@@ -41,17 +41,16 @@ static void serial_putc_crlf(char c);
 
 #if XNU_QCOM_USB_DEBUG
 /* kprintf reaches the console through _doprnt_log(..., PE_kputc, ...), which
- * bypasses _cnputs, so this hook is kprintf's only USB copy on that path. Two
- * sinks end in USB on their own: the USB sink itself, which dispatching to
- * here as well would enqueue twice, and -- in the darwin22 shape of this patch
- * -- console_write_unbuffered, which teed internally. The darwin23 patch tees
- * inside _cnputs instead, and console_write_unbuffered calls _cnputc, not
- * _cnputs, so excluding it here lost every byte that took that path.
+ * bypasses _cnputs, so this hook is kprintf's only USB copy on that path. The
+ * two sinks that already reach USB are excluded: the USB sink itself, which
+ * dispatching to here as well would enqueue twice, and console_write_unbuffered,
+ * whose body tees on its own -- the darwin23 patch moved the console tee into
+ * _cnputs, which that function does not call.
  */
 static bool
 qcom_usb_pe_kputc_owns_usb_byte(void)
 {
-	return PE_kputc != qcom_usb_debug_putc;
+	return PE_kputc != console_write_unbuffered && PE_kputc != qcom_usb_debug_putc;
 }
 
 static void

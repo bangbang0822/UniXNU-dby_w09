@@ -20,23 +20,22 @@
  // disable_serial_output disables kprintf() *and* unbuffered panic output.
  SECURITY_READ_ONLY_LATE(bool) disable_serial_output = true;
  // disable_kprintf_output only disables kprintf().
-@@ -31,6 +39,36 @@ <file scope>
+@@ -31,6 +39,35 @@ <file scope>
  
  static void serial_putc_crlf(char c);
  
 +#if XNU_QCOM_USB_DEBUG
 +/* kprintf reaches the console through _doprnt_log(..., PE_kputc, ...), which
-+ * bypasses _cnputs, so this hook is kprintf's only USB copy on that path. Two
-+ * sinks end in USB on their own: the USB sink itself, which dispatching to
-+ * here as well would enqueue twice, and -- in the darwin22 shape of this patch
-+ * -- console_write_unbuffered, which teed internally. The darwin23 patch tees
-+ * inside _cnputs instead, and console_write_unbuffered calls _cnputc, not
-+ * _cnputs, so excluding it here lost every byte that took that path.
++ * bypasses _cnputs, so this hook is kprintf's only USB copy on that path. The
++ * two sinks that already reach USB are excluded: the USB sink itself, which
++ * dispatching to here as well would enqueue twice, and console_write_unbuffered,
++ * whose body tees on its own -- the darwin23 patch moved the console tee into
++ * _cnputs, which that function does not call.
 + */
 +static bool
 +qcom_usb_pe_kputc_owns_usb_byte(void)
 +{
-+	return PE_kputc != qcom_usb_debug_putc;
++	return PE_kputc != console_write_unbuffered && PE_kputc != qcom_usb_debug_putc;
 +}
 +
 +static void
@@ -176,7 +175,7 @@
 +#include <QcomXnuUsbDebug.h>
 +/* True when the fan-out to PE_kputc below would reach _cnputs again, which is
 + * where this port tees.  Two values do: the USB sink itself, and the console
-+ * fallback, whose body is a thin wrapper over _cnputs.  The second case is the
++ * fallback, whose body tees the byte itself.  The second case is the
 + * state left behind when USB initialization is refused and PE_kputc keeps its
 + * pre-existing console value; the byte is already in the log once.
 + */
@@ -208,7 +207,7 @@
  
  	if (!console_is_serial() && !disable_serial_output) {
 +#if XNU_QCOM_USB_DEBUG
-+		/* console_write_unbuffered is a thin wrapper over _cnputs. */
++		/* console_write_unbuffered tees inside its own body. */
 +		if (!qcom_usb_pe_kputc_reenters_console())
 +#endif
  		PE_kputc(c);
@@ -243,6 +242,19 @@
  	if (disableConsoleOutput) {
  		return;
  	}
+@@ -613,6 +626,12 @@ console_write_unbuffered
+ 	if (disableConsoleOutput) {
+ 		return;
+ 	}
+ 
++#if XNU_QCOM_USB_DEBUG
++	/* This function is one of the PE_kputc sinks, and qcom_usb_pe_kputc_reenters_console() names
++	 * it for that reason: it is expected to tee. Dispatch the byte to USB here, before _cnputc(),
++	 * so it reaches the log exactly once instead of not at all. */
++	(void)qcom_usb_debug_putc(c);
++#endif
+ 	_cnputc(c, true);
+ }
 --- a/osfmk/console/serial_general.c
 +++ b/osfmk/console/serial_general.c
 @@ -169,7 +169,11 @@ console_printbuf_putc

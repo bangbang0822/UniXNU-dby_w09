@@ -627,6 +627,12 @@ console_write_unbuffered(char c)
 		return;
 	}
 
+#if XNU_QCOM_USB_DEBUG
+	/* This function is one of the PE_kputc sinks, and qcom_usb_pe_kputc_reenters_console() names
+	 * it for that reason: it is expected to tee. Dispatch the byte to USB here, before _cnputc(),
+	 * so it reaches the log exactly once instead of not at all. */
+	(void)qcom_usb_debug_putc(c);
+#endif
 	_cnputc(c, true);
 }
 

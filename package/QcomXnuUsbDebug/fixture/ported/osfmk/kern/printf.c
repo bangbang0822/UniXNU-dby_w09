@@ -917,7 +917,7 @@ vprintf(const char *fmt, va_list ap)
 #include <QcomXnuUsbDebug.h>
 /* True when the fan-out to PE_kputc below would reach _cnputs again, which is
  * where this port tees.  Two values do: the USB sink itself, and the console
- * fallback, whose body is a thin wrapper over _cnputs.  The second case is the
+ * fallback, whose body tees the byte itself.  The second case is the
  * state left behind when USB initialization is refused and PE_kputc keeps its
  * pre-existing console value; the byte is already in the log once.
  */
@@ -956,7 +956,7 @@ consdebug_putc_unbuffered(char c)
 
 	if (!console_is_serial() && !disable_serial_output) {
 #if XNU_QCOM_USB_DEBUG
-		/* console_write_unbuffered is a thin wrapper over _cnputs. */
+		/* console_write_unbuffered tees inside its own body. */
 		if (!qcom_usb_pe_kputc_reenters_console())
 #endif
 		PE_kputc(c);
