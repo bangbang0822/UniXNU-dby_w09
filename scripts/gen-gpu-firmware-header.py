@@ -18,17 +18,22 @@ canonical build-tree location is `kits/dby_w09/DbyGpuFirmware.h` (this repositor
 directory, pass `--out package/DbyGpu/DbyGpuFirmware.h` and delete that directory's
 old placeholder instead of keeping both.
 
---check regenerates into memory and compares, so a reviewer (or CI) can prove the
-parts this generator owns still match their source: the three arrays, their lengths,
-their digests and the pin table built from them.
+--check regenerates into memory and compares, so a reviewer (or CI) can see what still
+matches its source. It does NOT prove the committed header is unedited, and today it
+cannot pass:
 
-It does NOT prove the whole file is unedited, and the committed header is not: the
-ZAP image was hand-swapped on 2026-11-05 from the reference board's A650 fork image to
-this tablet's own /vendor/firmware/a650_zap.elf, and the header's preamble carries that
-paragraph while the ZAP pin below carries its provenance. A --check run therefore
-reports a difference in that preamble by design. Teaching the generator the swap means
-passing it the vendor image as the ZAP source; until then the claim is limited to what
-the generator actually emits.
+  * the ZAP image was hand-swapped on 2026-11-05 from the reference board's A650 fork
+    image to this tablet's own /vendor/firmware/a650_zap.elf. The committed array is the
+    vendor image (sha256 ba430ec5..., 1164 lines); the arrays this script reads from
+    GpuFirmwareA650.c are the fork's (ca61b06e..., 873 lines). A --check run reports
+    differences in the ZAP array, its MEASURED line and its pin digest, not only in the
+    hand-swap paragraph of the preamble;
+  * a clean checkout has no GpuFirmwareA650.c at all -- it is the external input -- so
+    --check exits 1 with "no GpuFirmwareA650.c in ..." before comparing anything.
+
+Making it pass means teaching the generator the swap: pass the vendor ZAP as its own
+source, with that digest and provenance. Until then run --check only with the reference
+source, and read the ZAP differences as the swap rather than as a hand edit.
 """
 import argparse
 import hashlib

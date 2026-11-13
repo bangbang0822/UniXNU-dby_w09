@@ -1091,14 +1091,23 @@ IOReturn NativeAdrenoSubmit::recover(NativeAdrenoRestart restart,void *cookie,co
     /* A job whose IB the GPU already stopped on is not replayed: it is what hung the ring, and replaying it
      * hangs the ring again. fix51 read hangs=169 restarts=169 with the fence climbing 173..175 in 176 s --
      * each restart replayed the same bad submission and the next check found the same hang. */
-    /* Only the first replayed job can skip the drain: restart() emptied the ring, but every submit below leaves its
-     * own fence outstanding, so from the second job on mode 1 has something to wait for again. */
+    /* A replay submits jobs the loop has not reached yet, and restart() moved seqno_ to the hung fence, so those
+     * jobs' original fences are above it. useVm()'s waitAll() would wait on them and the ring answers Argument
+     * for a fence it never issued, which poisons the submit path on the second table switch of a replay. Wait for
+     * what this loop itself submitted instead: the ring's last fence, which is the replayed prefix and nothing
+     * else. The first job skips even that, because restart() has just emptied the ring. */
     bool firstReplay=true;
     for(uint32_t next=hung+1;next && next<=replayLast;++next) {
         Job *job=find(next);
         NativeAdrenoVm *vm=job && job->vm?job->vm:vm_;
         const bool run=job && !vm->unusable() && job->word_count;
-        status=useVm(vm,clock,firstReplay);
+        if(!firstReplay) {
+            const uint32_t replayed=ring_->lastSubmitted();
+            if(replayed && ring_->wait(replayed,clock,2000000,nullptr)!=NativeAdrenoRingFenceComplete) {
+                native_adreno_recover_trace[0]=7;native_adreno_recover_trace[1]=replayed;return poison();
+            }
+        }
+        status=useVm(vm,clock,true);
         firstReplay=false;
         if(status) {native_adreno_recover_trace[0]=5;native_adreno_recover_trace[1]=uint32_t(status);return poison();}
         ring_->useContext(job?job->context:0);
