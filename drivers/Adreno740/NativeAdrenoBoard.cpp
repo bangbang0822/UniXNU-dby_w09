@@ -16,13 +16,16 @@ IOReturn NativeAdrenoBoard::parseIommus(const uint8_t *cells,size_t length,
     if(length%per_entry)return kIOReturnBadArgument;
     const size_t total=length/per_entry;
     if(!stream_ids || total>capacity)return kIOReturnNoResources;
+    /* Validate every entry before writing any. The loop used to store as it went, so a bad entry later in the
+     * property returned an error with the earlier stream IDs already in the caller's array -- the case the
+     * header's "never writes on failure" rules out. */
     for(size_t index=0;index<total;++index) {
         const uint8_t *at=cells+index*per_entry;
         if(!be32(at))return kIOReturnBadArgument; /* phandle must be named */
-        const uint32_t sid=be32(at+CellBytes);
-        if(sid>0xffffu)return kIOReturnBadArgument;
-        stream_ids[index]=static_cast<uint16_t>(sid);
+        if(be32(at+CellBytes)>0xffffu)return kIOReturnBadArgument;
     }
+    for(size_t index=0;index<total;++index)
+        stream_ids[index]=static_cast<uint16_t>(be32(cells+index*per_entry+CellBytes));
     *count=total;
     return kIOReturnSuccess;
 }
@@ -38,6 +41,8 @@ IOReturn NativeAdrenoBoard::parseReg(const uint8_t *cells,size_t length,
     if(length%per_window)return kIOReturnBadArgument;
     const size_t total=length/per_window;
     if(total>capacity || !windows)return kIOReturnNoResources;
+    /* Same rule as parseIommus: decode and check every window before storing one, so a malformed later entry
+     * cannot leave the caller's array half filled. */
     for(size_t index=0;index<total;++index) {
         const uint8_t *at=cells+index*per_window;
         uint64_t base=0,bytes=0;
@@ -50,6 +55,12 @@ IOReturn NativeAdrenoBoard::parseReg(const uint8_t *cells,size_t length,
             bytes=(bytes<<32)|be32(at+(address_cells+cell)*CellBytes);
         }
         if(!bytes || base+bytes<base)return kIOReturnBadArgument;
+    }
+    for(size_t index=0;index<total;++index) {
+        const uint8_t *at=cells+index*per_window;
+        uint64_t base=0,bytes=0;
+        for(uint32_t cell=0;cell<address_cells;++cell)base=(base<<32)|be32(at+cell*CellBytes);
+        for(uint32_t cell=0;cell<size_cells;++cell)bytes=(bytes<<32)|be32(at+(address_cells+cell)*CellBytes);
         windows[index]={base,bytes};
     }
     *count=total;

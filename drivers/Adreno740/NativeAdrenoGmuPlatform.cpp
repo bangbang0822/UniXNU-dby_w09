@@ -7,7 +7,10 @@ int NativeAdrenoGmuPlatform::read32(void *cookie,unsigned window,size_t at,uint3
     if(!cookie || !out || window>=ShengGmuWindows)return 1;
     NativeAdrenoGmuPlatform *self=static_cast<NativeAdrenoGmuPlatform *>(cookie);
     const NativeAdrenoGmuWindow &bounds=self->windows_[window];
-    if(!bounds.base || (at&3) || at+4>bounds.bytes)return 1;
+    /* `at + 4 > bounds.bytes` wraps for an `at` near SIZE_MAX and lets the access through; subtracting the
+     * access width from the bound cannot wrap, and bind() guarantees the window is at least four bytes and
+     * four-aligned. */
+    if(!bounds.base || (at&3) || bounds.bytes<4 || at>bounds.bytes-4)return 1;
     *out=*reinterpret_cast<volatile uint32_t *>(bounds.base+at);
     return 0;
 }
@@ -16,7 +19,7 @@ int NativeAdrenoGmuPlatform::write32(void *cookie,unsigned window,size_t at,uint
     if(!cookie || window>=ShengGmuWindows)return 1;
     NativeAdrenoGmuPlatform *self=static_cast<NativeAdrenoGmuPlatform *>(cookie);
     const NativeAdrenoGmuWindow &bounds=self->windows_[window];
-    if(!bounds.base || (at&3) || at+4>bounds.bytes)return 1;
+    if(!bounds.base || (at&3) || bounds.bytes<4 || at>bounds.bytes-4)return 1;
     *reinterpret_cast<volatile uint32_t *>(bounds.base+at)=value;
     return 0;
 }
