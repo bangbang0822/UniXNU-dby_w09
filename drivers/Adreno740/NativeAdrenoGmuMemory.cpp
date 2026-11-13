@@ -83,6 +83,10 @@ IOReturn NativeAdrenoGmuAllocator::releaseAll()
 IOReturn NativeAdrenoGmuAllocator::release()
 {
     if(!ready_)return kIOReturnNotReady;
+    /* A retained handle means these payload pages are still mapped in a VM. Freeing them here would leave the
+     * SMMU table pointing at pages the system has taken back, and the release would still report success --
+     * unmapFrom() is what drops them, and it refuses while a mapping has outstanding jobs. */
+    for(uint64_t handle:handles_)if(handle)return kIOReturnBusy;
     const IOReturn status=releaseAll();
     if(status)return status;
     ready_=false;layout_={};
