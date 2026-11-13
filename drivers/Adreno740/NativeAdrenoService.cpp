@@ -84,6 +84,7 @@ class NativeAdrenoGpuService : public IOService {
     struct RingCache {NativeAdrenoMemory *ring;NativeAdrenoMemory *fence;};
     RingCache ring_cache_{};
     NativeAdrenoGpuWindow ring_window_{};   /* the ring keeps a pointer to it: it must outlive start() */
+    NativeAdrenoSmmuWindow smmu_window_{};  /* the SMMU context copies the IO that points at it: same reason */
     static int gpu_read32(void *,uint32_t,uint32_t *);
     static int gmu_fence_status(void *,int clear,uint32_t *status);
     static int gpu_write32(void *,uint32_t,uint32_t);
@@ -122,28 +123,28 @@ struct NativeAdrenoSmmuWindow {
 static int smmu_read32(void *cookie,size_t at,uint32_t *value)
 {
     NativeAdrenoSmmuWindow *window=static_cast<NativeAdrenoSmmuWindow *>(cookie);
-    if(!window || !value || !window->base || (at&3) || at+4>window->bytes)return 1;
+    if(!window || !value || !window->base || (at&3) || window->bytes<4 || at>window->bytes-4)return 1;
     *value=*reinterpret_cast<volatile uint32_t *>(window->base+at);
     return 0;
 }
 static int smmu_read64(void *cookie,size_t at,uint64_t *value)
 {
     NativeAdrenoSmmuWindow *window=static_cast<NativeAdrenoSmmuWindow *>(cookie);
-    if(!window || !value || !window->base || (at&7) || at+8>window->bytes)return 1;
+    if(!window || !value || !window->base || (at&7) || window->bytes<8 || at>window->bytes-8)return 1;
     *value=*reinterpret_cast<volatile uint64_t *>(window->base+at);
     return 0;
 }
 static int smmu_write32(void *cookie,size_t at,uint32_t value)
 {
     NativeAdrenoSmmuWindow *window=static_cast<NativeAdrenoSmmuWindow *>(cookie);
-    if(!window || !window->base || (at&3) || at+4>window->bytes)return 1;
+    if(!window || !window->base || (at&3) || window->bytes<4 || at>window->bytes-4)return 1;
     *reinterpret_cast<volatile uint32_t *>(window->base+at)=value;
     return 0;
 }
 static int smmu_write64(void *cookie,size_t at,uint64_t value)
 {
     NativeAdrenoSmmuWindow *window=static_cast<NativeAdrenoSmmuWindow *>(cookie);
-    if(!window || !window->base || (at&7) || at+8>window->bytes)return 1;
+    if(!window || !window->base || (at&7) || window->bytes<8 || at>window->bytes-8)return 1;
     *reinterpret_cast<volatile uint64_t *>(window->base+at)=value;
     return 0;
 }
@@ -353,8 +354,8 @@ bool NativeAdrenoGpuService::start(IOService *provider)
                 [[maybe_unused]] const uint64_t sqe_bytes=(reinterpret_cast<uintptr_t>(&native_adreno_sqe_firmware_image_size)&&
                     reinterpret_cast<uintptr_t>(native_adreno_sqe_firmware_image))?
                     ((native_adreno_sqe_firmware_image_size+0xfff)&~UINT64_C(0xfff)):0;
-                NativeAdrenoSmmuWindow window{smmu_base,smmu_bytes};
-                ArmSmmu4KIo smmu_io{&window,smmu_bytes,smmu_read32,smmu_read64,
+                smmu_window_={smmu_base,smmu_bytes};
+                ArmSmmu4KIo smmu_io{&smmu_window_,smmu_bytes,smmu_read32,smmu_read64,
                     smmu_write32,smmu_write64,smmu_barrier};
                 NativeAdrenoGmuContextReport report{};
                 IOReturn status=gmu_ctx_.bringUp(&smmu_io,bank,asid,slot,uint16_t(sid),nullptr,&report);
