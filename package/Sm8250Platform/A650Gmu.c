@@ -27,7 +27,10 @@ enum {
 };
 /* A6XX_GMU_IRQ_MASK (WDOG_BITE, HOST_AHB_BUS_ERROR, FENCE_ERR) and A6XX_HFI_IRQ_MASK (CM3_FAULT). */
 #define AO_FATAL 0x29u
-#define CM3_FATAL 0x00800000u
+/* BIT(15) of GMU_GMU2HOST_INTR_INFO, kgsl_hfi.h:55 HFI_IRQ_CM3_FAULT_MASK. 0x00800000 named a bit that
+ * never sets, so a real CM3 fault went unseen by check_faults() and survived the post-startup mask write.
+ * package/DbyA650Gmu.c:41 carries the corrected value for the same reason. */
+#define CM3_FATAL 0x00008000u
 /* a6xx_gmu_power_config: GMU_RPMH_CTRL's interface, LLC, DDR, MX, CX and GFX vote enables. */
 #define RPMH_CTRL_VOTES 0x00000f11u
 #define FENCE_RANGE ((1u << 31) | (0xau << 18) | 0xa0u)
@@ -54,7 +57,9 @@ static A650GmuStatus check_faults(A650GmuDevice *d, A650GmuResult *r)
         core_read(d, GMU_GMU2HOST_INTR_INFO, &r->cm3_fault_status, r)) return A650GmuIoError;
     return (r->ao_fault_status & AO_FATAL) || (r->cm3_fault_status & CM3_FATAL) ? A650GmuFault : A650GmuSuccess;
 }
-/* gmu_poll_timeout(.., 100, 10000): a read every 100 us for at most 10 ms, also bounded by the poll budget. */
+/* gmu_poll_timeout(.., 100, 100000): a read every 100 us for at most 100 ms, also bounded by the poll budget.
+ * The vendor's start budget for this part is 100 ms; the 10 ms cap this file used was reached before phase 6
+ * finished on this tablet, which is what the board's own copy (package/DbyA650Gmu.c:68) corrected. */
 static A650GmuStatus poll(A650GmuDevice *d, unsigned w, uint32_t dword, uint32_t mask, uint32_t expected, unsigned budget,
                           int faults, uint32_t *observed, A650GmuResult *r)
 {
@@ -63,7 +68,7 @@ static A650GmuStatus poll(A650GmuDevice *d, unsigned w, uint32_t dword, uint32_t
     last = start;
     for (unsigned i = 0; i < budget; ++i) {
         if (d->services.now_us(d->services.cookie, &now) || now < last) return A650GmuClockError;
-        if (now - start >= 10000) return A650GmuTimeout;
+        if (now - start >= 100000) return A650GmuTimeout;
         last = now; ++r->poll_reads;
         if (faults) {A650GmuStatus f = check_faults(d, r); if (f != A650GmuSuccess) return f;}
         if (read32(d, w, dword, observed, r)) return A650GmuIoError;

@@ -41,7 +41,7 @@ typedef struct {
     uint32_t chip_id;
     const uint8_t *firmware; size_t firmware_bytes;   /* a650_gmu.bin */
     A650GmuMemory icache, dummy, log, hfi;            /* a6xx_gmu_init for the a650: 0x4000, 0x60000000, then any */
-    unsigned poll_budget;                              /* polls of 100 us, each poll also stopped at 10 ms */
+    unsigned poll_budget;                              /* polls of 100 us, each poll also stopped at 100 ms */
 } A650GmuConfig;
 typedef struct {
     A650GmuIo io; A650GmuServices services; AdrenoHfi hfi;
