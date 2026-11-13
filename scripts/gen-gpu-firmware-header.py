@@ -36,8 +36,13 @@ DEFAULT_OUT = ROOT / 'package/DbyGpuFirmware.h'
 PINS = (
     dict(kind='ZAP', macro='DBY_GPU_ZAP_FIRMWARE_BYTES', symbol='native_gpu_zap_firmware',
          source_name='native_gpu_zap_firmware', bytes=13964, file='a650_zap.elf',
-         provenance='reference board package/GpuFirmwareA650.c (A650 fork images), a '
-                    'complete ELF32 little-endian ARM image, entry 0x5000; PAS 13'),
+         # The shipped ZAP is this tablet's own vendor file, not the reference board's A650 fork
+         # image: the two are the same length and PAS init_image refused the fork one (0xFFCFFFBB),
+         # so regenerating from it would advertise bytes this device does not run.
+         provenance="this tablet's /vendor/firmware/a650_zap.elf, extracted from the vendor logical"
+                    " partition of super: a complete ELF32 little-endian ARM image, entry 0x5000;"
+                    " PAS 13; the reference board's A650 fork image of the same length was refused"
+                    " (0xFFCFFFBB)"),
     dict(kind='GMU', macro='DBY_GPU_GMU_FIRMWARE_BYTES', symbol='native_gpu_gmu_firmware',
          source_name='native_gpu_gmu_firmware', bytes=41548, file='a650_gmu.bin',
          provenance='reference board package/GpuFirmwareA650.c (A650 fork images), the '

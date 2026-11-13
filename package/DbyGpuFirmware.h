@@ -20,7 +20,7 @@
  * 87144 bytes below cost that much kernel image and nothing at runtime.
  *
  * MEASURED, and reproducible from the file above:
- *   ZAP a650_zap.elf                    13964 bytes  sha256 ca61b06e2d502af0853380037d2a06cf94f8c1d2a58149a2499cfa61fd84b8a6
+ *   ZAP a650_zap.elf                    13964 bytes  sha256 ba430ec576dc469a77237d0f47ba4f6feb71478fe643a3fd202413a3a61c03c9
  *   GMU a650_gmu.bin                    41548 bytes  sha256 df79fa8482fcc7587bb239b9c9e2b24bce4729893b990fe3f82b30da8175b01c
  *   SQE a650_sqe.fw                     31632 bytes  sha256 b4c27420fd6a5c6b511b254cc0fad8cdd40eea38ceb3418f895a1084f4460487
  *   The ZAP image is one complete ELF32 ARM image (e_phnum 3, entry 0x5000,
@@ -5850,8 +5850,8 @@ struct DbyGpuFirmwarePin {
  * board has no GPU firmware" and stop at the stage that needs it, instead of
  * uploading a zero-length image -- dby_gpu_firmware_pin_ready() is that test. */
 static const DbyGpuFirmwarePin kDbyGpuFirmwarePins[DBY_GPU_FW_COUNT] = {
-	{ /* ZAP */ "a650_zap.elf", 13964, "ca61b06e2d502af0853380037d2a06cf94f8c1d2a58149a2499cfa61fd84b8a6",
-	  "reference board package/GpuFirmwareA650.c (A650 fork images), a complete ELF32 little-endian ARM image, entry 0x5000; PAS 13",
+	{ /* ZAP */ "a650_zap.elf", 13964, "ba430ec576dc469a77237d0f47ba4f6feb71478fe643a3fd202413a3a61c03c9",
+	  "this tablet's /vendor/firmware/a650_zap.elf, extracted from the vendor logical partition of super: a complete ELF32 little-endian ARM image, entry 0x5000; PAS 13; the reference board's A650 fork image of the same length was refused (0xFFCFFFBB)",
 	  native_gpu_zap_firmware },
 	{ /* GMU */ "a650_gmu.bin", 41548, "df79fa8482fcc7587bb239b9c9e2b24bce4729893b990fe3f82b30da8175b01c",
 	  "reference board package/GpuFirmwareA650.c (A650 fork images), the image the 2026-10-31 cold start on the reference board loaded",
