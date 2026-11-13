@@ -1,176 +1,22 @@
 #!/usr/bin/env python3
-# =============================================================================
-# ORCHESTRATOR ACTION REQUIRED
+# -----------------------------------------------------------------------------
+# HISTORICAL. The six "orchestrator action required" edits that used to stand here were
+# written on 2026-11-05 and every one of them has since landed or been superseded; they
+# are gone rather than kept because following them now would undo working configuration:
 #
-# This script is complete on its own, but six edits live outside its scope and
-# the archive does nothing until they land. Each one names the file, the exact
-# anchor text, and the replacement. Anchors are quoted text, not line numbers:
-# board.toml is being edited by other work in parallel (a `build-cpufreq.py`
-# archive entry appeared between two reads of it on 2026-11-03), so match the
-# quoted text and do not trust a number.
+#   (1) feeds.toml pin -- board.toml:28 records why Adreno740/AdrenoMetal are deliberately
+#       NOT catalog components on SM8250, and this script builds the archive itself;
+#   (4) defconfig -- CONFIG_XNU_NATIVE_ADRENO is `=y` at configs/dby_w09_defconfig:183 with
+#       CONFIG_XNU_NATIVE_ADRENO_ARCHIVE beside it (:184), not "is not set";
+#   (5) kernel-argument budget -- the 996-byte / 46-argument measurement is stale; the
+#       payload's own list in this repository is what bounds it now;
+#   (6) DbyGpuFirmware.h -- generated at package/DbyGpuFirmware.h and committed there.
 #
-# --- (1) feeds.toml: the GPU feed pin is not enough under schema_version 2 ----
-# 2026-11-05, measured: the pin IS in feeds.toml (Adreno740, kind = "driver",
-# FFT-infra/Adreno650 @ 70771a7), and the tree still had no
-# `{tree}/drivers/Adreno740`. Cause: under schema_version 2 `unixnu tree` keeps only
-# the components board.toml selects (scripts/unixnu/components.py:102 and :111-117),
-# so a [[source]] that is not in `[components] include` is dropped. Selecting the
-# catalog Adreno740 component instead is the wrong shape: its dependencies pull
-# Sm8550Platform and its build is `build-arm-driver.py Adreno740`.
-# So the recipe falls back to the core checkout's own drivers/Adreno740
-# (DRIVER_CANDIDATES below, the same idiom the kits already use). Wired-remote
-# alternative, for a machine with network: `./unixnu fetch Adreno740` plus a
-# components entry that adds no build recipe. `name` must be Adreno740 (the catalog
-# identity) even though the git repository is Adreno650 -- the same shape as the
-# reference board's feeds.toml:32-36.
-#
-#   anchor (feeds.toml:20-24, the array that ends the file):
-#     [[source]]
-#     name = "ShengUfs"
-#     kind = "driver"
-#     git = "https://github.com/FFT-infra/NativeUfs-alioth"
-#     commit = "ab5405905a1892da03a9a53e0fa3dcd255d04055"
-#
-#   replacement: that block unchanged, then:
-#
-#     # The GPU driver this image compiles in, named for the component that
-#     # consumes it (Adreno740 in components.toml; the silicon is this board's
-#     # A650). Pinned to the per-client address-space line 70771a7, which is what
-#     # the reference board runs. fft@bef707a is its sibling and still carries the
-#     # static client-window table (slot0 512-1536 MiB, slot1 1536-1706.66 MiB)
-#     # whose OutOfMemory(Device) is the README bug: this panel is 1.58x the
-#     # reference's pixels, so that is the branch this board must not use.
-#     [[source]]
-#     name = "Adreno740"
-#     kind = "driver"
-#     git = "https://github.com/FFT-infra/Adreno650"
-#     commit = "70771a71795d7e1a78afdb82badd7943adb0a3a0"
-#
-# --- (2) board.toml: three kit components, and the comment that denies them ---
-# The three kits are `build_stage = "embedded", build = []` in the core catalog,
-# so selecting them is the only thing that materialises kits/<name> (alioth
-# board.toml:20-21 says exactly this). The comment above `[components]` currently
-# states the opposite and must change with the array or it will mislead the next
-# reader.
-#
-#   anchor (the block that introduces [components]):
-#     # 目录规范 ID（components.toml）。Adreno740/AdrenoMetal 不在这里：SM8250 的 A650
-#     # 没有任何目录组件覆盖（soc:configs/sm8250.config 明写 # CONFIG_XNU_NATIVE_ADRENO is not set），
-#     # 是未移植项，不是省略。ShengHidInput/ShengNovatekTouch/QcomGeniSpi 也还没接（输入是
-#     # porting.toml 里记录的下一个卡点）。QcomXnuUsbDebug 先在本地分支验证，不进这条链。
-#     [components]
-#     include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot"]
-#
-#   replacement:
-#     # 目录规范 ID（components.toml）。ArmSmmu4K / AdrenoPM4 / AdrenoFirmware 是
-#     # kind = "kit"、build_stage = "embedded"、build = [] 的三个组件：选中它们才会把
-#     # kits/<name> 的源码物化进构建树，scripts/build-adreno650.py 再从那里编译
-#     # （参考板 board.toml:20-25 的做法）。Adreno740 本体由 feeds.toml 的
-#     # [[source]] 提供，不在 include 里；AdrenoMetal 仍未移植。
-#     # ShengHidInput/ShengNovatekTouch/QcomGeniSpi 也还没接（输入是 porting.toml 里
-#     # 记录的下一个卡点）。QcomXnuUsbDebug 先在本地分支验证，不进这条链。
-#     [components]
-#     include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "ArmSmmu4K", "AdrenoPM4", "AdrenoFirmware"]
-#
-# --- (3) board.toml: run the recipe, last in [kernel] archives ----------------
-# It goes after the display recipe for the reference's reason (alioth
-# board.toml:128-130): the display/record steps run first and this one must not
-# be able to rewrite what they read. Order inside the list is also the order
-# kernel.py:146 executes, and the archive has to exist before
-# build-xnu-4k-baseline.sh:648 `test -f` runs.
-#
-#   anchor (the three lines that end [kernel] archives today):
-#     "seed-mobile-graphics-record.py",
-#     "build-gop-legacy-display-linux.py",
-#   ]
-#
-#   replacement:
-#     "seed-mobile-graphics-record.py",
-#     "build-gop-legacy-display-linux.py",
-#     # GPU（A650）：产 {tree}/build/adreno740/libAdreno740.a。名字是
-#     # libAdreno740 而不是 libAdreno650，因为 build-xnu-4k-baseline.sh:647 把路径
-#     # 写死成 build/adreno740/libAdreno740.a 并 force_load，不读
-#     # CONFIG_XNU_NATIVE_ADRENO_ARCHIVE。见 scripts/build-adreno650.py 的文件头。
-#     "build-adreno650.py",
-#   ]
-#
-# --- (4) configs/dby_w09_defconfig: the two symbols ---------------------------
-# CONFIG_XNU_NATIVE_ADRENO=y is what makes build-xnu-4k-baseline.sh:644 enter the
-# block that force-loads the archive. CONFIG_XNU_NATIVE_ADRENO_ARCHIVE has no
-# linker reader, but scripts/unixnu/kernel.py:165-167 requires every
-# CONFIG_*_ARCHIVE path to exist, so writing it wrong still fails the build --
-# write it to the same file the shell script hard-codes.
-#
-#   anchor (configs/dby_w09_defconfig:144-145):
-#     CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y
-#     # CONFIG_XNU_NATIVE_ADRENO is not set
-#
-#   replacement:
-#     CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y
-#     # GPU（A650 / SM8250 kona）。驱动由 scripts/build-adreno650.py 编成
-#     # {tree}/build/adreno740/libAdreno740.a；build-xnu-4k-baseline.sh:644-650 在
-#     # 这个开关为 1 时 force_load 那个固定路径（ARCHIVE 变量只被
-#     # scripts/unixnu/kernel.py:165-167 当作"文件必须存在"的检查读过，链接器不读它）。
-#     # force_load 是必需的：没有任何符号引用这份驱动，普通归档会被整份丢弃。
-#     CONFIG_XNU_NATIVE_ADRENO=y
-#     CONFIG_XNU_NATIVE_ADRENO_ARCHIVE="{tree}/build/adreno740/libAdreno740.a"
-#
-# --- (5) board.toml: kernel arguments, and the 1000-byte ceiling -------------
-# The command line is 996 bytes today (46 arguments, measured by parsing and
-# joining [payload] kernel_args exactly as scripts/unixnu/payload.py:34-37 does),
-# so 4 bytes are free. Never add a GPU argument without removing one.
-#
-# G0 (this round, link-only) needs NO argument: with no `pipa-gpu` on the command
-# line native_gpu_probe() returns at its own guard, so adding the archive cannot
-# change a boot. Do not add pipa-gpu until the G-1 read is scheduled.
-#
-#   G1 (mode 1, the SMMU ID2 read): add "pipa-gpu=1".
-#     +10 and one separator = +11 -> 1007, over the limit by 7.
-#     Drop "dby-touch-dump=1" (16 + 1) -> 990. Its one-shot 8208-byte frame dump
-#     has already been captured and analysed; the stage it belonged to is done.
-#
-#   G6 (mode 12, publish + accelerated Metal): add all four, +56 with their four
-#   separators = +60 -> 1056.
-#     "pipa-gpu=12" (11)  "sheng-gpu-addon=1" (17)
-#     "sheng-fb-gpu=1" (14)  "sheng-vsync=60" (14)
-#     Drop three (50 + 3 separators = 53) -> 1003, still 3 over:
-#       "dby-touch-dump=1"      (16) one-shot dump, evidence recorded
-#       "dby-touch-se=1"        (14) SE/QUP pin read; stage 8 never touches SE
-#       "armcpu-diagnostics=1"  (20) diagnostic rows only
-#     Drop a fourth, and choose knowingly:
-#       "boot-diag-resume=3600" (21) -> 981. Consequence: BootProgress.c:535 keeps
-#         its default and the diagnostic page takes the panel back after ~10 s of
-#         no new UI content, which is normal for the Always-On display, so the
-#         tablet alternates between the system image and our page.
-#       "sheng-disable-jobs=com.apple.identityservicesd,..." (108) -> 947, which
-#         also buys room for the rest of the GPU work. Consequence:
-#         identityservicesd/locationd/CommCenter/bluetoothd start again on a
-#         tablet with no radios and no accounts, which is what that argument was
-#         added to prevent.
-#     RECOMMENDED: boot-diag-resume for the first mode-11 round, because the
-#     panel ping-pong is recoverable by a later image while a hung daemon at
-#     startup is not, and sheng-disable-jobs can go in the round after that.
-#
-#   G1..G6 also want `pipa-gpu-perf` <= 6, for reason (a) in this file's header.
-#
-# --- (6) package/DbyGpuFirmware.h: put it beside DbyGpuRegs.h -----------------
-# This repository had no DbyGpuFirmware.h; the file was generated at
-# package/DbyGpuFirmware.h and it `#include "DbyGpuRegs.h"`. The DbyGpu group
-# lives at package/DbyGpu/ (staged in work/tracks/gpu/repo), so either move the
-# generated header into package/DbyGpu/ and delete that directory's nullptr
-# placeholder, or keep the group flat. Do not keep both copies: the guard is
-# DBY_GPU_FIRMWARE_H in each, so the second include silently wins or is skipped,
-# and a reviewer cannot tell which pins the build saw. Regenerate with
-#   python3 scripts/gen-gpu-firmware-header.py \
-#       --source <reference>/package/GpuFirmwareA650.c \
-#       --out package/DbyGpu/DbyGpuFirmware.h      (or package/DbyGpuFirmware.h)
-#
-# --- NOT an edit, but record it ----------------------------------------------
-# porting.toml's gpu area should carry: the pin above, the three kits, this
-# recipe, the two CONFIGs, the pipa-gpu gate, and the fact that G-1 (read the GPU
-# SMMU ID2 bits[11:8], require >= 36) has not been measured. SPEC §6 lists G0 as
-# host-only and that is all this change claims.
-# =============================================================================
+# What the recipe needs from the rest of the tree is in board.toml:184-192 (the archive
+# and its name) and configs/dby_w09_defconfig:178-184 (the two CONFIGs), and the porting
+# record's gpu area carries the pin, the kits and the unmeasured G-1 item. Git history
+# keeps the original instructions if they are ever wanted again.
+# -----------------------------------------------------------------------------
 """Build the DBY-W09 GPU driver archive at {tree}/build/adreno740/libAdreno740.a.
 
 G0 only: this produces an archive that links, not a driver that runs. Nothing in
