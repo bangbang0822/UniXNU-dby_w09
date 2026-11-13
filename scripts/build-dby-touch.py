@@ -154,8 +154,12 @@ def main():
         ROOT / '.cache/firmware/novatek',
         Path.cwd() / '.cache/firmware/novatek',
     ]
+    # Any project image the extractor wrote, not one hard-coded name. This tablet's vendor tree carries the
+    # W2599Z1100, W2599Z1300 and W259AX1100 AFE HALs (proprietary-files.txt:52-54) and none for Z2700, so
+    # requiring nt36523_Z2700.bin withheld --firmware-dir on every build and the image shipped without touch.
+    # scripts/gen-touch-firmware-multi.py already walks its PROJECTS table and uses whichever are present.
     firmware_dir = next((c for c in firmware_candidates
-                         if c and (c / 'nt36523_Z2700.bin').is_file()), None)
+                         if c and any(c.glob('nt36523_*.bin'))), None)
     generator = [sys.executable, str(ROOT / 'scripts/gen-touch-firmware-multi.py'), '--out', str(out)]
     if firmware_dir is not None:
         generator += ['--firmware-dir', str(firmware_dir)]
