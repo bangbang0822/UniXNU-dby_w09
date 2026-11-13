@@ -209,14 +209,19 @@ IOReturn NativeAdrenoSubmit::setTableSwitching(unsigned mode,IOReturn (*write)(v
 /* Makes vm the table the GPU runs for the next submission. Mode 1: once every earlier job has finished, the CPU writes TTBR0 (the bank
  * caches translations per ASID, so the switch needs no TLB operation). Mode 2: the ring's next prologue carries the switch, which the CP
  * runs after every earlier submission. */
-IOReturn NativeAdrenoSubmit::useVm(NativeAdrenoVm *vm,const NativeAdrenoRingClock *clock)
+IOReturn NativeAdrenoSubmit::useVm(NativeAdrenoVm *vm,const NativeAdrenoRingClock *clock,bool drained)
 {
     if(!table_mode_ || vm==table_vm_)return kIOReturnSuccess;
     if(table_mode_==2) {ring_->useTable(vm->ttbr0());table_vm_=vm;return kIOReturnSuccess;}
     if(!clock)return kIOReturnBadArgument;
-    IOReturn status=waitAll(clock,2000000);
-    if(status)return status;
-    status=write_table_(table_cookie_,vm->ttbr0());
+    /* Mode 1 (the CPU writes TTBR0) needs a quiet ring first. recover() empties the ring with its restart,
+     * so on the replay path there is nothing to drain: waiting there spends the whole 2 s budget per
+     * replayed job, and returns a timeout outright when the GPU is the thing that hung. */
+    if(!drained) {
+        IOReturn status=waitAll(clock,2000000);
+        if(status)return status;
+    }
+    IOReturn status=write_table_(table_cookie_,vm->ttbr0());
     if(status)return poison();
     native_adreno_table_switches[1]=native_adreno_table_switches[1]+1;
     table_vm_=vm;return kIOReturnSuccess;
@@ -1090,7 +1095,7 @@ IOReturn NativeAdrenoSubmit::recover(NativeAdrenoRestart restart,void *cookie,co
         Job *job=find(next);
         NativeAdrenoVm *vm=job && job->vm?job->vm:vm_;
         const bool run=job && !vm->unusable() && job->word_count;
-        status=useVm(vm,clock);
+        status=useVm(vm,clock,true);
         if(status) {native_adreno_recover_trace[0]=5;native_adreno_recover_trace[1]=uint32_t(status);return poison();}
         ring_->useContext(job?job->context:0);
         uint32_t value=0;

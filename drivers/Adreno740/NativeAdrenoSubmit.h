@@ -76,7 +76,9 @@ class NativeAdrenoSubmit final {
     NativeAdrenoVm *table_vm_=nullptr;
     void *table_cookie_=nullptr;
     IOReturn (*write_table_)(void *,uint64_t ttbr0)=nullptr;
-    IOReturn useVm(NativeAdrenoVm *,const NativeAdrenoRingClock *);
+    /* drained=true when the caller already knows the ring holds no outstanding fence: recover() has just
+     * restarted it, so mode 1 must not spend its waitAll() budget on work that no longer exists. */
+    IOReturn useVm(NativeAdrenoVm *,const NativeAdrenoRingClock *,bool drained=false);
     NativeAdrenoRing *ring_=nullptr;
     NativeAdrenoSubmitStats stats_{};
     void noteStall(uint32_t observed,const NativeAdrenoRingClock *clock);   /* the CP's state for a fence that stopped advancing (native_adreno_stall) */
