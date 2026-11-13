@@ -39,7 +39,11 @@ static int xfer(void *ctx, const uint8_t *tx, uint8_t *rx, size_t len) {
     }
     uint32_t addr = resolve(tx[0]);
     if (tx[0] & 0x80u) {                        // write phase: spi_write_mask(addr & 0x7F)
-        assert(rx == NULL);
+        /* The write carries a receive buffer now: bus_write() repeats every write full-duplex because this
+         * engine and this panel only ever moved bytes that way (NvtProtocol.c:86-93, TouchProbe.cpp busXfer).
+         * The model asserted the opposite and aborted on the first page select, so this test never ran a
+         * single check. What the write phase still must not do is read data back. */
+        assert(rx != NULL && "a write still carries a receive buffer");
         record(1, addr, tx[1], len - 1);
         return 0;
     }
@@ -127,7 +131,11 @@ int main(void) {
     assert(!nvt_n9z_read_frame(&chip, frame, sizeof frame));
     int saw_cmd = 0;
     for (unsigned i = 0; i < log_n; ++i)
-        if (!log[i].is_write && log[i].first == 0x20 && log[i].len == sizeof frame) saw_cmd = 1;
+        /* record() stores a read's payload length, len - 2, because it strips the address byte and the dummy
+         * that a register read puts in front of its data. The frame burst has neither: its first byte IS the
+         * 0x20 command and the reply starts behind it (NvtProtocol.c:631-640), so its recorded length is two
+         * short of the transfer even though the burst is exactly sizeof frame bytes long. */
+        if (!log[i].is_write && log[i].first == 0x20 && log[i].len + 2 == sizeof frame) saw_cmd = 1;
     assert(saw_cmd && "one full-duplex burst, addressed by the 0x20 get-frame command");
     puts("frame read: single full-duplex 0x20 burst, like the vendor");
 
