@@ -151,6 +151,7 @@ uint32_t apr_afe_svc_set_param(uint8_t *out, uint32_t capacity, uint32_t token, 
 {
     if (!param || !capacity) return 0;
     Writer w;
+    if (capacity < APR_HEADER_BYTES) return 0;	/* the subtraction below wraps otherwise */
     w_init(&w, out + APR_HEADER_BYTES, capacity - APR_HEADER_BYTES);
     const uint32_t packed = (iid_supported ? APR_PARAM_HDR_V3_BYTES : APR_PARAM_HDR_V1_BYTES) + param->data_bytes;
     /* afe_svc_cmd_set_param_v1 has payload_size first; the v2 struct has it after the memory header. */
@@ -268,6 +269,7 @@ uint32_t apr_adm_device_open(uint8_t *out, uint32_t capacity, uint32_t token, co
     if (apr_pcm_channel_map(map, sizeof map, o->num_channels)) return 0;
     const uint32_t mapping_bytes = ((uint32_t)o->num_channels + 3u) & ~3u;   /* roundup(dev_num_channel, 4) (q6adm.c:3398) */
     Writer w;
+    if (capacity < APR_HEADER_BYTES) return 0;	/* the subtraction below wraps otherwise */
     w_init(&w, out + APR_HEADER_BYTES, capacity - APR_HEADER_BYTES);
     if (w16(&w, 0) || w16(&w, o->mode_of_operation)) return 0;              /* flags: legacy device session */
     if (w32(&w, o->topology_id)) return 0;
@@ -293,6 +295,7 @@ uint32_t apr_adm_matrix_map(uint8_t *out, uint32_t capacity, uint32_t token, uin
 {
     if (!copps || !num_copps || num_copps > ADM_MAX_COPPS) return 0;
     Writer w;
+    if (capacity < APR_HEADER_BYTES) return 0;	/* the subtraction below wraps otherwise */
     w_init(&w, out + APR_HEADER_BYTES, capacity - APR_HEADER_BYTES);
     if (w32(&w, ADM_MATRIX_ID_AUDIO_RX) || w32(&w, 1)) return 0;            /* one session in this command */
     if (w16(&w, session) || w16(&w, num_copps)) return 0;
@@ -323,6 +326,7 @@ uint32_t apr_asm_memory_map(uint8_t *out, uint32_t capacity, uint32_t token, con
      * 255 would silently describe a different number of regions than the ones written. */
     if (!addresses || !sizes || !num_regions || num_regions > 0xffu) return 0;
     Writer w;
+    if (capacity < APR_HEADER_BYTES) return 0;	/* the subtraction below wraps otherwise */
     w_init(&w, out + APR_HEADER_BYTES, capacity - APR_HEADER_BYTES);
     if (w16(&w, ADSP_MEMORY_MAP_SHMEM8_4K_POOL) || w16(&w, num_regions & 0xffu) || w32(&w, 0)) return 0;
     for (uint32_t i = 0; i < num_regions; ++i)
@@ -334,6 +338,7 @@ uint32_t apr_asm_open_write(uint8_t *out, uint32_t capacity, uint32_t token, uin
                             uint16_t bits_per_sample, uint32_t postprocopo_id)
 {
     Writer w;
+    if (capacity < APR_HEADER_BYTES) return 0;	/* the subtraction below wraps otherwise */
     w_init(&w, out + APR_HEADER_BYTES, capacity - APR_HEADER_BYTES);
     /* struct asm_stream_cmd_open_write_v3 (apr_audio-v2.h:7848-7899): mode_flags, sink_endpointype, bits_per_sample,
      * postprocopo_id, dec_fmt_id. __q6asm_open_write starts mode_flags at 0x00 and ORs ASM_LEGACY_STREAM_SESSION, which is 0, so
@@ -350,6 +355,7 @@ uint32_t apr_asm_media_format(uint8_t *out, uint32_t capacity, uint32_t token, u
     uint8_t map[PCM_MAX_CHANNELS];
     if (apr_pcm_channel_map(map, sizeof map, f->num_channels)) return 0;
     Writer w;
+    if (capacity < APR_HEADER_BYTES) return 0;	/* the subtraction below wraps otherwise */
     w_init(&w, out + APR_HEADER_BYTES, capacity - APR_HEADER_BYTES);
     if (w32(&w, ASM_FMT_BLOCK_BYTES)) return 0;                              /* fmt_blk_size */
     if (w16(&w, f->num_channels) || w16(&w, f->bits_per_sample) || w32(&w, f->sample_rate)) return 0;
@@ -366,6 +372,7 @@ uint32_t apr_asm_run(uint8_t *out, uint32_t capacity, uint32_t token, uint8_t se
                      uint64_t timestamp)
 {
     Writer w;
+    if (capacity < APR_HEADER_BYTES) return 0;	/* the subtraction below wraps otherwise */
     w_init(&w, out + APR_HEADER_BYTES, capacity - APR_HEADER_BYTES);
     if (w32(&w, flags) || w32(&w, (uint32_t)timestamp) || w32(&w, (uint32_t)(timestamp >> 32))) return 0;
     return finish(out, &w, AprSvcAsm, (uint16_t)((uint16_t)session << 8 | stream_id), token, APR_OP_ASM_RUN_V2);
@@ -384,6 +391,7 @@ uint32_t apr_asm_set_volume(uint8_t *out, uint32_t capacity, uint32_t token, uin
     put16(gain + 2, 0);                                   /* "Clients must set this field to zero" (:9837-9838) */
     const AprParam p = {ASM_MODULE_ID_VOL_CTRL, ASM_PARAM_ID_VOL_CTRL_MASTER_GAIN, 0, gain, sizeof gain};
     Writer w;
+    if (capacity < APR_HEADER_BYTES) return 0;	/* the subtraction below wraps otherwise */
     w_init(&w, out + APR_HEADER_BYTES, capacity - APR_HEADER_BYTES);
     const uint32_t packed = (iid_supported ? APR_PARAM_HDR_V3_BYTES : APR_PARAM_HDR_V1_BYTES) + p.data_bytes;
     if (w_zero(&w, APR_MEM_HDR_BYTES) || w32(&w, packed)) return 0;
@@ -397,6 +405,7 @@ uint32_t apr_asm_write(uint8_t *out, uint32_t capacity, uint32_t token, uint8_t 
                        uint32_t mem_map_handle, uint32_t length, uint32_t sequence, uint64_t timestamp, uint32_t flags)
 {
     Writer w;
+    if (capacity < APR_HEADER_BYTES) return 0;	/* the subtraction below wraps otherwise */
     w_init(&w, out + APR_HEADER_BYTES, capacity - APR_HEADER_BYTES);
     if (w32(&w, (uint32_t)buffer) || w32(&w, (uint32_t)(buffer >> 32)) || w32(&w, mem_map_handle) || w32(&w, length)) return 0;
     /* apr_audio-v2.h:7214 puts the meaning of this field's bit 31 in words: "1 -- Valid timestamp",

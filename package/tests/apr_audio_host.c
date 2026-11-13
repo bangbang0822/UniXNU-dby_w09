@@ -501,6 +501,29 @@ static void test_decode_and_pending(void)
     check(apr_pending_add(&p, 1, 1) == 0, "and refuses a ninth request");
 }
 
+/* Every builder hands its payload writer `capacity - APR_HEADER_BYTES`. On an unsigned word a capacity below
+ * the header wraps that to ~4 GiB, the writer's bounds checks all pass, and the packet is written past the
+ * end of the caller's buffer. Each builder must refuse such a buffer before the subtraction, which is what
+ * apr_afe_port_set_param always did and the other nine did not. */
+static void test_short_capacity(void)
+{
+    uint8_t tiny[APR_HEADER_BYTES - 1];
+    const AprClkSet clk = {AFE_CLK_ID_PRI_TDM_IBIT, AFE_TDM_CLK_HZ, 1, AFE_CLK_ATTR_INVERT_COUPLE_NO, AFE_CLK_ROOT_DEFAULT};
+    const uint16_t copps[1] = {0};
+    memset(tiny, 0xa5, sizeof tiny);
+    check(apr_core_get_state(tiny, sizeof tiny, 7) == 0, "core builder refuses a buffer shorter than the header");
+    check(apr_asm_write(tiny, sizeof tiny, 1, 1, 1, 0x100000, 0xABCD, 2048, 1, 0, APR_ASM_NO_TIMESTAMP) == 0,
+          "asm write refuses a buffer shorter than the header");
+    check(apr_adm_matrix_map(tiny, sizeof tiny, 0, 1, copps, 1) == 0,
+          "adm route refuses a buffer shorter than the header");
+    check(apr_afe_clock_set(tiny, sizeof tiny, &clk) == 0, "afe clock refuses a buffer shorter than the header");
+    const AprPcmFormat fmt = {4, 16, 16, ASM_Q_FORMAT_DEFAULT, 48000};
+    check(apr_asm_media_format(tiny, sizeof tiny, 1, 1, ASM_STREAM_ID_1, &fmt) == 0,
+          "media format refuses a buffer shorter than the header");
+    for (size_t i = 0; i < sizeof tiny; ++i)
+        if (tiny[i] != 0xa5) {check(0, "a refused builder wrote nothing"); break;}
+}
+
 int main(void)
 {
     test_core();
@@ -508,6 +531,7 @@ int main(void)
     test_adm_asm();
     test_asm_answers();
     test_decode_and_pending();
+    test_short_capacity();
     if (failures) {printf("%d check(s) failed\n", failures); return 1;}
     printf("PASS apr: core handshake, AFE v1/v2 parameters, TDM ladder, ADM route, ASM stream, answers, decoder\n");
     return 0;
