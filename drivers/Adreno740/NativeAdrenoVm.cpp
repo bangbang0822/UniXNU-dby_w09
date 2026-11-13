@@ -96,6 +96,12 @@ IOReturn NativeAdrenoVm::fail(ArmSmmu4KStatus status)
         ArmSmmu4KStreamResult routes;
         result_.quarantine=ArmSmmu4KFaultStreams(&io_,streams_,&routes);
     }
+    /* detach() refuses a poisoned VM, and the destructor is defaulted, so the four metadata blocks attach()
+     * allocated (changes_, alias_scratch_, mappings_, order_) and the handle index had no owner left: a VM that
+     * failed leaked them. Every entry point checks poisoned_ before touching any of them, so they go here -- after
+     * the quarantines above, which walk mappings_. */
+    for(auto &r:regions_)if(r.arena) {r.arena->alias_scratch=nullptr;r.arena->alias_scratch_entries=0;}
+    freeTables();
     return kIOReturnIOError;
 }
 IOReturn NativeAdrenoVm::attach(const ArmSmmu4KIo *io,ArmSmmu4KContextConfig *context,
@@ -784,6 +790,10 @@ IOReturn NativeAdrenoVm::faultState(uint32_t out[4]) const
     uint64_t offset=0;
     for(const auto &region:regions_)if(region.state && region.state->context_offset)offset=region.state->context_offset;
     if(!offset)return kIOReturnNotReady;
+    /* Context-bank registers, by the offsets Arm's SMMU-500 binding gives them: FSR at 0x58, then FAR[0..2] at
+     * 0x60/0x64/0x68 -- the same four NativeAdrenoGpuContext::endFault() reads and clears (that file explains the
+     * format bits at :232-233). The context bank's base comes from the kit's context_offset above, never guessed
+     * here. */
     static const uint32_t regs[4]={0x58,0x60,0x64,0x68};
     for(unsigned i=0;i<4;++i)if(io_.read32(io_.cookie,(size_t)offset+regs[i],&out[i]))return kIOReturnIOError;
     return kIOReturnSuccess;
