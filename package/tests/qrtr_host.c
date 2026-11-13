@@ -133,8 +133,11 @@ static uint32_t request(uint8_t *out, uint16_t txn, const char *name, int with_o
 static void locator(void)
 {
     uint8_t req[128], ans[1024];
-    /* "avs/audio": one domain; the exact bytes */
-    uint32_t n = qcom_servloc_answer(table, 5, ans, 0, ans, sizeof ans);
+    memset(req, 0, sizeof req);
+    /* "avs/audio": one domain; the exact bytes. The length-0 call proves an empty request is refused,
+     * and it reads req: passing the uninitialised answer buffer as the request was both wrong and the
+     * reason this file did not compile under the gate's -Werror (-Wmaybe-uninitialized). */
+    uint32_t n = qcom_servloc_answer(table, 5, req, 0, ans, sizeof ans);
     CHECK(n == 0);
     n = qcom_servloc_answer(table, 5, req, request(req, 0x1234, "avs/audio", 0, 0), ans, sizeof ans);
     static const uint8_t expect[] = {
