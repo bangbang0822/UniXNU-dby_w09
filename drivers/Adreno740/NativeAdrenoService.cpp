@@ -296,7 +296,8 @@ bool NativeAdrenoGpuService::start(IOService *provider)
                 static_cast<unsigned long>(sid_count),sid_count?sids[0]:0);
         else
             IOLog("NativeAdreno: iommus are not usable\n");
-        smmu->release();
+        /* The reference stays held until the bring-up block below has read the SMMU window through
+         * it; copyMatchingService() hands back a +1 reference and this is its only owner. */
     } else {
         IOLog("NativeAdreno: SMMU node not published yet\n");
     }
@@ -524,6 +525,7 @@ bool NativeAdrenoGpuService::start(IOService *provider)
             }
         }
     }
+    if(smmu)smmu->release();
     if(ready_) {
         IOLog("NativeAdreno: GPU ready, publishing service\n");
         registerService();
