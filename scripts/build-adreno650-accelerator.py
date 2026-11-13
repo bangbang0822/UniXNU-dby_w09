@@ -142,9 +142,10 @@ def main():
     asm = out / 'original-bindings.S'
     asm.write_text(''.join('.globl %s\n.set %s, %#x\n' % (n, n, a) for n, a in sorted(bindings.items())
                            if n in undefined))
-    # The binding file needs the same target triple the kernel objects use; the compiler that
-    # compiled NativeAdrenoAccelerator.cpp above is the right one, not a macOS xcrun.
-    run(['clang', '-target', 'arm64-apple-ios17.0', '-c', asm,
+    # The binding file needs the same target triple the kernel objects use, and the same compiler: the first word
+    # of the recorded kernel command is the driver that built every object the link will mix this with. The
+    # comment here said that while the code called whatever `clang` came first on PATH.
+    run([record['arguments'][0], '-target', 'arm64-apple-ios17.0', '-c', asm,
          '-o', out / 'original-bindings.o'])
 
     late = out / 'NativeAdrenoAccelerator.late.o'
