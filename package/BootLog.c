@@ -1141,13 +1141,17 @@ static size_t compose(char *out, size_t cap, uint32_t slot, unsigned now) {
     at = put(out, at, cap, row, sizeof row);
   }
   if (&native_adreno_client_stats) {
-    // per client slot: live objects/peak, refused BoAllocs, last refusal status and bytes, highest mapped end in the window (MiB)
-    char row[200];
+    /* Per client slot: live objects/peak, refused BoAllocs, last refusal status and bytes, highest mapped end in
+     * the window (MiB), then the two counters the row was widened for -- submissions and IB buffers handed over.
+     * Those two are what separates "opened the device" from "actually rendered", and a client that only submitted
+     * work has no live objects, so the filter below has to look at [6] too. */
+    char row[280];
     int n = snprintf(row, sizeof row, "[gpu objects]");
     for (unsigned k = 0; k < 5; ++k)
-      if (native_adreno_client_stats[k][1] || native_adreno_client_stats[k][2])
-        n += snprintf(row + n, sizeof row - n, " s%u %u/%u r%u %x/%u w%uM", k, native_adreno_client_stats[k][0], native_adreno_client_stats[k][1],
-                      native_adreno_client_stats[k][2], native_adreno_client_stats[k][3], native_adreno_client_stats[k][4], native_adreno_client_stats[k][5]);
+      if (native_adreno_client_stats[k][1] || native_adreno_client_stats[k][2] || native_adreno_client_stats[k][6])
+        n += snprintf(row + n, sizeof row - n, " s%u %u/%u r%u %x/%u w%uM p%u/%u", k, native_adreno_client_stats[k][0], native_adreno_client_stats[k][1],
+                      native_adreno_client_stats[k][2], native_adreno_client_stats[k][3], native_adreno_client_stats[k][4], native_adreno_client_stats[k][5],
+                      native_adreno_client_stats[k][6], native_adreno_client_stats[k][7]);
     at = put(out, at, cap, row, sizeof row);
   }
   if (&native_adreno_fence_wait && native_adreno_fence_wait[0]) {
