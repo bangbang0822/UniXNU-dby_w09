@@ -367,7 +367,11 @@ static uint32_t crc_word(uint32_t checksum, uint32_t w) {
 }
 // Read ILM and DLM back completely: count differing bytes against the image and recompute the CRC over what the chip holds.
 static int verify_sram_full(struct nvt_chip *c, const struct nvt_fw *fw) {
-    uint8_t b[4096];
+    /* One read may not exceed NVT_READ_MAX (read_at, NvtProtocol.h:49): a 4 KiB buffer asked for 4096
+     * bytes, read_at answered NVT_ERR_PARAM, and the function returned that before comparing a single
+     * byte -- so the full verification never ran on any boot. The loop already walks the partition in
+     * sizeof b steps. */
+    uint8_t b[NVT_READ_MAX];
     for (unsigned p=0;p<2;++p) {
         const struct nvt_fw_partition *part=&fw->part[p];
         size_t total=((part->size+4)/4)*4;                   // the CRC covers (size+4)/4 words
@@ -393,7 +397,10 @@ static int verify_sram_full(struct nvt_chip *c, const struct nvt_fw *fw) {
 
 int nvt_verify_sram(struct nvt_chip *c, const struct nvt_fw *fw) {
     if (!c->map || fw->count<2) return NVT_ERR_PARAM;
-    (void)verify_sram_full(c,fw);
+    /* A read-back that failed leaves nothing compared, so it cannot end in sram_valid either: the flag is
+     * what the rest of the ladder reads as "the image was verified". */
+    int full=verify_sram_full(c,fw);
+    if (full) return full;
     struct {uint32_t sram,bin;} w[3]={
         {fw->part[0].sram_addr,fw->part[0].bin_addr},
         {fw->part[0].sram_addr+fw->part[0].size-32,fw->part[0].bin_addr+fw->part[0].size-32},
