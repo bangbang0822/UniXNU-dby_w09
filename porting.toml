@@ -150,7 +150,7 @@ configuration = ["[userdata] records the two windows and the LBA range read from
 procedure = ["Build the kernel, then the payload with --data-ramdisk, flash the payload partition and read the Data mount checkpoint.", "For a seed produced by the official fixture workflow, verify the packed form against [payload.adt] packed_data_ramdisk before blaming the driver."]
 findings = ["The payload partition choice is a capacity fact, not a preference: the official kernel image is 119 MiB and the cache partition is 104 MiB, so the payload lives in the preload partition. userdata is never imaged because it holds the tablet's own iPadOS root volume.", "A missing or mismatched Data seed is unambiguous: native_ram_block_volume_seed() fails, kern_exec reports the mount error and the boot stops. Growing an existing seed keeps the volume UUID and needs only a payload rebuild; a fresh fixture changes it and forces a kernel rebuild.", "Persistent Data (sheng-data-persist=2) writes every dirty page through the UFS store. It eventually fills its own container and the next write returns ENOSPC, which surfaces as a watchdog-policy panic; sheng-data-reset=1 starts the overlay over.", "Copying the fixture onto a dense container instead of a packed one only moves the failure: the loader stalls on the read instead of the kernel stalling on allocation.", "UFS capacity is a per-unit input the same way: 128 and 256 GiB units exist, so the userdata range in board.toml is this unit's backup table and is never a number to carry to another device."]
 completion = ["Root and Data volumes mount on hardware, the overlay survives a reboot and no partition other than the payload partition is written."]
-limits = ["The UFS geometry is read from a backup of the factory table rather than from the running device tree, and no vendor UFS calibration blob is used.", "The recorded userdata range belongs to the 128 GiB unit this record was measured on; a 256 GiB unit has a different table and has to be read before anything is written."]
+limits = ["The UFS geometry is read from a backup of the factory table rather than from the running device tree, and no vendor UFS calibration blob is used.", "The recorded userdata range belongs to the 128 GiB unit this record was measured on; a 256 GiB unit has a different table and has to be read before anything is written.", "drivers/ShengUfs is this board's copy of the tree the verified kernel was built from, not a feed: no repository this project pins or mirrors carries the component, so there is nothing upstream to diff it against."]
 next_action = ["Record the store capacity and wear counters of the overlay once the boot is repeatable."]
 
 [[area.evidence]]
@@ -189,7 +189,7 @@ findings = [
 completion = ["An iPadOS frame is presented and stays presented across a normal idle period."]
 limits = [
   "The mapping-owner assertion has never been observed firing, so its message and its recovery path are untested. If it fires, the panic text names the object; the next step is the previous boot's DISPLAY row (native_legacy_stage, native_legacy_pm_stage) to identify which service took the mapping.",
-  "A fresh clone needs one kernel pass that produces a prelink candidate before the legacy display archive can link; build/xnu-prelink/ is a build product, not a repository input.", "No hardware cursor, no vsync-driven swap accounting and no DPU-specific timing on this SoC: the path is a GOP-backed legacy scanout."]
+  "A fresh clone needs one kernel pass that produces a prelink candidate before the legacy display archive can link; build/xnu-prelink/ is a build product, not a repository input.", "No hardware cursor, no vsync-driven swap accounting and no DPU-specific timing on this SoC: the path is a GOP-backed legacy scanout.", "drivers/GopFramebuffer is a fork of the component, not a pin: 6 of its 11 files are byte-identical to the component repository, 4 differ (NativeGOPresenter.cpp and NativeGOPWire.h among them) and one file exists only here."]
 next_action = ["Keep the panel with the OS across idle, then make the lock screen passable (see the input area)."]
 
 [[area.evidence]]
@@ -249,7 +249,7 @@ configuration = ["The board selects no GPU component; com.apple.iokit.IOGPUFamil
 procedure = ["Before porting, confirm an SM8250 GPU path exists upstream or scope the bring-up as its own project; do not adapt an Adreno 740 source line by line."]
 findings = ["Everything currently on the panel is CPU-rendered scanout, so GPU work is an optimization and not the next blocker.", "The display stack reaching its started state without GPU proves the surface path is separable from rendering."]
 completion = ["A GPU-backed surface presents and the frame counters move without the CPU renderer."]
-limits = ["No GPU code is implemented for this SoC."]
+limits = ["No GPU code is implemented for this SoC.", "drivers/Adreno740 and drivers/AdrenoMetal are forks of their components, not pins: 59 of 92 and 53 of 71 files respectively are byte-identical to the component repositories, the rest differ, and this board builds from these copies."]
 next_action = ["Decide the SM8250 GPU route after the system is usable."]
 
 [[area.evidence]]
