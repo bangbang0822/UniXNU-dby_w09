@@ -105,7 +105,13 @@ probe_objs = []
 # into a real writer. It only writes when that boot argument is present.
 # BootResetDby.c provides the strong boot_reset_* definitions the log writer's autoreset path
 # needs; the weak stubs in BootProgressStubs.c stay as the fallback for other boards.
-# 2026-11-10 合并 GPU 交接包时摘掉 BootResetDby.c：它 #include "BootResetSpmb.h"，而这个头在交接包与本机任何副本里都不存在（全盘 find 零命中）。旧树本来就没有这个 TU，boot_reset_* 的弱桩在 BootProgressStubs.c 里，链接不缺符号。等拿到 BootResetSpmb.h 再把它加回清单。
+# 2026-11-10: BootResetDby.c was dropped from this list because it includes "BootResetSpmb.h",
+# which did not exist anywhere in the tree at the time; the weak boot_reset_* stubs in
+# BootProgressStubs.c keep the link complete without it.
+# 2026-11-13: the header now exists (.cache/handover package 2026-11-12 carried it) and
+# DbyTouch.cpp implements dby_spmi_set_bootloader(), so the only thing left is to put the TU back
+# and see it link. That is a change to the kernel's file set, so it is its own step after the
+# current tree has built once -- not part of a documentation or audit pass.
 for probe_name in ('BootProcessProbe.c', 'BootUiTraceProbe.c', 'BootLog.c'):
     probe_source = source.parent / probe_name
     probe_obj = OUT / (probe_source.stem + '.o')
