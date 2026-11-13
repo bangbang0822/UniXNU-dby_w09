@@ -4,10 +4,13 @@
 What it compiles
 ----------------
     package/DbyGpuPowerProbe.cpp                    (C++, board probe)
-    {tree}/kits/Sm8250Platform/A650GmuPower.c       (C, upstream kit, compiled verbatim)
+    {tree}/kits/<board kit>/Sm8250Platform/A650GmuPower.c   (C, compiled verbatim)
 
 The kit is the Adreno 650 power/clocks/AOP parser from FFT-infra/UniXNU-sm8250-common@52bab45
-(component `Sm8250Platform`, catalogue entry added locally because upstream never listed it).
+(catalogue id `Sm8250Platform`). Upstream never listed that id, so it cannot be selected through
+`[components] include`; the sources are board-owned in this repository (`package/Sm8250Platform/`)
+and the tree links them as `kits/<board kit>/Sm8250Platform`. The script resolves that directory
+through the kit candidates rather than a fixed path.
 It is the owner of the step the ad-hoc SMMU probe lacked: mode 2 writes gcc_gpu_cfg_ahb_clk's
 enable bit, mode 3 brings up gpu_cx_gdsc and the hlos1 SMMU vote clock, and the SMMU registers
 are only read when CX is PWR_ON and that clock runs (A650GmuPower.c:258-263). See
@@ -24,8 +27,9 @@ Outputs
     {tree}/build/gpupower/libDbyGpuPowerProbe.a
     {tree}/build/gpupower/compile-command-<stem>.json      (one per TU, for the review trail)
 
-force-load, because every reference to this probe is a weak import (BootProgress.c,
-BootLog.c), so a plain archive member would never be pulled in.
+CONFIG_XNU_EXTRA_LD_ARCHIVES lists this archive as a plain path, not force_load: `package/BootProgress.c`
+holds a strong extern for the probe's entry point, so the linker pulls the member that defines it. (The
+SMMU probe next door does need force_load, because its references are weak.)
 
 Usage:
   python3 scripts/build-gpu-power-probe.py --tree /root/unixnu-out/.../tree
