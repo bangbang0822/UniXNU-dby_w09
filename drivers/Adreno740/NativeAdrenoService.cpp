@@ -425,6 +425,11 @@ bool NativeAdrenoGpuService::start(IOService *provider)
                                         started,gmu_startup_.load.firmware_ready_observed,
                                         gmu_startup_.load.hfi_ready_observed,
                                         gmu_startup_.protocol.stage);
+                                    /* gpu_context_ready_ has no setter yet, so this always takes the refusal: the whole
+                                     * ring/fence/SQE/CP block below is the prepared path for a separate iommus 0/1 context
+                                     * and does not run on this board. Wiring it (or deleting it) belongs to the GPU bring-up
+                                     * step, not to a probe fix -- what matters here is that a reader is not told the CP path
+                                     * runs today. */
                                     if(started==ShengGmuSuccess && !gpu_context_ready_) {
                                         IOLog("NativeAdreno: ring/SQE refused: the GPU context (iommus 0/1) is not built\n");
                                     } else if(started==ShengGmuSuccess) {
