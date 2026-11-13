@@ -630,7 +630,10 @@ void issueWrite() {
                                      (gAudio.pcmPa + (uint64_t)region * kRegionBytes) | kSidTag,
                                      gAudio.memHandle, kRegionBytes, region, 0, APR_ASM_NO_TIMESTAMP);
     if (!n) {failed(StPlaying); gAudio.pace->cancelTimeout(); return;}
-    if (sheng_adsp_send(gAudio.channel, packet, n)) bump(12);
+    /* 0 queued, -1 or -2 refused (ShengAdsp.h:26). A refused write never reaches the DSP, so the region
+     * must stay free: marking it busy made issueWrite() skip it forever (the write-done that would clear
+     * the bit cannot arrive) and counted it as a buffer the DSP is holding. */
+    if (sheng_adsp_send(gAudio.channel, packet, n)) {bump(12); return;}
     gAudio.busyMask |= 1u << region;
     gAudio.filled++;
     record();
@@ -735,6 +738,10 @@ void inboxFired(OSObject *, IOInterruptEventSource *, int) {
             gAudio.upAt = mach_absolute_time();
             apr_pending_init(&gAudio.pending);
             gAudio.step = 0;
+            /* A fresh channel holds none of the old session's regions, and the write-done events that would
+             * have cleared them went with the channel that never came back. The down path clears this too;
+             * doing it here as well covers a re-up that arrived without a matching down. */
+            gAudio.busyMask = 0;
             // The audio server's half comes up with the channel, not with the stream. Every recorded boot leaves the service
             // unpublished -- no "[apr] os=" line exists in any COM4 log -- because this block used to sit at the end of the ladder, and
             // the vendor's own CORE/AVCS rungs are allowed to go unanswered. With no service the plug-in's connectService() fails, so
@@ -759,6 +766,10 @@ void inboxFired(OSObject *, IOInterruptEventSource *, int) {
             gAudio.answer->cancelTimeout();
             gAudio.retry->cancelTimeout();
             gAudio.pace->cancelTimeout();
+            /* The channel that held these buffers is gone, so no write-done will ever clear their bits.
+             * Leaving busyMask set made the next session's issueWrite() find every region held and fall
+             * silent: the ladder restarts at step 0 but the ring still looked full. */
+            gAudio.busyMask = 0;
             native_audio_stats[0] = StChannel;
         }
         gAudio.wasUp = up;
