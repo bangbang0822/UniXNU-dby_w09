@@ -204,6 +204,13 @@ kind = "source"
 reference = "scripts/xnu-panic-screen.c"
 result = "Panic and checkpoint text rendered by the panel build"
 
+[[area.evidence]]
+kind = "device"
+reference = "GopFramebuffer NativeGOPresenter.cpp:147 (offer())"
+command = "kernel built from the board tree, replaced into payload_final.img, fastboot flash preload, reboot, BootLog window read over EDL"
+revision = "445d5a9c5755bdeeb2b2eb09638647ba704b967f"
+result = "The CPU path is alive only while offer() stays gated on gpuClient. With the gate dropped, the first board self-test frame was accepted before any client existed, NativeLegacyDisplay set transferred on it, nobody ever completed it and the ladder refused every later frame: COPY calls=0 and the panel froze on one slot. Gated as the component repository has it, that frame is refused and the CPU path keeps running: SWAP calls=656 accepted=1 reason=0 COPY calls=655 status=00000000 bytes=16384000 retired=655, i.e. 655 full 1600x2560x4 frames copied and retired on this boot."
+
 [[area]]
 id = "input"
 status = "device-verified"
@@ -244,6 +251,14 @@ findings = ["Everything currently on the panel is CPU-rendered scanout, so GPU w
 completion = ["A GPU-backed surface presents and the frame counters move without the CPU renderer."]
 limits = ["No GPU code is implemented for this SoC."]
 next_action = ["Decide the SM8250 GPU route after the system is usable."]
+
+[[area.evidence]]
+kind = "device"
+reference = "package/LinkStubs.c"
+command = "same boot as the display entry, BootLog rows"
+revision = "445d5a9c5755bdeeb2b2eb09638647ba704b967f"
+result = "A files=-1 wr=0 same=0 fail=0 err=0 mount=1/2 mount2=1/2 mount3=1/2 mount4=5/0 mount5=5/0: no addon blob reaches the kernel, /private/var/ngpu/addons does not exist and [gpu clients] lists only kernel_task, so the Metal plug-in is not staged. [metal askers] shows the consumer side ready - mediaserverd, backboardd, SpringBoard, WidgetRenderer, CollectionsPoster, iconservicesagent x13, Preferences - so the carrier is what is missing. The seed route the official notes describe needs macOS to write the APFS container inside scratch-data.img; this host has neither hdiutil nor apfs-fuse."
+
 evidence = []
 
 [[area]]
