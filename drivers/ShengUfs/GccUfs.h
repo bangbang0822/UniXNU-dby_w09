@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 // SM8550 GCC registers used by UFS, transcribed as facts from the public
 // Linux gcc-sm8550.c clock driver. No write is performed by NativeUfs yet.
+//
+// These offsets are SM8550's, and this board is SM8250 (kona). SM8250's GCC has its own layout and
+// nothing in this repository records kona's UFS branch offsets, so the values NativeUfs::inspect()
+// reads through this map are logged for a build that runs on an SM8550 board and are only a
+// heuristic on dby_w09: the probe gate they feed (powered && busClocks) decides whether the UFS
+// host-controller registers are touched, and on kona that decision rests on unrelated registers.
+// Do not treat an inspect() dump from this board as a statement about its UFS clock tree until the
+// kona offsets are recorded with a source.
 #ifndef NATIVE_UFS_GCC_UFS_H
 #define NATIVE_UFS_GCC_UFS_H
 
