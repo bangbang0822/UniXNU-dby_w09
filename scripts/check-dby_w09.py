@@ -62,12 +62,18 @@ if __name__ == '__main__':
 
     # UEFI FD descriptor vs dby_w09.toml [uefi_fd]
     config_path = CONFIG
-    if config_path.is_file():
+    if not config_path.is_file():
+        print(f'note: {config_path} is absent, so the FD descriptor was not compared')
+    else:
         config = tomllib.loads(config_path.read_text())
         fd = config.get('uefi_fd', {})
         fd_base = fd.get('base')
         fd_size = fd.get('size')
-        if fd_base and fd_size:
+        if not (fd_base and fd_size):
+            # A configuration file with no [uefi_fd] base/size used to skip this comparison silently, so the
+            # FD descriptor was never checked on a tree that does have one -- say so instead of passing.
+            print(f'note: {config_path} has no [uefi_fd] base/size, so the FD descriptor was not compared')
+        else:
             if not any(n == 'UEFI FD' and a == fd_base and s >= fd_size
                        for n, a, s, _ in rows):
                 errors.append('FD configuration does not match a "UEFI FD" memory descriptor')

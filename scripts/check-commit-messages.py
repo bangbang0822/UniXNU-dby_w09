@@ -46,10 +46,16 @@ REPO_SCOPES = {'repo', 'ci', 'tests'}
 
 
 def read_areas(device):
+    """The record's area ids, or None when the record cannot be read.
+
+    An unreadable or unparsable porting.toml used to look exactly like a record with no areas, and under
+    --strict-scopes that turned every scope into "not a porting.toml area id" -- a failure invented by the
+    missing file rather than found in the commits.
+    """
     try:
         record = tomllib.loads((device / 'porting.toml').read_text(encoding='utf-8'))
     except (OSError, tomllib.TOMLDecodeError):
-        return set()
+        return None
     return {area.get('id') for area in record.get('area', []) if area.get('id')}
 
 
@@ -111,6 +117,11 @@ def main():
     args = ap.parse_args()
 
     areas = read_areas(args.device.resolve())
+    if areas is None:
+        if args.strict_scopes:
+            raise SystemExit(f'FAIL: {args.device}/porting.toml could not be read, so --strict-scopes cannot '
+                             f'check any scope; fix the record or drop the flag')
+        areas = set()
     failures = 0
 
     if args.message_file:

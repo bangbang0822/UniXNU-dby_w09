@@ -361,10 +361,10 @@ run([str(pa_source) if str(arg)==str(source) else str(pa_obj) if str(arg)==str(p
 # 一个成员就是把那一次调用接到真实现上，机制与上面两块一模一样：归档是被 -force_load 拉进来的
 # （build-xnu-4k-baseline.sh:664），不是因为有新符号引用它。
 # 生产者 ABI 和发布语义抄官方同芯片板 alioth 的 ShengBattery.cpp/BatteryProbe.cpp：同一个
-# native_battery_stats[16]，同一套 IOPMPowerSource 属性键。这 16 格在本树没有读者：原先说
-# BootLog.c:833-845 的 [battery] 行会打印它，实测 BootLog.c 不进任何归档（ar 列表五个成员、无
-# builder 引用、内核里无 boot_log_export_put），所以读数只能从这个服务自己的 kprintf 行看——
-# COM4 只镜像 kprintf，IOLog 上不来。换掉的只有传输：本机没有 ADSP 栈、全盘没有 adsp.mbn，
+# native_battery_stats[16]，同一套 IOPMPowerSource 属性键。这 16 格现在有读者：package/BootLog.c:116
+# 弱导入它，:1080-1083 的 [battery] 行把 16 格全打印出来，而 scripts/build-boot-progress.py:115 把
+# BootLog.c 编进 boot-progress 归档（"BootLog.c 不进任何归档"是这条注释写下时的状态，后来变了）。
+# 该服务自己的 kprintf 行仍然是第二个观察点——COM4 只镜像 kprintf，IOLog 上不来。换掉的只有传输：本机没有 ADSP 栈、全盘没有 adsp.mbn，
 # 而这块板的 stock DTBO（b01.dts:574-620）把电量计写成 SPMI 上的 qcom,fg-gen4、充电器写成
 # qcom,qpnp-smb5（b01.dts:447-470），所以直读 arbiter 的观察者引擎——那正是 DbyTouch 在本板跑通的通道。
 # 只读是构造性的：本文件写出去的每个 32 位字都是带读操作码的观察者命令字；arbiter 的写通道窗口 chnls
