@@ -61,7 +61,12 @@ static constexpr uint32_t kEnable = IrqBitAhb | IrqBitAtbAsync | IrqBitGpc | Irq
 static constexpr uint32_t kEnableA6xx = IrqBitAhb | IrqBitAtbAsync | IrqBitCpHw | IrqBitCpIb2 |
     IrqBitCpIb1 | IrqBitCpPm4 | IrqBitCpFence | IrqBitAtbBus | IrqBitHang | IrqBitUcheOob |
     IrqBitUcheTrap;
-/* CP_INTERRUPT_STATUS error bits, including the A7XX LPAC/BV replicas. */
+/* CP_INTERRUPT_STATUS error bits, including the A7XX LPAC/BV replicas.
+ *
+ * PROVENANCE: 0x3fff7 sets bits 0, 1, 2 and 4..15 and clears bit 3. Which bit names which error, and why bit 3 is
+ * not one of them, is in the pinned a6xx.xml.h that this file's mask bits above also come from -- that tree is not
+ * part of this repository, so the mask can be read here but not re-derived. test_irq.cpp exercises the classifier
+ * through cpErrorMask(); it does not pin the literal. */
 static constexpr uint32_t kCpErrors = 0x3fff7u;
 IOReturn NativeAdrenoIrq::poison()
 {
