@@ -265,20 +265,25 @@ void A650GpuBringup(const A650GpuIo *io, unsigned mode, unsigned have_windows, A
     if (!(have_windows & (1u << A650GpuWinSmmu))) {
         r->smmu = A650GpuNoMap;
     } else if (r->cc != A650GpuDone || !A650GpuGdscIsOn(r->cx_gdscr) ||
-               !A650GpuClockIsOn(r->cc_smmu)) {
+               !r->powered_clocks || !A650GpuClockIsOn(r->cc_smmu) ||
+               !(r->cc_smmu & A650_CBCR_ENABLE)) {
+        /* A failed vote-clock read leaves cc_smmu at 0, and A650GpuClockIsOn() tests bit 31 only, so zero
+         * used to read as "clock on" and open this gate on a read that never happened. powered_clocks is
+         * already false in that case, and the enable bit rejects the zero value as well. */
         r->smmu = A650GpuSkippedPrereq;
     } else {
-        A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_SCR0, &r->scr0);
-        A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_ID0, &r->id0);
-        A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_ID1, &r->id1);
-        A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_ID2, &r->id2);
-        A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_GFSR, &r->gfsr);
+        int failed =
+            A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_SCR0, &r->scr0) |
+            A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_ID0, &r->id0) |
+            A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_ID1, &r->id1) |
+            A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_ID2, &r->id2) |
+            A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_GFSR, &r->gfsr);
         n = A650GpuSmmuNumSmrs(r->id0);
         if (n > A650_SMMU_MAX_SMR) n = A650_SMMU_MAX_SMR;
         r->smr_first = 0xffffffffu;
         for (unsigned i = 0; i < n; ++i) {
             uint32_t smr = 0;
-            if (A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_SMR(i), &smr)) break;
+            if (A650GpuRead(io, r, A650GpuWinSmmu, A650_SMMU_SMR(i), &smr)) {failed = 1; break;}
             if (smr & (1u << 31)) {
                 ++r->smr_valid;
                 if (r->smr_first == 0xffffffffu) {
@@ -288,7 +293,8 @@ void A650GpuBringup(const A650GpuIo *io, unsigned mode, unsigned have_windows, A
                 }
             }
         }
-        r->smmu = A650GpuDone;
+        /* The stage reports what it read: a register that could not be read is not a stage that ran. */
+        r->smmu = failed ? A650GpuSkippedPrereq : A650GpuDone;
     }
 
     /* RBBM_STATUS is in the GX-gated space, so it needs both domains on. */
@@ -373,6 +379,10 @@ int A650GmuClocksEnable(const A650GpuIo *io, const A650GpuResult *r, A650GmuCloc
     if (!io || !r || !o) return -1;
     memset(o, 0, sizeof(*o));
     local = *r;
+    /* The caller's earlier failures are its own: only a read this sequence fails makes `o` report a
+     * failed sequence. Inheriting the flag made a clock chain whose own reads all succeeded return 1
+     * whenever the caller's result already carried io_error. */
+    local.io_error = 0;
 
     o->step = 1;
     if (r->cc != A650GpuDone || !A650GpuGdscIsOn(r->cx_gdscr)) {
