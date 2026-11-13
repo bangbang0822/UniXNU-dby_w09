@@ -1,13 +1,19 @@
 /* SPDX-License-Identifier: MIT */
 /* IOKit surface for the native Adreno backend. This file is compiled against
- * the real source-kernel headers; it does not run on any host. start() parses
- * the provider's device-tree reg windows through NativeAdrenoBoard and maps the
- * first window, then stops: board power, GMU boot and SMMU context programming
- * are not implemented for Darwin yet, so the service refuses to publish rather
- * than expose a device that cannot execute. newUserClient and the external
- * method table are present because they are fixed by the core ABI; no client
- * can be created while the GPU is not ready. clientMemoryForType has no
- * descriptor to return until a client owns a leased BO, so it refuses. */
+ * the real source-kernel headers; it does not run on any host.
+ *
+ * start() walks the whole bring-up and publishes only when it reaches the end of it: the board windows
+ * (NativeAdrenoBoard), the GPU power and clock votes, the GMU service and firmware (NativeAdrenoGmuService,
+ * NativeAdrenoGmuConfig, NativeAdrenoPwrup), the SMMU context, then the CP: a NOP submission on a fresh
+ * address space, the fence it issues, and the interrupt handler. If any step refuses, the service logs where
+ * it stopped and returns without publishing, so a client never sees a device that cannot execute.
+ *
+ * `ready_` is what gates registerService(), and `core_ready_` gates every external method; both are set only
+ * after the user client is opened successfully, which is why a service whose client could not be created
+ * stays unpublished (see the start() tail).
+ *
+ * The header used to say start() mapped the first window and then stopped, with power, GMU and SMMU not
+ * implemented: that described the first draft of this file, not this one. */
 #include <IOKit/IODeviceMemory.h>
 #include <string.h>
 #include <IOKit/IOLib.h>

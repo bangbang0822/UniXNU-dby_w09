@@ -381,7 +381,10 @@ IOReturn NativeAdrenoSubmit::submit(NativeAdrenoVm *vm,const NativeAdrenoSubmitB
         }
         if(dirty || (audited && audited!=kIOReturnUnsupported)) {
             vm_->distrustWriteCombined();
-            native_adreno_wc_distrusted=native_adreno_coherence[0]+1;
+            /* The header documents this as the 1-based submission that ended the trust, and it was being set from
+             * the coherence sample counter, which counts something else. native_adreno_submit_ibs[0] is the
+             * submission counter (incremented at the top of submit()), so that is what it reports now. */
+            native_adreno_wc_distrusted=native_adreno_submit_ibs[0];
         }
     }
     /* The coherence sample reads the first IB's word through a fresh uncached mapping before and after the publication: every 64th
