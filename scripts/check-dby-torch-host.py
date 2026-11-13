@@ -65,16 +65,23 @@ def run(command):
 def check_arguments():
     """Every boot argument the glue reads is in the component README's table and in DbyTorch.h, and they name no
     other: an argument whose name exists in only one of the three is a name nobody can type."""
-    read = set(re.findall(r'argument\("(dby-torch[a-z0-9-]*)"', (PACKAGE / GLUE).read_text()))
-    if 'dby-torch' not in read or len(read) < 4:
+    # Every dby- name the glue reads, not only the ones that start with "dby-torch": the flashlight surface is
+    # selected by `dby-ti` (DbyTorch.cpp:214) and used to sit outside this check entirely.
+    read = set(re.findall(r'argument\("(dby-[a-z0-9-]*)"', (PACKAGE / GLUE).read_text()))
+    if 'dby-torch' not in read or len(read) < 5:
         raise SystemExit(f'FAIL args: the boot argument reads were not found in {GLUE} ({sorted(read)})')
     readme = (PACKAGE / 'README.md').read_text().split('## Boot arguments', 1)[-1].split('\n## ', 1)[0]
     header = (PACKAGE / 'DbyTorch.h').read_text().split('#ifndef', 1)[0]
     problems = []
     for where, text in (('README.md', readme), ('DbyTorch.h', header)):
-        named = set(re.findall(r'(?<![a-z-])(dby-torch(?:-[a-z0-9]+)*)', text))
+        # Both sides of the comparison have to see every dby- name: matching only dby-torch* here left `dby-ti`
+        # permanently "read but not named" once the read side stopped filtering by that prefix.
+        named = set(re.findall(r'(?<![a-z-])(dby-[a-z0-9]+(?:-[a-z0-9]+)*)', text))
         problems += [f'{name} is read but not in {where}' for name in sorted(read - named)]
-        problems += [f'{where} names {name}, which is not read' for name in sorted(named - read)]
+        # The reverse direction stays with this component's own names: the boot-argument table also names `dby-bl`,
+        # which belongs to the log writer, and an argument another component reads is not this glue's to declare.
+        owned = {name for name in named if name == 'dby-ti' or name.startswith('dby-torch')}
+        problems += [f'{where} names {name}, which is not read' for name in sorted(owned - read)]
     if problems:
         raise SystemExit('FAIL args:\n  ' + '\n  '.join(problems))
     print(f'PASS args: {len(read)} boot arguments read, each in README.md and DbyTorch.h')
@@ -86,7 +93,10 @@ def check_mount_patch(tree):
     reading it: its context lines are lines the audio patch inserts."""
     inputs = tree.parent / 'xnu-inputs.json'
     if not inputs.is_file():
-        print(f'note: no {inputs}, so the mount patch was not replayed against a recorded patch series')
+        # A tree was given, so this run is the one that could have replayed the mount patch; a note here would let
+        # the gate print PASS without ever doing the thing its docstring promises.
+        raise SystemExit(f'FAIL: {tree} was given but {inputs} is missing, so the mount patch cannot be replayed '
+                         f'- build the kernel once in that tree, or drop --tree to skip this half explicitly')
         return
     result = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/test-dby-torch-media-mount-patch.py'),
                             '--inputs', str(inputs)], capture_output=True, text=True)

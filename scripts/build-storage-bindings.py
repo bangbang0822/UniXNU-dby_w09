@@ -80,8 +80,9 @@ data, image, symbols = object_symbols(obj_path)
 imports = undefined_of(symbols)
 
 
-def assemble(source: Path, weak=False):
-    # Weak mode is written as `.weak` in the source itself, so nothing else in the object changes.
+def assemble(source: Path):
+    # The weak/global choice is written into the source by binding_source(), so the compile is the same either way
+    # and this function takes no mode argument -- it used to accept one and never read it.
     subprocess.run(['xcrun', 'clang', '-target', 'arm64-apple-ios17.0', '-Werror',
                     '-Wno-incompatible-sysroot', '-c', source, '-o', out / 'original-bindings.o'],
                    check=True)
@@ -94,7 +95,7 @@ def binding_source(bindings, weak=False):
 
 
 def archive_with(bindings, provenance, weak=False):
-    assemble(out / 'original-bindings.S', weak)
+    assemble(out / 'original-bindings.S')
     # The component recipe already archived its own object; this adds the bindings object
     # to that same archive, which is the file the kernel link force-loads.
     subprocess.run(['xcrun', 'ar', 'rcs', archive, obj_path, out / 'original-bindings.o'], check=True)
