@@ -78,7 +78,7 @@ int main()
         /* A failed SQE write poisons without submitting the ring. */
         peer.fail_write=peer.writes.size()+2; /* second SQE write */
         CHECK(init.run(&io,&ring,&good,&fence)==kIOReturnIOError && init.poisoned() && !fence);
-        CHECK(peer.regs[0x0807]==0 && peer.writes.size()==8);
+        CHECK(peer.regs[0x0807]==0 && peer.writes.size()==7);
         CHECK(init.run(&io,&ring,&good,&fence)==kIOReturnNotReady);
         CHECK(ring.detach()==kIOReturnSuccess); /* no submission was committed */
     }
@@ -100,9 +100,10 @@ int main()
         NativeAdrenoCpInitConfig config{0x200000,0,0,6};
         uint32_t fence=0;
         CHECK(init.run(&io,&ring,&config,&fence)==kIOReturnSuccess && fence==1 && init.completed());
-        /* The ring's attach() programmed seven registers first; run() then writes CP_SQE_INSTR_BASE (0x0830/0x0831) before
-         * the packet, as a6xx hw_init does. */
-        CHECK(peer.writes.size()>=9 && peer.writes[7]==0x0830 && peer.writes[8]==0x0831);
+        /* The ring's attach() programmed six registers first (CP_RB_WPTR is deliberately not written, see
+         * NativeAdrenoRing.cpp:399-402); run() then writes CP_SQE_INSTR_BASE (0x0830/0x0831) before the packet, as
+         * a6xx hw_init does. */
+        CHECK(peer.writes.size()>=8 && peer.writes[6]==0x0830 && peer.writes[7]==0x0831);
         /* CP_ME_INIT (0x48) with eight dwords is 0x70480008; the words are Linux's 0x2f, 3, 0x20000000, then zeros. */
         /* Type7 header for opcode 0x48 with eight dwords: count 8, opcode in bits 22:16, and the odd-opcode bit 23
          * set because 0x48 is even, so 0x70c80008. */

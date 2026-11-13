@@ -244,7 +244,7 @@ int main()
     /* Every attach register-write failure leaves the ring unusable and owned. */
     {
         unsigned cases=0;
-        for(unsigned failure=1;failure<=7;++failure) {
+        for(unsigned failure=1;failure<=6;++failure) {
             reset();NativeAdrenoRing r;peer.fail_write=failure;
             CHECK(attach(r)==kIOReturnIOError && r.poisoned());
             CHECK(r.detach()==kIOReturnBusy);
@@ -272,23 +272,27 @@ int main()
         peer.fail_acquire=peer.acquire+1;
         uint32_t observed=0;
         CHECK(r.wait(1,&clock_,10,&observed)==NativeAdrenoRingFencePoisoned && r.poisoned());++cases;
-        std::printf("PASS: 1 exact ring programming and submission, 1 wrap submission, 1 refused re-attach, 7 write/1 read attach failures and 4 post-commit poison cases over a software CP register peer (%u failure cases)\n",
+        std::printf("PASS: 1 exact ring programming and submission, 1 wrap submission, 1 refused re-attach, 6 write/1 read attach failures and 4 post-commit poison cases over a software CP register peer (%u failure cases)\n",
             cases);
     }
-    /* An A6xx ring programs CP_RB_CNTL with NO_UPDATE and submits the a6xx_submit() prologue and fence. */
+    /* An A6xx ring programs CP_RB_CNTL without NO_UPDATE and submits the a6xx_submit() prologue and fence. */
     {
         reset();NativeAdrenoRing r;
         CHECK(r.setGeneration(6)==kIOReturnSuccess && r.generation()==6);
         CHECK(attach(r)==kIOReturnSuccess);
-        /* Same register order as A7XX; CP_RB_CNTL (0x0802) carries NO_UPDATE (bit 27) as a6xx_hw_init writes it. */
+        /* Same register order as A7XX. CP_RB_CNTL (0x0802) does NOT carry NO_UPDATE (bit 27): this board's A650 has
+         * hardware APRIV, so a6xx_gpu.c writes the plain default and the CP keeps updating the RPTR shadow the ring
+         * reads. pipa-gpu-no-update=1 restores the bit for comparison, and the host shim parses no boot arguments. */
         /* CP_RB_WPTR (0x0807) is not written: mainline never zeroes it (a6xx_flush writes a computed wptr). */
         const uint32_t expected[][2]={
-            {0x0800,0x100000},{0x0801,0},{0x0802,(12u)|(2u<<8)|(1u<<27)},
+            {0x0800,0x100000},{0x0801,0},{0x0802,(12u)|(2u<<8)},
             {0x0804,0x108000},{0x0805,0},{0x0885,0}};
         CHECK(peer.writes.size()==sizeof(expected)/sizeof(expected[0]));
         for(size_t i=0;i<peer.writes.size();++i)
             CHECK(peer.writes[i].first==expected[i][0] && peer.writes[i].second==expected[i][1]);
-        /* A framed submission: nineteen prologue words, the payload, then the plain fence. */
+        /* A framed submission after a context reset: nineteen prologue words, the payload, then the plain fence. A fresh
+         * ring has no reset pending, and the set_pagetable() entry only rides on one (NativeAdrenoRing.cpp:536). */
+        r.requestContextReset();
         const uint32_t words[4]={0x11111111,0x22222222,0x33333333,0x44444444};
         uint32_t end=0;
         CHECK(r.submitFramed(words,4,&end)==kIOReturnSuccess);
