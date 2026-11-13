@@ -1138,11 +1138,25 @@ extern "C" IOReturn native_adreno_publish(NativeAdrenoVm *vm,NativeAdrenoSubmit 
     if(switching)g.context=nullptr;
     else if(submit->tableMode()==2) {
         /* The CP's switch must reach the bank: one NOP submission on a fresh address space, then the bank's TTBR0 is read back. A
-         * switch that did not land falls back to the CPU's. */
+         * switch that did not land falls back to the CPU's. That fallback needs a quiet ring, and its result has to be visible:
+         * the slot used to keep the CP failure and the fallback's IOReturn was discarded, so a service whose switch never
+         * happened published with the same status line as one where it did. Slot 2 now carries the outcome of the fallback
+         * (or kIOReturnBusy for the skip), and the log says which of the three happened. */
         const IOReturn checked=checkCpSwitch();
         native_adreno_cp_aperture[2]=uint32_t(checked);
-        if(checked && !submit->outstanding())(void)submit->setTableSwitching(1,
-            [](void *cookie,uint64_t ttbr0)->IOReturn {return static_cast<NativeAdrenoGpuContext *>(cookie)->writeTtbr0(ttbr0);},g.context);
+        if(checked) {
+            if(submit->outstanding()) {
+                native_adreno_cp_aperture[2]=uint32_t(kIOReturnBusy);
+                IOLog("NativeAdreno: CP table switch failed 0x%x with work outstanding; table mode stays %u\n",
+                    checked,submit->tableMode());
+            } else {
+                const IOReturn fallback=submit->setTableSwitching(1,
+                    [](void *cookie,uint64_t ttbr0)->IOReturn {return static_cast<NativeAdrenoGpuContext *>(cookie)->writeTtbr0(ttbr0);},g.context);
+                native_adreno_cp_aperture[2]=uint32_t(fallback);
+                if(fallback)
+                    IOLog("NativeAdreno: CPU table switch fallback failed 0x%x\n",fallback);
+            }
+        }
     }
     native_adreno_cp_aperture[3]=submit->tableMode();
     g.service=service;g.published=true;
