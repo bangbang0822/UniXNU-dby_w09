@@ -176,25 +176,29 @@ __attribute__((weak)) int boot_reset_bootloader(char *text, unsigned cap)
 // reference here. Each such name therefore needs a definition, and the definition has to behave like
 // the symbol being absent: the pointer test passes and the call fails.
 //
-// AdspFirmware.c:88 is `if (!native_ufs_part_find || !native_ufs_part_read) return ENXIO;`, so a
-// zero-returning stub would take its success path and read a partition nobody opened. These return a
-// failure instead. The storage layer this board ships (FFT-infra/NativeUfs-alioth) exports
-// native_ufs_store_*/native_ufs_export_*, not these partition helpers, and the audio DSP stack that
-// would supply qcom_mdt_* is compiled only by upstream's build-gop-legacy-display.py, which this
-// board's -linux display recipe does not run.
+// AdspFirmware.c:95 reads a partition find's answer as `if (!native_ufs_part_find(...)) {rc = ENXIO;
+// continue;}` -- zero means "not found, try the next name and retry later", and the real implementation
+// (NativeUfs.cpp:1324) returns 0 when the helper is not ready or the name is absent, 1 when it found it.
+// The same file's partitionRead() reads a read's answer as `if (!native_ufs_part_read(...)) return EIO;`,
+// so non-zero is success there. These stubs therefore return 0 for both: the call fails, which is what
+// the pointer test above cannot say. Returning a non-zero error code here made find() look like it had
+// found a partition and handed an uninitialised block count to fat_mount(). The storage layer this board
+// ships (FFT-infra/NativeUfs-alioth) exports native_ufs_store_*/native_ufs_export_*, not these partition
+// helpers, and the audio DSP stack that would supply qcom_mdt_* is compiled only by upstream's
+// build-gop-legacy-display.py, which this board's -linux display recipe does not run.
 
 __attribute__((weak)) int native_ufs_part_find(const char *, uint32_t *, uint64_t *, uint64_t *);
 __attribute__((weak)) int native_ufs_part_find(const char *name, uint32_t *lun, uint64_t *first, uint64_t *blocks)
 {
 	(void)name; (void)lun; (void)first; (void)blocks;
-	return 6;			/* ENXIO: this board's storage layer has no such partition helper */
+	return 0;			/* not found: this board's storage layer has no such partition helper */
 }
 
 __attribute__((weak)) int native_ufs_part_read(uint32_t, uint64_t, uint32_t, void *);
 __attribute__((weak)) int native_ufs_part_read(uint32_t lun, uint64_t lba, uint32_t blocks, void *dst)
 {
 	(void)lun; (void)lba; (void)blocks; (void)dst;
-	return 6;			/* ENXIO */
+	return 0;			/* read failed */
 }
 
 // DbyTouch.cpp:2759 tests `if (!native_ufs_abs_read(lba, chunk, buf))`, so 0 is the failure it already

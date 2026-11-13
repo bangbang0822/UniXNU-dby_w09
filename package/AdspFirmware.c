@@ -91,8 +91,10 @@ static int mountPartition(void)
     int rc = ENOENT;
     for (unsigned i = 0; i < sizeof names / sizeof names[0] && rc; ++i) {
         uint64_t blocks = 0;
-        // ENXIO while the UFS driver is not ready yet: the caller tries again later
-        if (!native_ufs_part_find(names[i], &p->lun, &p->first, &blocks)) {rc = ENXIO; continue;}
+        // ENXIO while the UFS driver is not ready yet: the caller tries again later. A find that answers
+        // "found" with no blocks is not a partition either: mounting it would divide by zero blocks and
+        // read past the end of whatever the helper did answer.
+        if (!native_ufs_part_find(names[i], &p->lun, &p->first, &blocks) || !blocks) {rc = ENXIO; continue;}
         p->cached = UINT64_MAX;
         rc = fat_mount(v, volumeBytes(p, blocks * 4096), partitionRead, p) ? EFTYPE : 0;
     }
