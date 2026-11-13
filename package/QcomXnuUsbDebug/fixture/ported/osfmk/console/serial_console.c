@@ -539,6 +539,14 @@ void
 console_write(char *str, int size)
 {
 	if (disableConsoleOutput) {
+		/* Muted means the graphics console is muted, not that the USB copy is: _cnputs tees above its own
+		 * disableConsoleOutput check and then drops the byte, so this path still reaches USB and the console
+		 * still gets nothing. Returning here instead lost every console_write() byte on a muted console. */
+#if XNU_QCOM_USB_DEBUG
+		if (str && size > 0) {
+			_cnputs(str, size, false);
+		}
+#endif
 		return;
 	}
 
@@ -623,16 +631,17 @@ console_write(char *str, int size)
 void
 console_write_unbuffered(char c)
 {
+#if XNU_QCOM_USB_DEBUG
+	/* Above the check below for the same reason _cnputs tees above its own: muting the graphics console
+	 * must not silence the USB copy, which is a separate channel. This function is one of the PE_kputc
+	 * sinks, and qcom_usb_pe_kputc_reenters_console() names it for that reason -- it is expected to tee. */
+	(void)qcom_usb_debug_putc(c);
+#endif
 	if (disableConsoleOutput) {
 		return;
 	}
 
-#if XNU_QCOM_USB_DEBUG
-	/* This function is one of the PE_kputc sinks, and qcom_usb_pe_kputc_reenters_console() names
-	 * it for that reason: it is expected to tee. Dispatch the byte to USB here, before _cnputc(),
-	 * so it reaches the log exactly once instead of not at all. */
-	(void)qcom_usb_debug_putc(c);
-#endif
+
 	_cnputc(c, true);
 }
 

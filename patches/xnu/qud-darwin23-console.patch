@@ -225,6 +225,17 @@
  
  #if __arm64__
  #include <machine/machine_routines.h>
+@@ -528,2 +541,10 @@ console_write(char *str, int size)
+ 	if (disableConsoleOutput) {
++		/* Muted means the graphics console is muted, not that the USB copy is: _cnputs tees above its own
++		 * disableConsoleOutput check and then drops the byte, so this path still reaches USB and the console
++		 * still gets nothing. Returning here instead lost every console_write() byte on a muted console. */
++#if XNU_QCOM_USB_DEBUG
++		if (str && size > 0) {
++			_cnputs(str, size, false);
++		}
++#endif
+ 		return;
 @@ -280,6 +283,16 @@ _cnputs
  static inline void
  _cnputs(char *c, int size, bool poll)
@@ -242,19 +253,19 @@
  	if (disableConsoleOutput) {
  		return;
  	}
-@@ -613,6 +626,12 @@ console_write_unbuffered
- 	if (disableConsoleOutput) {
- 		return;
- 	}
- 
+@@ -612,2 +633,8 @@ console_write_unbuffered(char c)
+ {
 +#if XNU_QCOM_USB_DEBUG
-+	/* This function is one of the PE_kputc sinks, and qcom_usb_pe_kputc_reenters_console() names
-+	 * it for that reason: it is expected to tee. Dispatch the byte to USB here, before _cnputc(),
-+	 * so it reaches the log exactly once instead of not at all. */
++	/* Above the check below for the same reason _cnputs tees above its own: muting the graphics console
++	 * must not silence the USB copy, which is a separate channel. This function is one of the PE_kputc
++	 * sinks, and qcom_usb_pe_kputc_reenters_console() names it for that reason -- it is expected to tee. */
 +	(void)qcom_usb_debug_putc(c);
 +#endif
- 	_cnputc(c, true);
- }
+ 	if (disableConsoleOutput) {
+@@ -6,2 +12,3 @@
+ 	}
++
+ 
 --- a/osfmk/console/serial_general.c
 +++ b/osfmk/console/serial_general.c
 @@ -169,7 +169,11 @@ console_printbuf_putc
