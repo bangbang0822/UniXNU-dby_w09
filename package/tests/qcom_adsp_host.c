@@ -238,8 +238,10 @@ static void on_receive(void *context, QcomGlinkChannel *c, const uint8_t *data, 
     (void)c;
     Seen *s = context;
     s->messages++;
-    s->last_length = length;
-    memcpy(s->last, data, length < sizeof s->last ? length : sizeof s->last);
+    /* Both the copy and the recorded length are clamped: the record used to keep the untruncated length
+     * while the buffer held 256 bytes, and the reader then memcmp'd that length out of the shorter copy. */
+    s->last_length = length < sizeof s->last ? length : (uint32_t)sizeof s->last;
+    memcpy(s->last, data, s->last_length);
 }
 
 static void settle(QcomGlink *a, QcomGlink *b)

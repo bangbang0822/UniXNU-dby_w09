@@ -17,7 +17,9 @@ typedef struct {uint8_t packet[16][512]; uint32_t length[16]; unsigned count, re
 static int capture(void *context, const uint8_t *packet, uint32_t length)
 {
     Wire *w = context;
-    if (w->refuse || w->count == 16) return -1;
+    /* The byte count is a bound too: the slot is 512 bytes and a longer packet used to be copied past
+     * it, so an oversized send fails the call instead. */
+    if (w->refuse || w->count == 16 || length > sizeof w->packet[0]) return -1;
     memcpy(w->packet[w->count], packet, length);
     w->length[w->count++] = length;
     return 0;
