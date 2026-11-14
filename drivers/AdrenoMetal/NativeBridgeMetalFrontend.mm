@@ -5,7 +5,7 @@
 // Every result comes from the runtime and the GPU: a refused call returns nil/NO with the runtime's reason, an encoder call the runtime
 // refuses fails its command buffer (status Error, handlers run) instead of being dropped. A selector this frontend does not implement is
 // reported through the missing-selector hook before the usual exception, so a hardware run names the gap.
-// Shared events work within this process (no cross-process handle yet). Not yet implemented here: heaps, argument buffers, indirect commands, drawables/presentation.
+// Shared events work within this process (no cross-process handle yet). Heaps are implemented here (NBHeap: newHeapWithDescriptor:, bufferWithLength:options:offset:, textureWithDescriptor: and the heap-backed buffer and texture queries). Still not implemented: argument buffers, indirect commands, drawables and presentation.
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #import <IOSurface/IOSurfaceRef.h>
@@ -60,7 +60,8 @@ static CommitRecord gCommitRing[32];
 // (longer ones are idle). pg = the earlier render buffer's commit-to-callback, enc = this buffer's creation-to-commit, res = what is left
 // (negative when the two overlapped), kpx = the earlier one's thousands of pixels, hv = how many earlier ones were over 30 Mpx.
 // ---- frame trace: one record per command buffer and per wait, appended to a file by a writer thread ----
-// The file is read by the kernel's diagnostic export (BootDiagExport.c lists it), so a hang or a reset still leaves everything up to then.
+// The file is written by a thread of this process and read back by whoever can open it (the kernel's diagnostic export was named
+// here once as BootDiagExport.c, which this repository does not contain): a hang or a reset leaves everything up to then on disk.
 // 72-byte records: type 1 command buffer {idx, t0 created, t1 committed, t2 scheduled (0: unknown), t3 completion callback, a passes, b draws,
 // c thousands of pixels, d blits, tid creator thread, cpu0/cpu1 its cumulative CPU microseconds at creation and at commit, tid2 committing
 // thread}; type 2 waitUntilCompleted {t0 begin, t1 end, tid, a caller (low 32 bits), cpu0 the thread's CPU time at the start, cpu1 at the end};
@@ -1882,7 +1883,10 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
  if(getenv("NMB_DEVICE_BASE_NSOBJECT"))base=[NSObject class];
 #endif
 #if TARGET_OS_IPHONE
- // The target's base class ABI (iPadOS 17.7.11): the dynamic subclass adds no instance variables.
+ // The target's base class ABI (iPadOS 17.7.11): the dynamic subclass adds no instance variables. 536 is
+ // class_getInstanceSize([_MTLDevice class]) on that build - measured, not derived - and the check is what keeps
+ // this frontend from adding ivars to an object whose size it did not predict; a different build answers a
+ // different size and the open is refused with this message instead of corrupting the instance.
  if(!base || class_getInstanceSize(base)!=536) {
      /* gDevice was opened above and nothing undid that: the next open() found no gDeviceObject and ran this path
       * again, forever, over a device the frontend no longer had an object for. Clear the per-open state; the handle
