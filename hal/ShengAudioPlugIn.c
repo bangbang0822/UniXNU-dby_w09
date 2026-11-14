@@ -49,10 +49,16 @@ static Float64 gHostTicksPerFrame;
 static void setHostClock(void);
 
 // ---- Kernel service ------------------------------------------------------------------------------------------------------------
+/* The three ABI blocks live at fixed offsets in the control page's single 4096-byte mapping (see ShengAudioAbi.h);
+ * a mapping shorter than the last block would let every reader past the end of what was mapped, so the size the
+ * call reports is checked rather than discarded. */
+static_assert (SHENG_AUDIO_TRACE_OFFSET + sizeof(ShengAudioTrace) <= 4096,
+               "the trace block has to end inside the control page");
 static int mapType(uint32_t type, void **out) {
     mach_vm_address_t address = 0;
     mach_vm_size_t size = 0;
     if (IOConnectMapMemory64(gConnect, type, mach_task_self(), &address, &size, kIOMapAnywhere) != kIOReturnSuccess) return -1;
+    if (type == ShengAudioMemoryControl && size < SHENG_AUDIO_TRACE_OFFSET + sizeof (ShengAudioTrace)) return -1;
     *out = (void *)(uintptr_t)address;
     return 0;
 }
