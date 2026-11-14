@@ -52,7 +52,7 @@ extern kmod_info_t g_kernel_kmod_info;   // the module the service's classes reg
 // after every device has started -- INIT alone leaves register 0x00 at 0x0002, so AMPE and DCA stay clear and nothing can be heard.
 extern "C" uint32_t dby_smartpa_play(void);
 // The cache clean the ADSP probe already uses for every buffer it hands the DSP (package/AdspProbe.cpp:300). That copy has
-// internal linkage (it sits inside the anonymous namespace opened at AdspProbe.cpp:119), so this translation unit carries its
+// internal linkage (it sits inside the anonymous namespace opened at AdspProbe.cpp:123), so this translation unit carries its
 // own identical copy instead of an external reference; clang drops the out-of-line body in AdspProbe.o once it inlines it.
 static void cleanToPoc(const void *start, size_t length) {
     uint64_t ctr;
@@ -554,7 +554,7 @@ bool publishService() {
     return true;
 }
 
-// [apr] os=: the audio server's side, once per change. volume= is the slider the plug-in holds (scalar x 1000): the plug-in scales every
+// [apr] os=: the audio server's side, once per change. The first field, os=, is the slider the plug-in holds (scalar x 1000): the plug-in scales every
 // sample before it writes the ring, so the kernel's own ASM soft volume stays at unity and the two never attenuate twice.
 void serviceRow() {
     const ShengAudioDiag *d = diag();
