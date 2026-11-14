@@ -894,14 +894,17 @@ static void touchThread(void *, wait_result_t) {
         // from the touch chip.
         {
             static const uint8_t pattern[16] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00};
-            {volatile uint8_t *pre = s->spi.dma.rx_virt; for (unsigned k = 0; k < 64; ++k) pre[k] = 0x5a;}
+            /* rx_virt is only set by prepareDma(), which openBus calls when the engine reports no usable FIFO; on
+             * an engine that has one the Session is zeroed and this pointer is null, so the guard is what keeps
+             * this loopback from writing 64 bytes to kernel address 0. */
+            {volatile uint8_t *pre = s->spi.dma.rx_virt; if (pre) for (unsigned k = 0; k < 64; ++k) pre[k] = 0x5a;}
             geni_spi_setup(&s->spi, GENI_SPI_LOOP, 0);
             s->loopRc = geni_spi_transfer(&s->spi, pattern, s->rx, sizeof pattern, 0);
             for (unsigned k = 0; k < 16; ++k) s->loopRx[k] = s->rx[k];
             s->loopTxIn = s->spi.last_tx_in;
             s->loopRxIn = s->spi.last_rx_in;
             IODelay(2000);   // is the data merely late?
-            {volatile uint8_t *late = s->spi.dma.rx_virt; for (unsigned k = 0; k < 8; ++k) s->loopRxLate[k] = late[k];}
+            {volatile uint8_t *late = s->spi.dma.rx_virt; if (late) for (unsigned k = 0; k < 8; ++k) s->loopRxLate[k] = late[k];}
             static const uint32_t regs[16] = {SE_DMA_TX_PTR_L, SE_DMA_TX_PTR_H, SE_DMA_TX_ATTR, SE_DMA_TX_LEN, SE_DMA_RX_PTR_L,
                 SE_DMA_RX_PTR_H, SE_DMA_RX_ATTR, SE_DMA_RX_LEN, SE_GENI_DMA_MODE_EN, SE_SPI_LOOPBACK, SE_GSI_EVENT_EN, SE_IRQ_EN,
                 SE_DMA_TX_IRQ_STAT, SE_DMA_RX_IRQ_STAT, SE_GENI_STATUS, SE_GENI_M_IRQ_STATUS};
