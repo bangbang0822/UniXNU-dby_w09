@@ -319,13 +319,13 @@ Last change this session: 7153366 docs(audio): say where the QRTR domain ids and
 
 ### `package/ShengCs35l43.h` - documented: the file describes another sheng unit (audio limits)
 
-Last change this session: (no change this session)
+Last change this session: 06df6ca docs(audio): say in the two headers what they are and are not
 
 - [minor] lines 2-5: This is the sheng board's amplifier driver, not this unit's: the header describes six CS35L43s on QUP1 SE5 and QUP2 SE0 at I2C addresses 0x40-0x42, while the repository's own audio
 
 ### `package/ShengGpr.h` - documented: shared codec, move recorded
 
-Last change this session: (no change this session)
+Last change this session: 06df6ca docs(audio): say in the two headers what they are and are not
 
 - [minor] lines 2-5: A generic GPR packet codec: it names no dby_w09 resource, and every constant in it is the protocol's (24-byte header, GPR_VERSION 0, APM port 1, 512-byte packet limit). It is not o
 
