@@ -56,8 +56,11 @@ int main()
   assert(!ufsSmmuStreamMatches(0x000000e0,0xe0));
   assert(ufsSmmuStreamMatches(0x80014e11,0x4e10)); // Mask bit 0 ignores the low SID bit.
   assert(!ufsSmmuStreamMatches(0x80014e11,0x4e12));
-  // Firmware's live alioth shape: CBAR.TYPE=1 (S1 translate, S2 bypass),
-  // VMID 0, and SCTLR.M clear with other implementation bits left set.
+  // The bypass predicate's inputs. 0x1f000/0x9f00e0 is the shape the alioth unit's firmware leaves behind - CBAR
+  // TYPE=1 (S1 translate, S2 bypass), VMID 0, SCTLR.M clear with other implementation bits set - and the four
+  // assertions below are the predicate's table over that shape and its neighbours (0x10000 is this driver's own
+  // post-write value, 0x20000 a stage-2 shape). These are fixture inputs chosen to cover the predicate, not a
+  // recorded dump: the alioth SMMU registers are not carried in this repository.
   assert(ufsSmmuContextIsBypass(0x1f000,0x9f00e0));
   assert(ufsSmmuContextIsBypass(0x10000,0));
   assert(!ufsSmmuContextIsBypass(0x20000,0));
