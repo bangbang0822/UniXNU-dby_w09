@@ -658,7 +658,17 @@ void sendStep() {
 void advance() {
     for (gAudio.step++; gAudio.step < (int)kSteps; ++gAudio.step)
         if (kLadder[gAudio.step].level <= (int)gAudio.level) break;
-    if (gAudio.step >= (int)kSteps) {                       // the ladder is done: start the stream
+    if (gAudio.step >= (int)kSteps) {                       // the ladder is done
+        /* The ladder is only the front half of this path: the PCM ring the DSP reads is set up by setupPcm(),
+         * which runs for dby-apr=3 and above (see the level test where it is called). At levels 1 and 2 the rungs
+         * are the whole job, so reaching the end of them means the ladder is done, not that there is a stream -
+         * reporting StPlaying there unmuted the four amplifiers with nothing playing and told the audio server the
+         * output was ready. */
+        if (gAudio.level < 3 || gAudio.pcmVa == nullptr) {
+            kprintf("[apr] ladder done at level=%u, no stream (pcm=%d)\n", (unsigned)gAudio.level,
+                    gAudio.pcmVa != nullptr);
+            return;
+        }
         native_audio_stats[0] = StPlaying;
         gAudio.playAt = mach_absolute_time();
         // The vendor unmutes the amplifiers after the stream exists, so this is the point where their on-scene belongs; counted on
