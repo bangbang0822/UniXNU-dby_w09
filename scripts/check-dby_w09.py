@@ -15,8 +15,9 @@ from pathlib import Path
 import tomllib
 
 # core runs this with cwd = the device tree and passes the firmware checkout in
-# $UNIXNU_UEFI (cli.py:74); 'uefi-dby_w09' is the same checkout installed under its
-# repository name next to the tree.
+# $UNIXNU_UEFI (cli.py:90 reads it; line 74 is the vendor_boot parser's --verify-against
+# option); 'uefi-dby_w09' is the same checkout installed under its repository name next
+# to the tree.
 uefi_root = Path(os.environ.get('UNIXNU_UEFI') or 'uefi-dby_w09')
 PLATFORM = uefi_root / 'Platforms/Huawei/dby_w09Pkg'
 CONFIG = uefi_root / 'Resources/Configs/dby_w09.toml'
@@ -37,13 +38,17 @@ if __name__ == '__main__':
 
     memory_map_path = PLATFORM / 'Library/MemoryMapLib/MemoryMapLib.c'
     if not memory_map_path.is_file():
-        print('MemoryMapLib.c not found; skip descriptor checks')
+        # The descriptor checks cannot pass without the file: the empty row list below fails them.
+        # The message used to say the checks were skipped and then fail anyway.
+        print('MemoryMapLib.c not found; the descriptor checks fail without it')
         rows = []
     else:
         rows = rows_from_memory_map(memory_map_path)
 
-    if not rows or len(rows) > 128:
-        errors.append('Empty memory map or descriptor capacity exceeded')
+    if not rows:
+        errors.append('Empty memory map: MemoryMapLib.c is missing or declares no row')
+    elif len(rows) > 128:
+        errors.append(f'Descriptor capacity exceeded: {len(rows)} rows, 128 allowed')
 
     # Alignment / overlap checks. Only rows at or above PcdSystemMemoryBase are compared:
     # Silicon/Silicium/SiliciumPkg/Library/MemoryInitPeiLib/MemoryInitPei.c skips register
