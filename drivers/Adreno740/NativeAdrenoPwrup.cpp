@@ -29,6 +29,7 @@ IOReturn NativeAdrenoPwrupList::pack(const NativeAdrenoPwrupCounts &counts,
     const uint32_t *dynamic_triplets,uint8_t *out,size_t capacity,size_t *written)
 {
     if(!out || !written)return kIOReturnBadArgument;
+    if(reinterpret_cast<uintptr_t>(out)&3)return kIOReturnBadArgument;   // the body is written as uint32_t words
     *written=0;
     if(counts.ifpc>0xff || counts.preemption>0xff || counts.dynamic>0xffff)
         return kIOReturnBadArgument;
