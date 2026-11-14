@@ -84,9 +84,10 @@ constexpr uint32_t kPinDriveBits = 0x1c0u;       // drv_bit=6，三位；dts 的
 constexpr uint32_t kPinOutputEnable = 1u << 9;
 constexpr uint32_t kPinOutBit = 1u << 1;         // io_reg 的 out_bit=1
 
-/* SE 寄存器：GeniI2c.h 里没有这两个，时序在 prepare 之前就得写好（prepare 会拿 SCL_COUNTERS 当“时钟已配”的判据）。 */
-constexpr uint32_t kRegIfDisable = 0x64u;   // SE_GENI_DISABLE
-constexpr uint32_t kRegClkSel = 0x7cu;      // SE_GENI_CLK_SEL（geni-se.h:94，CLK_SEL 占 bits[2:0]）
+/* SE 的时序要在 prepare 之前写好（prepare 拿 SCL_COUNTERS 当“时钟已配”的判据）。两个寄存器里
+ * GENI_IF_DISABLE 与 GENI_CLK_CFG 在 GeniI2c.h 里已有定义（:16、:17），这里不再复述；只有 CLK_SEL
+ * 是那个头没有的，且它的注释指到 geni-se.h:94（CLK_SEL 占 bits[2:0]）。 */
+constexpr uint32_t kRegClkSel = 0x7cu;      // SE_GENI_CLK_SEL（geni-se.h:94）
 /* 主线 i2c-qcom-geni.c:191 的 geni_i2c_clk_map_19p2mhz 第一行：100 kHz 用
  * {clk_div, t_high, t_low, t_cycle} = {7, 10, 12, 26}，同一文件 185-188 给的算式是
  * SCL 周期 = t_cycle_cnt * clk_div / source_clock —— 26*7/19.2 MHz = 9.5 µs，即 105 kHz。 */
@@ -234,11 +235,11 @@ void resetPa(const PaSet &set, int invert) {
 /* 把 SE 的 I2C 时序写进去。bootloader 没碰过 se3，所以 CLK_CFG 的 clk_div 和 SCL_COUNTERS 都是空的——
  * geni_i2c_prepare 第一句就拿 SCL_COUNTERS 非零当时钟已配的证据。接口先关掉再配，配完放开。 */
 void programSe3Timing() {
-    wr(gSe.va, kRegIfDisable, 1u);
+    wr(gSe.va, GENI_IF_DISABLE, 1u);
     wr(gSe.va, kRegClkSel, 0);
-    wr(gSe.va, 0x48u, (rd(gSe.va, 0x48u) & ~0xf0u) | (kSeClkDiv << 4) | 1u);
+    wr(gSe.va, GENI_CLK_CFG, (rd(gSe.va, GENI_CLK_CFG) & ~0xf0u) | (kSeClkDiv << 4) | 1u);
     wr(gSe.va, GENI_SCL_COUNTERS, (kSeTHigh << 20) | (kSeTLow << 10) | kSeTCycle);
-    wr(gSe.va, kRegIfDisable, 0u);
+    wr(gSe.va, GENI_IF_DISABLE, 0u);
 }
 
 /* 一笔传输，轮询到完。返回 0 完成、-1 被拒、-2 总线错、-3 超时。
@@ -638,7 +639,7 @@ extern "C" void dby_smartpa_probe(void) {
     uint32_t config = 0;
     if (geni_i2c_prepare(&gBus, &io, kSets[0].base, &config) != 0) {
         kprintf("[pa] geni not usable proto=%u clk=0x%08x scl=0x%08x ifdis=%u\n", config >> 24,
-                config & 0xffffffu, rd(gSe.va, GENI_SCL_COUNTERS), rd(gSe.va, kRegIfDisable) & 1u);
+                config & 0xffffffu, rd(gSe.va, GENI_SCL_COUNTERS), rd(gSe.va, GENI_IF_DISABLE) & 1u);
         return;
     }
     gBusReady = true;
