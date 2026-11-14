@@ -100,6 +100,13 @@ static inline void m_settle(Model *m)
              (m->reg[DBT_R_STROBE_CTRL] & DBT_M_STROBE_SEL) == 0;
     m->ma = m->lit ? ((unsigned)(m->reg[DBT_R_TGR_CURRENT] & DBT_M_CURRENT) + 1u) * ires_ua / 1000u : 0u;
     if (m->lit && (m->reg[DBT_R_SAFETY_TMR] & 0x80u)) {
+        /* 10 000 us per count is [V]'s safety-timer step, but the citation here is the file, not a
+         * line: DbyTorchRegs.h:4 names [V] and :74 cites the register itself at [V]:39, while the
+         * quantum comes out of the driver's own timer arithmetic rather than a register table, and no
+         * line of [V] can be quoted for it from this repository. The branch is also unexercised - the
+         * gate only ever writes the disabled value (DBT_TORCH_TMR), so bit 7 is never set and
+         * tmr_armed is never 1 in any test. It stays because the model has to answer "what if that
+         * bit were set" for a future round; the power limits record the owed line. */
         m->tmr_armed = 1;
         m->tmr_off_us = m->now_us + (uint64_t)(m->reg[DBT_R_SAFETY_TMR] & 0x7Fu) * 10000ull;
     } else if (!m->lit) {
