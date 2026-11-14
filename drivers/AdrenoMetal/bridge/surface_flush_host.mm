@@ -23,16 +23,17 @@ extern "C" void sys_dcache_flush(void *address, size_t length) {
 
 static bool run(id<MTLDevice> device, unsigned aliases, unsigned allocations) {
     @autoreleasepool {
-        constexpr unsigned width = 64, height = 16, row = width * 4, frameBytes = row * height;
+        constexpr unsigned kWidth = 64, kHeight = 16, kRowBytes = kWidth * 4,
+                           kFrameBytes = kRowBytes * kHeight;
         std::vector<IOSurfaceRef> surfaces;
         auto textures = [NSMutableArray array];
         auto descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
-                                                                          width:width height:height mipmapped:NO];
+                                                                          width:kWidth height:kHeight mipmapped:NO];
         descriptor.storageMode = MTLStorageModeShared;
         descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite | MTLTextureUsagePixelFormatView;
         for (unsigned i = 0; i < allocations; ++i) {
-            NSDictionary *properties = @{(id)kIOSurfaceWidth:@(width), (id)kIOSurfaceHeight:@(height),
-                (id)kIOSurfaceBytesPerElement:@4, (id)kIOSurfaceBytesPerRow:@(row),
+            NSDictionary *properties = @{(id)kIOSurfaceWidth:@(kWidth), (id)kIOSurfaceHeight:@(kHeight),
+                (id)kIOSurfaceBytesPerElement:@4, (id)kIOSurfaceBytesPerRow:@(kRowBytes),
                 (id)kIOSurfacePixelFormat:@((uint32_t)0x52474241)};
             IOSurfaceRef surface = IOSurfaceCreate((__bridge CFDictionaryRef)properties);
             if (!surface || IOSurfaceLock(surface, 0, nullptr)) return false;
@@ -48,29 +49,29 @@ static bool run(id<MTLDevice> device, unsigned aliases, unsigned allocations) {
             if (!texture) return false;
             [textures addObject:texture];
         }
-        std::vector<unsigned char> upload(frameBytes, 0x5a);
-        id<MTLBuffer> input = [device newBufferWithBytes:upload.data() length:frameBytes options:MTLResourceStorageModeShared];
-        id<MTLBuffer> output = [device newBufferWithLength:aliases * frameBytes options:MTLResourceStorageModeShared];
+        std::vector<unsigned char> upload(kFrameBytes, 0x5a);
+        id<MTLBuffer> input = [device newBufferWithBytes:upload.data() length:kFrameBytes options:MTLResourceStorageModeShared];
+        id<MTLBuffer> output = [device newBufferWithLength:aliases * kFrameBytes options:MTLResourceStorageModeShared];
         id<MTLCommandBuffer> command = [[device newCommandQueue] commandBuffer];
         id<MTLBlitCommandEncoder> blit = [command blitCommandEncoder];
         if (!input || !output || !blit) return false;
-        [blit copyFromBuffer:input sourceOffset:0 sourceBytesPerRow:row sourceBytesPerImage:frameBytes
-                 sourceSize:MTLSizeMake(width,height,1) toTexture:textures[0] destinationSlice:0 destinationLevel:0
+        [blit copyFromBuffer:input sourceOffset:0 sourceBytesPerRow:kRowBytes sourceBytesPerImage:kFrameBytes
+                 sourceSize:MTLSizeMake(kWidth,kHeight,1) toTexture:textures[0] destinationSlice:0 destinationLevel:0
           destinationOrigin:MTLOriginMake(0,0,0)];
         for (unsigned i = 0; i < aliases; ++i)
             [blit copyFromTexture:textures[i] sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0,0,0)
-                      sourceSize:MTLSizeMake(width,height,1) toBuffer:output destinationOffset:i * frameBytes
-           destinationBytesPerRow:row destinationBytesPerImage:frameBytes];
+                      sourceSize:MTLSizeMake(kWidth,kHeight,1) toBuffer:output destinationOffset:i * kFrameBytes
+           destinationBytesPerRow:kRowBytes destinationBytesPerImage:kFrameBytes];
         [blit endEncoding];
         const uint64_t beforeCalls = calls.load(), beforeBytes = bytes.load();
         [command commit];[command waitUntilCompleted];
         uint64_t expectedBytes = 0;
         for (IOSurfaceRef surface : surfaces) expectedBytes += 2 * IOSurfaceGetAllocSize(surface);
         bool ok = command.status == MTLCommandBufferStatusCompleted;
-        for (unsigned i = 0; i < aliases; ++i) for (unsigned j = 0; j < frameBytes; ++j)
-            if (((const unsigned char *)output.contents)[i * frameBytes + j] != (i % allocations ? 0xa7 : 0x5a)) ok = false;
+        for (unsigned i = 0; i < aliases; ++i) for (unsigned j = 0; j < kFrameBytes; ++j)
+            if (((const unsigned char *)output.contents)[i * kFrameBytes + j] != (i % allocations ? 0xa7 : 0x5a)) ok = false;
         // The GPU also changed the first surface; check its actual shared bytes.
-        for (unsigned y = 0; y < height; ++y) for (unsigned x = 0; x < row; ++x)
+        for (unsigned y = 0; y < kHeight; ++y) for (unsigned x = 0; x < kRowBytes; ++x)
             if (((const unsigned char *)IOSurfaceGetBaseAddress(surfaces[0]))[y * IOSurfaceGetBytesPerRow(surfaces[0]) + x] != 0x5a) ok = false;
         const uint64_t actualCalls = calls.load() - beforeCalls, actualBytes = bytes.load() - beforeBytes;
         std::printf("aliases=%u allocations=%u flushes=%llu bytes=%llu expected=%u/%llu pixels=%s\n", aliases, allocations,

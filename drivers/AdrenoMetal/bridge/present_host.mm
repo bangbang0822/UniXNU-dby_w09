@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
         bool ok = true;
         ok &= run(device, 256, 64, 256 * 4, 256 * 4, 1, "equal pitch");
         ok &= run(device, 250, 61, 250 * 4 + 8, 256 * 4, 2, "surface pitch smaller");
-        ok &= run(device, 250, 61, 256 * 4, 250 * 4 + 40, 3, "scanout pitch smaller");
+        ok &= run(device, 250, 61, 256 * 4, 250 * 4 + 40, 3, "scanout pitch larger");
         ok &= run(device, 254, 33, 254 * 4 + 8, 254 * 4 + 64, 4, "unaligned pitches");
         if (!ok) return 1;
         std::printf("PASS: the GPU copied every pixel of four frames into the scanout pages, padding untouched\n");

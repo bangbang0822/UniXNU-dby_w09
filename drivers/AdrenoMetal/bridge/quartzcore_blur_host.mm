@@ -12,7 +12,7 @@
 #include "../NativeBridgeMetalFrontend.h"
 #include "NativeMetalObjects.h"
 
-constexpr unsigned width=32,height=24;
+constexpr unsigned kWidth=32,kHeight=24;   /* the texture extent and the loop bounds below */
 struct Vertex {float position[4],uv[2],unusedColor[4];};
 static const Vertex vertices[]={
     {{-1,-1,0,1},{0,1},{}},{{1,-1,0,1},{1,1},{}},{{-1,1,0,1},{0,0},{}},
@@ -81,14 +81,14 @@ static bool inventory(id<MTLDevice> device,id<MTLLibrary> library) {
 static std::vector<_Float16> convolution(const std::vector<_Float16> &input,bool vertical) {
     // Independent integer stencil: coefficients sum to 64, clamp at the edge.
     constexpr unsigned weight[]={1,6,15,20,15,6,1};std::vector<_Float16> result(input.size());
-    for(unsigned y=0;y<height;++y)for(unsigned x=0;x<width;++x)for(unsigned c=0;c<4;++c) {
+    for(unsigned y=0;y<kHeight;++y)for(unsigned x=0;x<kWidth;++x)for(unsigned c=0;c<4;++c) {
         float sum=0;
         for(int tap=-3;tap<=3;++tap) {
-            const int sx=std::clamp((int)x+(vertical?0:tap),0,(int)width-1);
-            const int sy=std::clamp((int)y+(vertical?tap:0),0,(int)height-1);
-            sum+=(float)input[(sy*width+sx)*4+c]*weight[tap+3];
+            const int sx=std::clamp((int)x+(vertical?0:tap),0,(int)kWidth-1);
+            const int sy=std::clamp((int)y+(vertical?tap:0),0,(int)kHeight-1);
+            sum+=(float)input[(sy*kWidth+sx)*4+c]*weight[tap+3];
         }
-        result[(y*width+x)*4+c]=(_Float16)(sum/64);
+        result[(y*kWidth+x)*4+c]=(_Float16)(sum/64);
     }
     return result;
 }
@@ -103,8 +103,8 @@ static bool encode(id<MTLCommandBuffer> command,id<MTLRenderPipelineState> state
     [encoder setFragmentTexture:source atIndex:3];[encoder setFragmentSamplerState:sampler atIndex:0];
     // Two bilinear pairs exactly represent the seven authored stencil taps.
     UniformF f={};UniformH h={};
-    f.offset[0][vertical?1:0]=0.6f/(vertical?height:width);
-    f.offset[1][vertical?1:0]=(15.0f/7)/(vertical?height:width);
+    f.offset[0][vertical?1:0]=0.6f/(vertical?kHeight:kWidth);
+    f.offset[1][vertical?1:0]=(15.0f/7)/(vertical?kHeight:kWidth);
     f.weight[0]=25.0f/64;f.weight[1]=7.0f/64;
     if(half) {
         memcpy(h.offset,f.offset,sizeof h.offset);h.weight[0]=(_Float16)f.weight[0];h.weight[1]=(_Float16)f.weight[1];
@@ -115,20 +115,20 @@ static bool encode(id<MTLCommandBuffer> command,id<MTLRenderPipelineState> state
     [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];[encoder endEncoding];return true;
 }
 static bool runBlur(id<MTLDevice> device,id<MTLRenderPipelineState> state,bool half) {
-    std::vector<_Float16> data(width*height*4);
-    for(unsigned y=0;y<height;++y)for(unsigned x=0;x<width;++x) {
-        auto p=data.data()+(y*width+x)*4;p[0]=(_Float16)((x%7)/7.0f);p[1]=(_Float16)((y%5)/5.0f);
-        p[2]=(_Float16)(x==width/2 && y==height/2);p[3]=1;
+    std::vector<_Float16> data(kWidth*kHeight*4);
+    for(unsigned y=0;y<kHeight;++y)for(unsigned x=0;x<kWidth;++x) {
+        auto p=data.data()+(y*kWidth+x)*4;p[0]=(_Float16)((x%7)/7.0f);p[1]=(_Float16)((y%5)/5.0f);
+        p[2]=(_Float16)(x==kWidth/2 && y==kHeight/2);p[3]=1;
     }
     const auto expected=convolution(convolution(data,false),true);
-    auto td=[MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float width:width height:height mipmapped:NO];
+    auto td=[MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float width:kWidth height:kHeight mipmapped:NO];
     td.storageMode=MTLStorageModeShared;td.usage=MTLTextureUsageShaderRead|MTLTextureUsageRenderTarget;
     id<MTLTexture> input=[device newTextureWithDescriptor:td],middle=[device newTextureWithDescriptor:td],output=[device newTextureWithDescriptor:td];
     auto sd=[MTLSamplerDescriptor new];sd.minFilter=MTLSamplerMinMagFilterLinear;sd.magFilter=MTLSamplerMinMagFilterLinear;
     sd.sAddressMode=MTLSamplerAddressModeClampToEdge;sd.tAddressMode=MTLSamplerAddressModeClampToEdge;
     id<MTLSamplerState> sampler=[device newSamplerStateWithDescriptor:sd];id<MTLCommandQueue> queue=[device newCommandQueue];
     if(!input || !middle || !output || !sampler || !queue)return false;
-    [input replaceRegion:MTLRegionMake2D(0,0,width,height) mipmapLevel:0 withBytes:data.data() bytesPerRow:width*8];
+    [input replaceRegion:MTLRegionMake2D(0,0,kWidth,kHeight) mipmapLevel:0 withBytes:data.data() bytesPerRow:kWidth*8];
     float worst=0;
     for(unsigned round=0;round<6;++round){@autoreleasepool {
         NmbShaderCacheStats before={},after={};uint64_t workBefore[10]={},workAfter[10]={};
@@ -137,7 +137,7 @@ static bool runBlur(id<MTLDevice> device,id<MTLRenderPipelineState> state,bool h
         if(!encode(command,state,input,middle,sampler,half,false) || !encode(command,state,middle,output,sampler,half,true))return false;
         [command commit];[command waitUntilCompleted];
         if(command.status!=MTLCommandBufferStatusCompleted){std::printf("FAIL blur command: %s\n",command.error.localizedDescription.UTF8String);return false;}
-        std::vector<_Float16> got(data.size());[output getBytes:got.data() bytesPerRow:width*8 fromRegion:MTLRegionMake2D(0,0,width,height) mipmapLevel:0];
+        std::vector<_Float16> got(data.size());[output getBytes:got.data() bytesPerRow:kWidth*8 fromRegion:MTLRegionMake2D(0,0,kWidth,kHeight) mipmapLevel:0];
         for(size_t i=0;i<got.size();++i){const float error=std::fabs((float)got[i]-(float)expected[i]);
             if(!std::isfinite((float)got[i]) || error>0.003f){std::printf("FAIL blur %s round=%u element=%zu got=%g expected=%g\n",half?"half":"float",round,i,(double)got[i],(double)expected[i]);return false;}
             worst=std::max(worst,error);
@@ -150,7 +150,7 @@ static bool runBlur(id<MTLDevice> device,id<MTLRenderPipelineState> state,bool h
             std::puts("FAIL repeated identical blur performs new pipeline/translation work");return false;
         }
     }}
-    std::printf("blur %s rounds=6 passes=12 texels=%u max_error=%g GPU=pass\n",half?"half":"float",width*height,worst);return true;
+    std::printf("blur %s rounds=6 passes=12 texels=%u max_error=%g GPU=pass\n",half?"half":"float",kWidth*kHeight,worst);return true;
 }
 
 int main(int argc,char **argv) {
