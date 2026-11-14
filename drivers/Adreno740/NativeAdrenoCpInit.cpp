@@ -15,10 +15,12 @@ enum : uint32_t {
     CpThreadControlOpcode = 0x17,
     CpMeInitOpcode = 0x48,
     CpConcurrentBinDisable = 1u << 27,
-    CpMeInitWords = 8,
     CpInitWords = 10,
-    /* a6xx_cp_init(): OUT_PKT7(CP_ME_INIT, 8) plus its own dword, so the packet is 1 + 8 words. */
-    CpA6xxMeInitWords = 8
+    /* a6xx_cp_init(): OUT_PKT7(CP_ME_INIT, 8) plus its own dword, so the packet is 1 + 8 words. The A7xx
+     * path sends a different CP_ME_INIT - CP_THREAD_CONTROL first, then seven words - which is why the two
+     * counts are separate constants and neither is a shared "n". */
+    CpA6xxMeInitWords = 8,
+    CpA7xxMeInitWords = 7
 };
 IOReturn NativeAdrenoCpInit::poison()
 {
@@ -63,7 +65,7 @@ IOReturn NativeAdrenoCpInit::run(const NativeAdrenoRingIo *io,NativeAdrenoRing *
         return kIOReturnSuccess;
     }
     if(AdrenoPM4Type7(CpThreadControlOpcode,1,&words[0])!=AdrenoPM4Success ||
-        AdrenoPM4Type7(CpMeInitOpcode,7,&words[2])!=AdrenoPM4Success)return poison();
+        AdrenoPM4Type7(CpMeInitOpcode,CpA7xxMeInitWords,&words[2])!=AdrenoPM4Success)return poison();
     words[1]=CpConcurrentBinDisable;
     words[3]=meInitMask();
     words[4]=0x00000003;      /* hardware contexts */
