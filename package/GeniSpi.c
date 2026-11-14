@@ -189,7 +189,13 @@ static void handle_rx(struct geni_spi *s, struct xfer *x) {
     size_t bytes = (size_t)(st & GENI_RX_WC_MASK) * bpw;
     if (st & GENI_RX_LAST) {
         unsigned valid = (st >> GENI_RX_LAST_VALID_SHIFT) & GENI_RX_LAST_VALID_MASK;
-        if (valid && valid < 4) bytes -= bpw - valid;
+        /* RX_LAST with a zero word count is a legal status (an empty last packet) and bytes is then 0:
+         * subtracting the padding from it wrapped to about 2^64 and the drain loop below read the FIFO
+         * that many times. Clamp instead. */
+        if (valid && valid < 4) {
+            const size_t pad = (size_t)(bpw - valid);
+            bytes = bytes >= pad ? bytes - pad : 0;
+        }
     }
     if (!x->rx) {
         for (size_t i = 0; i < (bytes + bpw - 1) / bpw; i++) (void)rd(s, SE_GENI_RX_FIFOn);
