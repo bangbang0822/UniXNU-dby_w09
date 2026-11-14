@@ -84,7 +84,13 @@ uint32_t ar_read(uint8_t *out, uint32_t capacity, uint32_t port, uint32_t token,
 #define AR_OP_PRM_RELEASE 0x01001010u
 #define AR_OP_PRM_REQUEST_DONE 0x02001002u
 #define AR_OP_PRM_RELEASE_DONE 0x02001003u
-#define AR_CLK_TX_CORE_MCLK 0x30cu   /* PRM clock ids, not the device tree indices (57 was refused) */
+/* The PRM identifiers the graph votes with. They are Q6 PRM IDs, not the device tree indices and not the
+ * AudioReach GPR enums either: 0x30c and 0x307 are the TX and VA core MCLK clock ids this DSP revision answers
+ * to (57, the device tree index, was refused - the measurement behind the parenthetical), and 1 and 2 are the
+ * LPASS core-macro and digital-codec hardware blocks. PROVENANCE: the board's PRM exchange as measured on this
+ * unit; the vendor's id enum that would name them is not carried in this repository, so there is no file:line to
+ * cite and porting.toml's audio limits record that gap. */
+#define AR_CLK_TX_CORE_MCLK 0x30cu
 #define AR_CLK_VA_CORE_MCLK 0x307u
 #define AR_HW_MACRO 1u
 #define AR_HW_DCODEC 2u

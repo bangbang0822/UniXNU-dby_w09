@@ -11,7 +11,14 @@
 extern "C" {
 #endif
 
-/* Serial engine registers (offsets in the engine's 16 KiB window). */
+/* Serial engine registers (offsets in the engine's 16 KiB window).
+ *
+ * PROVENANCE: [LINUX] drivers/i2c/busses/i2c-qcom-geni.c and include/linux/soc/qcom/geni-se.h, mainline, for the
+ * whole map below, the GENI_M_IRQ bit positions, GENI_PROTO_I2C and the opcode/packing values in GeniI2c.c; the
+ * names here are those headers' names. The line numbers are not pinned because neither tree is carried in this
+ * repository, so a reader can match symbols against the current sources but cannot check the revision these
+ * values were read from - recorded in porting.toml's audio limits beside the other values with the same gap.
+ */
 #define GENI_FW_REVISION 0x68u
 #define GENI_IF_DISABLE 0x64u
 #define GENI_CLK_CFG 0x48u
