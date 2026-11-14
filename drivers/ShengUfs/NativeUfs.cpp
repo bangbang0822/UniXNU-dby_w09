@@ -63,7 +63,10 @@ struct UfsStreamConfig {
 
 // The sheng board routes the UFS host through SMMU stream 0x60. Keep that
 // default, and let a board with the generic qcom,ufshc binding select one or
-// two streams. SM8250 UFS uses both 0x0e0 and 0x4e0.
+// two streams. SM8250 UFS uses both 0x0e0 and 0x4e0: the SoC DT's ufshc node lists them as its further iommus
+// entries, the same property whose first entry (0x60) is quoted at line 389 of this file. That DT is not carried
+// in this tree, so these two ids are board/SoC inputs recorded here without a line number - the storage limits
+// say so, and a second SM8250 board should take them from its own DT rather than from this default.
 static UfsStreamConfig ufsStreams (void)
 {
   UfsStreamConfig config = { 0x60, 0 };
