@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Emit build/dby-touch/DbyTouchFwImages.h from this unit's own Novatek THP firmware files.
 
 The images are vendor data taken from the stock package's libafehalW2599Z<project>.so

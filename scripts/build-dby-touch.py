@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Build the DBY-W09 touch archive against this source kernel's actual ABI.
 
 `libDbyTouch.a` is linked in through `CONFIG_XNU_EXTRA_LD_ARCHIVES` (plain archive path, not

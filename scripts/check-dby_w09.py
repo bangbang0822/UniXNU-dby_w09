@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Check the dby_w09 platform descriptors against the compiled device tree and config.
 
 Minimal preflight for the DBY-W09 (SM8250) UEFI port. It verifies:

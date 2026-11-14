@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Archive the no-op probe hooks of kits/dby_w09/LinkStubs.c for the kernel link (CONFIG_XNU_EXTRA_LD_ARCHIVES).
 
 Some of those hooks exist only while the component that owns the real definition is off, so the

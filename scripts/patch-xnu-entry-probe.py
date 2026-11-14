@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Put boot-progress probes into a COPY of the source XNU kernel (never the original).
 
 There is no serial console on the device and the kernel cannot draw before its

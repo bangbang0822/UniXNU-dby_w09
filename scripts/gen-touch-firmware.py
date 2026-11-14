@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Emit build/native-touch/NvtFirmware.c from the touch firmware kept outside Git (.cache/firmware/novatek).
 
 The generated source embeds vendor firmware bytes, so it lives only under build/ and is never committed. With no

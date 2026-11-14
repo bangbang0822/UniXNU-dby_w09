@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 # Pre-flash regression gate: proves that the artifact about to be written still carries every
 # capability this tablet has already been observed working, and that no boot arg or payload input
 # silently disappeared on the way from board.toml to payload.json.

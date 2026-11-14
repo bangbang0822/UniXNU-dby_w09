@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Add the MediaCapture plug-in's CDHash to a copy of the owner trust bundle.
 
   add-dby-camera-trust.py BASE.bundle TRUST.json OUTPUT.bundle [--original BUNDLE] [--drop-cdhash HEX ...]

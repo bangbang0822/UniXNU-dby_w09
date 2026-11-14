@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Refuse a board whose device tree declares E/P clusters without the kernel side of them.
 
 A cpu node carrying `unixnu,cluster-type` is only meaningful together with

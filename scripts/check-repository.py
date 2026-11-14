@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Check that this repository is coherent on its own: no build host, no hardware.
 
 Everything here can be verified from a clean checkout with Python 3.11 and git, which is

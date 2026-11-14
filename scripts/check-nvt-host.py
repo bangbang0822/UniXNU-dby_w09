@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Host tests of the N9Z protocol layer against the vendor's register map (package/NvtN9ZHostTests.c). Model tests only.
 
 The test lived in the tree with no runner, so nothing ran it -- and when it was finally compiled it aborted

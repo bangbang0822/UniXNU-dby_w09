@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Build libDbyGpuSmmuProbe.a, the archive the DBY-W09 kernel links for the read-only GPU SMMU probe.
 
 `package/DbyGpuSmmuProbe.cpp` maps the GPU's Arm MMU-500 at physical 0x03da0000 (this board's own vendor

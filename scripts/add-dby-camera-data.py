@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Stage the owner-built MediaCapture plug-in into a copy of a packed Data seed.
 
   add-dby-camera-data.py [--plugin DIR] [--test-pattern] BASE.dbr OUTPUT.dbr

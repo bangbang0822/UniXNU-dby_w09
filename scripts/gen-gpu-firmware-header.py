@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Generate package/DbyGpuFirmware.h: the DBY-W09 pin table plus the three A650 images, compiled in.
 
 `package/DbyGpuFirmware.h` used to carry three `nullptr` pins because the images were

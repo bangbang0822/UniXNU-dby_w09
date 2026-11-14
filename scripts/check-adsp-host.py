@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Host tests of the audio DSP bring-up cores (package/tests/qcom_adsp_host.c): firmware image parsing, SMEM, SMP2P, GLINK, the
 AOSS mailbox, cmd-db and RSC request encoding, SCM ids. Model tests only; nothing here touches hardware."""
 import subprocess

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Host test of the firmware partition reader (package/FatVolume.c and the split image view in package/QcomMdt.c,
 package/tests/modem_fw_host.c). The volumes are made by mtools, not by this script: a FAT16 like the device's firmware partition
 (4096-byte sectors, 4 per cluster) and a FAT32 with 512-byte sectors, each holding a synthetic split firmware image and a fragmented file.

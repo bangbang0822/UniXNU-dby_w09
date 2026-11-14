@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Build the sheng audio server plug-in (hal/ShengAudioPlugIn.c) as an iOS driver bundle, signed ad hoc.
 
   build-sheng-audio-hal.py OUTDIR

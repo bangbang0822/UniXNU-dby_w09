@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Host tests of the legacy APR audio packet router (package/tests/apr_audio_host.c): the byte layout of every request this board's
 Kona stack sends - core handshake, AVCS service versions, AFE clock/TDM/slot mapping/port start, ADM route, ASM stream - plus the
 decoder's malformed-packet rules and the pending table. Model tests only; nothing here touches hardware."""

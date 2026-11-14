@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 # Device packaging script, identical in every device repository. Do not edit it: a board changes board.toml
 # ([package] and the sections it names), never this file. Steps (run by "unixnu release"): deps, preflight,
 # patches, build, pack, verify. Documentation: docs/porting/packaging.md in the UniXNU repository.

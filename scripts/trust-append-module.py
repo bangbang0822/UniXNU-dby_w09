@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """trust-append-module.py IN OUT CDHASH [CDHASH ...]: copy a trust bundle (bundle-ipsw-trust.py layout) and append one version-2
 module with the given CDHashes (hash type 2). The IPSW modules stay byte for byte; the kernel loads the new one as an engineering module."""
 import struct

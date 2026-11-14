@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Build the opt-in board diagnostic against this source kernel's actual ABI."""
 import hashlib
 import os

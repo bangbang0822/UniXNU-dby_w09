@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Build the trust bundle for the boot image: one owner module for the Adreno Metal plugin, then the two original Apple
 trust modules byte for byte. Output: build/adreno-metal-plugin/owner-trust.bundle (ignored). The original modules are
 verified unchanged against build/original-static-system-trust; only the plugin's CDHash is added."""

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 set -euo pipefail
 # Many checks are bare `test -f`; name the one that stops the build.
 trap 'echo "build-xnu-4k-baseline.sh: line $LINENO: $BASH_COMMAND failed" >&2' ERR

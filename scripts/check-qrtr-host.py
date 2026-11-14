@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Host tests of the audio DSP services (package/tests/qrtr_host.c): the IPC router side and the service locator."""
 import subprocess
 import sys

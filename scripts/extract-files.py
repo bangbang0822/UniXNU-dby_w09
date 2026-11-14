@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Put the proprietary files of proprietary-files.txt into .cache/firmware/, checked against their SHA-256.
 
 usage: extract-files.py [SOURCE] [--section NAME] [--check] [--device DIR]

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Copy a GPU addon (NGPUADD2, see UniXNU scripts/make-gpu-addon.py) and add the files of DIR below PREFIX.
 usage: addon-add-dir.py IN.bin OUT.bin PREFIX DIR [PREFIX DIR ...]   (executables keep 0755, the rest 0644)"""
 import os

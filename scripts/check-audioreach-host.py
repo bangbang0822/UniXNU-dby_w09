@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Host tests of the graph manager commands (package/tests/audioreach_host.c). Model tests only."""
 import subprocess
 import sys

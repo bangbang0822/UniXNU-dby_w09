@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Build the opt-in, guarded original-PMGR integration of UniXNU-sheng (ShengPlatformPower) for this board.
 
 It is build-sheng-platform-power.py of UniXNU-sheng with these changes. The source is the board kit's copy of

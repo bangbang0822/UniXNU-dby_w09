@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Mechanical Mach-O edits that turn a compiled accelerator object into its "late" form.
 
 scripts/build-adreno650-accelerator.py stages NativeAdrenoAccelerator.cpp into the kernel's

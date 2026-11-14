@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Pack the owner-built Adreno Metal plugin into a GPU addon file for the boot payload.
 
   make-gpu-addon.py [--publish] [--clients NAME,...] [--wallpaper DIR] [--prime-list FILE] OUTPUT

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Check commit subjects against the UniXNU commit convention.
 
 The convention is the table in UniXNU's CONTRIBUTING.md:

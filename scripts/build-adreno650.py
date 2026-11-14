@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 # -----------------------------------------------------------------------------
 # HISTORICAL. The six "orchestrator action required" edits that used to stand here were
 # written on 2026-11-05 and every one of them has since landed or been superseded; they

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Build the staged AGXAccelerator class into this board's driver archive.
 
 NativeAdrenoAccelerator.cpp derives from the ORIGINAL kernel's IOAcceleratorES, and the base

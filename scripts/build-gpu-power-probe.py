@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Build libDbyGpuPowerProbe.a: the board probe plus the upstream SM8250 GPU power kit.
 
 What it compiles

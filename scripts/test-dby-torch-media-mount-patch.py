@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """patches/xnu/zze-dby-torch-media-mount.patch: the fifth native_gpu_addon_mount() in kern_exec.c, the
 one that makes the flashlight plug-in visible so dby_torch_ios_commit() will publish AppleH6CamIn and
 the /product/camera flash property.

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Pull the NT36523 touch image out of the stock AFE HAL, where this model keeps it.
 
 usage: extract-afe-firmware.py [--list] [--out PATH]

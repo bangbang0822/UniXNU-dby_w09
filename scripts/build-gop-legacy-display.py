@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 """Bind an owned concrete backend to the unchanged original Legacy lifecycle."""
 import hashlib
 import json
