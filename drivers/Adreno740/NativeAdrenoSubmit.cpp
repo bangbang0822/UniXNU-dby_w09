@@ -101,9 +101,14 @@ static const NativeAdrenoVm *tgt_pending_vm;   /* the VM the capture was made in
 static uint32_t restart_failures;
 /* How long fences stayed pending from their first timed-out wait to their last: [i] under 1 << i ms for i < 7, [7] 64 ms or more. */
 extern "C" {volatile uint32_t native_adreno_fence_pending[8];}
-/* What the stall handler tried: [0] attempts, [1] the fence of the last attempt, [2] attempts after which that fence completed, [3] the
- * timed-out waits that fence had seen when it did. */
-/* [4] bus drains, [5] client halt acknowledge, [6] arbiter halt acknowledge, [7] the fence of the last drain, [8] drains after which that fence completed */
+/* What the stall handler tried: [0] first-stage attempts (the write pointer given again after 50 ms), [1] the fence of the last
+ * attempt, [4] bus drains, [5] client halt acknowledge, [6] arbiter halt acknowledge, [7] the fence of the last drain, [9] first-stage
+ * recoveries, [11] bus-drain recoveries, [12] the most timed-out waits any one stall accumulated, [13] the wait timeout in us.
+ * Three fields of this row are never written and read as zero, which is what the code does rather than an event that did not happen:
+ * [2]/[3] ("attempts after which that fence completed" and "the waits it had seen") and [8] ("drains after which that fence
+ * completed") were in an earlier design, [10] belongs to a stage-2 "translations dropped" step the handler never takes - it goes from
+ * 1 straight to 3 - and [8+0] is excluded by the stall_stage test that guards the increment. porting.toml's gpu limits record that
+ * the row prints three fields the driver does not maintain. */
 extern "C" {volatile uint32_t native_adreno_unstick[15];}
 /* The last four submissions' ring words, linearised by NativeAdrenoRing::submitWords. */
 extern "C" {extern volatile uint32_t native_adreno_ring_log[4][4+112];extern volatile uint32_t native_adreno_ring_log_count;}
@@ -616,7 +621,8 @@ void NativeAdrenoSubmit::noteStall(uint32_t observed,const NativeAdrenoRingClock
             if(stall_last_us-stall_began_us>=1000)log(stall_fence,0,stall_last_us-stall_began_us,0,0);   /* shorter ends are ordinary jobs */
         }
         stall_began_us=now;stall_snapshots=0;
-        /* The CP moved on: what the stall that just ended took to clear. [9] first-stage recoveries, [10] second, [11] third, [12] timeouts of the longest. */
+        /* The CP moved on: what the stall that just ended took to clear. [9] first-stage recoveries, [11] bus-drain recoveries (stage 2 does
+         * not exist, so [10] is never written), [12] the most timeouts one stall accumulated. */
         if(stall_stage && stall_timeouts) {
             native_adreno_unstick[8+stall_stage]=native_adreno_unstick[8+stall_stage]+1;
             if(stall_timeouts>native_adreno_unstick[12])native_adreno_unstick[12]=stall_timeouts;
