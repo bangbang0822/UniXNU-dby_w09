@@ -90,6 +90,10 @@ extern "C" void NBTraceSwap(uint64_t offered,uint64_t copied,uint64_t completed,
 static void traceNote(uint32_t tid) {
  static std::atomic<uint32_t> seen[64];
  for(unsigned i=0;i<64;i++){uint32_t v=seen[i].load();if(v==tid)return;if(!v){uint32_t zero=0;if(seen[i].compare_exchange_strong(zero,tid))break;if(seen[i].load()==tid)return;}}
+ /* The name comes from pthread_getname_np(pthread_self()): this records the EMITTING thread's name, while rec.tid may
+  * name another one (completed() asks for the creator and the committing thread from the completion thread). Darwin
+  * gives no name for an arbitrary tid without its pthread_t, so a consumer must read the name as "the thread that
+  * emitted this record" and fall back to the tid for the other one. */
  TraceRec rec={};rec.type=4;rec.tid=tid;pthread_getname_np(pthread_self(),(char *)&rec.t0,24);tracePush(rec);
 }
 
@@ -1896,10 +1900,20 @@ extern "C" size_t native_bridge_metal_status(char *out,size_t size) {
 }
 
 static size_t native_bridge_metal_formats_locked(char *out,size_t size) {
- int n=snprintf(out,size,"tex x%llu s%llu/%llu p%llu f",(unsigned long long)gTextureRefusals.load(),(unsigned long long)gSurfaceTextures.load(),
+ /* snprintf returns the length it *would* have written, so accumulating it made the return value name more bytes
+  * than the buffer holds and a caller that used it as an offset read past the end. The count is clamped to what
+  * fits, and a truncated row stops the loop. */
+ if(!out || !size)return 0;
+ size_t used=(size_t)snprintf(out,size,"tex x%llu s%llu/%llu p%llu f",(unsigned long long)gTextureRefusals.load(),(unsigned long long)gSurfaceTextures.load(),
               (unsigned long long)gSurfaceRefusals.load(),(unsigned long long)gSurfacePlanar.load());
- for(unsigned i=0;i<gFormatCount && n>0 && (size_t)n<size;i++)n+=snprintf(out+n,size-(size_t)n,"%u ",gFormats[i]);
- return n>0?(size_t)n:0;
+ if(used>=size)return size-1;
+ for(unsigned i=0;i<gFormatCount;i++) {
+  const int n=snprintf(out+used,size-used,"%u ",gFormats[i]);
+  if(n<0)break;
+  if((size_t)n>=size-used) {used=size-1;break;}
+  used+=(size_t)n;
+ }
+ return used;
 }
 // The benchmark's rows (native_bridge_metal_benchmark), kept for the telemetry table.
 static std::mutex gBenchLock;
@@ -1981,7 +1995,15 @@ extern "C" size_t native_bridge_metal_benchmark(id device,const char *metallib,u
  size_t at=0;
  if(out && size) {
   std::lock_guard<std::mutex> lock(gBenchLock);
-  out[0]=0;for(unsigned r=base;r<base+2;r++)at+=(size_t)snprintf(out+at,size>at?size-at:0,"%s\n",gBench[r]);
+  out[0]=0;
+  /* snprintf's would-be length was accumulated straight into the return value, so a truncated report claimed more
+   * bytes than the buffer holds. Count what fit, and stop at the first row that does not. */
+  for(unsigned r=base;r<base+2 && at+1<size;r++) {
+   const int n=snprintf(out+at,size-at,"%s\n",gBench[r]);
+   if(n<0)break;
+   if((size_t)n>=size-at) {at=size-1;break;}
+   at+=(size_t)n;
+  }
  }
  return at;
 }
