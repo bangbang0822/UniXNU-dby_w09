@@ -52,7 +52,11 @@ static void same(const uint8_t *old) {
 int main() {
   alignas(4096) uint8_t old[kDmaBytes];
   uint8_t *virt=old;
-  const uint32_t ucdOffset=4096,rspOffset=512,prdtOffset=1024,dataOffset=8192;
+  /* The extracted builder prefixes below use the driver-s own local names; they are aliases of
+   * RootTransportLayout.h-s constants (reached through RootCommandsBridge.cpp), not a second copy of the
+   * numbers, so a change to the layout moves this fixture with the driver instead of leaving it behind. */
+  const uint32_t ucdOffset=kUcdOffset,rspOffset=kRspOffset,prdtOffset=kPrdtOffset,dataOffset=kDataOffset;
+  static_assert(sizeof old==kDmaBytes,"the fixture-s buffer is the driver-s window");
   for (uint64_t phys: {0x40010000ULL,0x8cb5e9000ULL}) {
     // PREFIXES
     uint32_t ignored=0;
@@ -79,10 +83,18 @@ int main() {
 '''.replace('// PREFIXES','\n'.join(prefixes))
     (out/'compare.cpp').write_text(fixture)
     subprocess.run([args.compiler,'-std=c++17','-O2','-fsanitize=address,undefined',
+                    '-fno-sanitize-recover=undefined',
                     '-fno-omit-frame-pointer','-I',str(source),str(out/'compare.cpp'),
                     '-o',str(out/'compare')],check=True)
-    log=subprocess.check_output([str(out/'compare')],text=True,timeout=10)
+    # The report said passed: true whatever happened, and a recoverable UBSan report would have left the run
+    # successful. A sanitizer diagnostic is a failure now, and the verdict comes from the run itself.
+    ran=subprocess.run([str(out/'compare')],text=True,timeout=10,capture_output=True)
+    log=ran.stdout+ran.stderr
     (out/'result.log').write_text(log); print(log,end='')
+    sanitizer=[m for m in ('runtime error:','ERROR: AddressSanitizer') if m in log]
+    if ran.returncode or sanitizer:
+        raise SystemExit(f'legacy descriptor comparison failed (exit {ran.returncode}, markers {sanitizer}); see {out/"result.log"}')
+    # passed is true because the run above exited 0 without a sanitizer diagnostic and printed its PASS line.
     report={'cases':14,'passed':True,'scope':'UTRD 32 bytes and UCD/response/PRDT 1040 bytes before doorbell; '
             'does not compare allocation, coherence, queue takeover or controller behavior',
             'source_sha256':{name:hashlib.sha256((source.parent/name).read_bytes()).hexdigest()
