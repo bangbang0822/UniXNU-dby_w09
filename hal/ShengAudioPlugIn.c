@@ -281,7 +281,7 @@ static OSStatus propertyData(AudioObjectID o, const AudioObjectPropertyAddress *
         case kAudioObjectPropertyElementName: REPLY_STR("");
         case kAudioDevicePropertyConfigurationApplication: REPLY_STR("com.apple.Preferences");
         // The transport type is the classification knob, and this value is the official one, not an inference of ours: the sheng
-        // plug-in this one descends from answers kAudioDeviceTransportTypeThunderbolt at hal/ShengAudioPlugIn.c:279 and says why on
+        // plug-in this one descends from answers kAudioDeviceTransportTypeThunderbolt at hal/ShengAudioPlugIn.c:286 and says why on
         // the lines directly above it -- "Thunderbolt: the audio server's routing layer makes a device of this transport a driver
         // device with one output and one input port of its own. Built-in devices are only used through Apple's port descriptions,
         // and a USB device must carry a USB location ('lcID') that the HAL does not take from a plug-in (i529)". That file's volume

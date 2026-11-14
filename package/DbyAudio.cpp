@@ -51,7 +51,7 @@ extern kmod_info_t g_kernel_kmod_info;   // the module the service's classes reg
 // package/DbySmartPA.cpp: the factory amplifier on-scene (DbyPaTables.h's kDbyPaTfa9874_*_on[]), which the vendor applies only
 // after every device has started -- INIT alone leaves register 0x00 at 0x0002, so AMPE and DCA stay clear and nothing can be heard.
 extern "C" uint32_t dby_smartpa_play(void);
-// The cache clean the ADSP probe already uses for every buffer it hands the DSP (package/AdspProbe.cpp:296). That copy has
+// The cache clean the ADSP probe already uses for every buffer it hands the DSP (package/AdspProbe.cpp:300). That copy has
 // internal linkage (it sits inside the anonymous namespace opened at AdspProbe.cpp:119), so this translation unit carries its
 // own identical copy instead of an external reference; clang drops the out-of-line body in AdspProbe.o once it inlines it.
 static void cleanToPoc(const void *start, size_t length) {

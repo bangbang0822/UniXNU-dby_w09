@@ -1307,7 +1307,7 @@ extern "C" int native_ufs_store_read (uint64_t rel, uint32_t blocks, void *dst)
 
 // ---- Read-only access by absolute LBA and by GPT partition name -------------------------------------
 // The two native_ufs_part_* functions below are UniXNU/ShengUfs@main (1386-1437), verbatim: they are what the
-// official ADSP bring-up weak-imports (package/AdspFirmware.c:23-24) to read its own firmware partition through
+// official ADSP bring-up weak-imports (package/AdspFirmware.c:25-26) to read its own firmware partition through
 // the UFS driver, which is how the official SM8550 board gets its firmware (core/docs/devices/asteroids.md,
 // Audio/findings). hostRead4k already takes the LUN and writes it into the UPIU (RootCommands.h:271, ucd[2] at
 // :173), so nothing here needed changing to fit SM8250. native_ufs_abs_read is the LUN0-only form the accepted
