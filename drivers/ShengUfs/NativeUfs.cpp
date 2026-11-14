@@ -308,7 +308,8 @@ void NativeUfs::inspect (void)
   // host-controller reads on a powered-down controller is the safer failure, and the dump records
   // what was read so a kona session can correct the offsets with a source.
   bool powered = (gdsc & 0x80000000U) != 0;
-  // Hardware 2026-10-17: AXI running, AHB enabled but CLK_OFF (bit31). With bit1 (HW gating)
+  // The 2026-10-17 readback recorded in porting.toml's storage area: the AXI was running and the AHB was
+  // enabled but CLK_OFF (bit31), with bit1 (HW gating) set.
   // set the branch wakes on access, so enable bits, not CLK_OFF, gate the read-only probe.
   bool busClocks = !(axi & 0x80000000U) && (ahb & 0x1U) && (axi & 0x1U);
   uint32_t cap = 0, ver = 0, hcs = 0, hce = 0, utrlba = 0, is = 0;

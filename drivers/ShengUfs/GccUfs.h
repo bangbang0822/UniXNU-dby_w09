@@ -41,7 +41,8 @@
 #define GCC_UFS_BRANCH_ENABLE_BIT     0x1U
 
 // gcc_ufs_phy_ahb_clk and gcc_aggre_ufs_phy_axi_clk set hwcg_bit=1 in gcc-sm8550.c, so CLK_OFF=1 on
-// an idle branch is normal (hardware 2026-10-17 read ahb=80000003).
+// an idle branch is normal (porting.toml, storage area: the 2026-10-17 readback of 0x80000003 for the UFS
+// PHY branch, which is CLK_OFF with the hardware-gating bit set).
 // The reset and RPMh/TCSR/QMP-PHY programming are not represented here: their
 // semantics are not qualified and NativeUfs must not write them speculatively.
 #endif
