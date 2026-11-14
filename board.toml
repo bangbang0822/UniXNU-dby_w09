@@ -473,6 +473,13 @@ kernel_args = [
   # qcom-usb-debug=1 挤进 DarwinBoot.c:542 的 1024 字节命令行缓冲而删掉了本来就有的参数。
   # 现在原样加回来，字节改从我自己新加的那条还（见下面 armcpu-self-ipi 的撤销）。
   "sheng-log=1",
+  # 2026-11-15 sheng-log-replay=1（含分隔符 20 字节，914 + 20 = 934/1000）：上一次运行死在
+  # 控制台能读之前，这次开机把它留在日志窗里的文本从同一个窗口读回来，再走这次的控制台打出来，
+  # 不写介质。读取点是 package/BootLog.c 的 boot_log_tick（PE_parse_boot_argn("sheng-log-replay")），
+  # 它在 writer 打开窗口之后、第一次写之前先把旧 header / 消息区 / 最新文本槽取进内存，等 6 秒让
+  # USB CDC 起来再以 "[prev]" 前缀打印。前缀保留 sheng-：读它的就是本板的 BootLog.c，和上面
+  # sheng-log=1 同一个读者、同一份窗口布局（payload.py:35 的 1000 字节门内还有 66 字节余量）。
+  "sheng-log-replay=1",
   "offline-legacy-retire=1",
   # 2026-11-07 sheng-gpu-addon=1 顶掉 boot-ui-focus=launchd：它腾 22 字节（含分隔空格），这条花 18，实测 992/1000。
   # boot-ui-focus 的唯一读者是 package/BootProcessProbe.c:105，作用是把 targets[1] 从默认的 backboardd 换成 launchd，
