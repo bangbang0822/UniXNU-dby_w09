@@ -2,6 +2,13 @@
 // SM8550 GCC registers used by UFS, transcribed as facts from the public
 // Linux gcc-sm8550.c clock driver. No write is performed by NativeUfs yet.
 //
+// Citation level: [LINUX] drivers/clk/qcom/gcc-sm8550.c, mainline, for every GCC_ and UFS_ offset below (the
+// clock driver's UFS branch); the values are named after the symbols they were read from, and the line numbers
+// are not pinned because neither that tree nor a pinned copy of it is carried here. The three physical windows
+// come from the sheng board DT named in the comment above them, which is also not in this tree. What that costs
+// is re-derivability: a reader can open the current file and match the symbol names, but cannot check the numbers
+// against the revision this driver was written for - recorded in porting.toml's storage limits.
+//
 // These offsets are SM8550's, and this board is SM8250 (kona). SM8250's GCC has its own layout and
 // nothing in this repository records kona's UFS branch offsets, so the values NativeUfs::inspect()
 // reads through this map are logged for a build that runs on an SM8550 board and are only a
