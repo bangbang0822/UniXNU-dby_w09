@@ -10,6 +10,19 @@ ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'build/native-legacy-display';
 sys.path.insert(0,str(ROOT/'kits/XnuPrelink'))
 from native_prelink import macho,backed_offset,exports
 def run(cmd,**kw):return subprocess.check_output([str(x) for x in cmd],timeout=90,**kw)
+def owner_data_uuid():
+    """The Data volume UUID package/KeyStoreProbe.cpp hashes into the key store's device key.
+
+    It is a build input already: `unixnu defconfig` writes CONFIG_XNU_OWNER_DATA_VOLUME_UUID into the
+    generated .config, which sits beside the tree this script runs in, and the kernel script turns it
+    into build/xnu/owner-data-volume.h. Reading the same config here keeps one source for both.
+    """
+    config=ROOT.parent/'.config'
+    require(config.is_file(),f'{config} is missing: run unixnu defconfig before building the kernel')
+    for line in config.read_text().splitlines():
+        key,_,value=line.partition('=')
+        if key.strip()=='CONFIG_XNU_OWNER_DATA_VOLUME_UUID':return value.strip().strip('"')
+    raise SystemExit(f'{config} has no CONFIG_XNU_OWNER_DATA_VOLUME_UUID')
 def require(v,why):
     if not v:raise SystemExit(why)
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
@@ -306,7 +319,10 @@ KEY=ROOT/'build/apple-key-store-state'
 print(run(['python3',ROOT/'scripts/build-arm-driver.py','NativeKeyStoreEvents'],text=True),end='')
 keystore_source=ROOT/'kits/dby_w09/KeyStoreProbe.cpp'
 keystore_obj=OUT/'KeyStoreProbe.o'
-run([str(keystore_source) if str(arg)==str(source) else str(keystore_obj) if str(arg)==str(probe) else arg for arg in cmd],cwd=r['directory'])
+# native_aks_device_id answers with the owner Data volume's UUID, so the key store's device key is
+# tied to the partition the keychain items live on (see package/KeyStoreProbe.cpp).
+keystore_define='-DXNU_OWNER_DATA_VOLUME_UUID="'+owner_data_uuid()+'"'
+run([str(keystore_source) if str(arg)==str(source) else str(keystore_obj) if str(arg)==str(probe) else arg for arg in cmd]+[keystore_define],cwd=r['directory'])
 keyevents=KEY/'NativeKeyStoreEvents.o'
 keyevents_late=KEY/'NativeKeyStoreEvents.late.o'
 run([objcopy,'--remove-section=__DATA,__mod_init_func',

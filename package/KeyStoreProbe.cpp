@@ -73,6 +73,28 @@ void native_aks_call(uint32_t selector, int32_t result) {
     if (selector < 96) { aks_count[selector] = aks_count[selector] + 1; aks_rc[selector] = result; }
     aks_publish();
 }
+// The identity AppleKeyStoreState hashes into the key that wraps every keychain item
+// (drivers/AppleKeyStoreState/NativeKeyStoreEvents.cpp:28, :109). Its README states the contract: the
+// wrapping is software and the board must return an identity. Two properties are not optional - the
+// same value at every boot of one unit, or existing items cannot be opened again, and a different
+// value per unit, or two boards share a key.
+//
+// The value is the owner Data volume's UUID: it lives as long as that partition does, it differs
+// between units because each Data seed carries its own, and it is already a build input
+// (CONFIG_XNU_OWNER_DATA_VOLUME_UUID -> XNU_OWNER_DATA_VOLUME_UUID, the same string the kernel
+// script writes into build/xnu/owner-data-volume.h for kern_exec.o). Nothing here invents a
+// hardware value, and a re-seed legitimately invalidates the items written before it. A per-board
+// hardware identity (the SoC serial in SMEM) would be the alternative and is not read yet.
+#ifndef XNU_OWNER_DATA_VOLUME_UUID
+#error "native_aks_device_id needs XNU_OWNER_DATA_VOLUME_UUID; build-gop-legacy-display.py passes it from the generated .config"
+#endif
+size_t native_aks_device_id(uint8_t *out, size_t capacity) {
+    static const char identity[] = XNU_OWNER_DATA_VOLUME_UUID;
+    const size_t n = sizeof(identity) - 1;
+    if (!out || capacity < n) return 0;
+    memcpy(out, identity, n);
+    return n;
+}
 static void native_keyevents_probe(void) {
     unsigned enabled = 0, original = 0;
     if (!PE_parse_boot_argn("offline-key-events", &enabled, sizeof(enabled)) || enabled != 1 ||
