@@ -275,14 +275,20 @@ def main():
     out = tree / OUT_DIR
     out.mkdir(parents=True, exist_ok=True)
     includes = [kit_dir, firmware.parent, smmu_dir, pm4_dir, tree / '.cache/xnu-work/osfmk']
-    # mode 17 drives the A650 archive's C entry points, so the probe includes its headers.
-    # Three places to look: the assembled tree (only when the feed is materialised), the core
-    # checkout beside this repository (running the recipe from the device repo), and the core
-    # checkout beside the device repository the board kit symlink resolves to (running from
-    # {tree}/scripts, where ROOT is the tree).
-    for _driver in (tree / 'drivers/Adreno740',
-                    ROOT / '..' / 'UniXNU' / 'drivers' / 'Adreno740',
-                    (tree / 'kits' / board_kit(tree)).resolve().parent.parent / 'UniXNU' / 'drivers' / 'Adreno740'):
+    # mode 17 drives the A650 archive's C entry points, so the probe includes its headers, and they
+    # have to come from the same directory the archive's sources came from. This repository's own
+    # checkout is that directory (see build-adreno650.py:driver_candidates: the core's copy is a
+    # different, older line, and the tree has no drivers/Adreno740 link because no catalog component
+    # is selected for it). UNIXNU_DEVICE is what unixnu build kernel exports; the kit symlink answers
+    # the same question when this recipe is run from the checkout.
+    _link = tree / 'kits' / board_kit(tree)
+    _device = Path(os.environ['UNIXNU_DEVICE']) if os.environ.get('UNIXNU_DEVICE') else (
+        _link.resolve().parent if _link.exists() else None)
+    _driver_candidates = ([_device / 'drivers/Adreno740'] if _device is not None else []) + [
+        tree / 'drivers/Adreno740',
+        ROOT / '..' / 'UniXNU' / 'drivers' / 'Adreno740',
+        _link.resolve().parent.parent / 'UniXNU' / 'drivers' / 'Adreno740']
+    for _driver in _driver_candidates:
         if _driver.is_dir():
             includes.append(_driver)
             break

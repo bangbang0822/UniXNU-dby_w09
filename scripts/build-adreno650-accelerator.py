@@ -70,14 +70,16 @@ def main():
     args = parser.parse_args()
     tree = args.tree.resolve() if args.tree else Path(__file__).resolve().parents[1]
     # The driver sources are not in the assembled tree (schema_version 2 keeps only the board
-    # package there), so fall back the way build-adreno650.py does: beside the device, then beside
-    # this script's parent.
-    candidates = [tree / 'drivers/Adreno740']
-    # tree/kits/dby_w09 is a symlink to the board package once the kernel has assembled the tree;
-    # the core checkout (and therefore drivers/Adreno740) sits beside the device directory.
+    # package there), so fall back the way build-adreno650.py does: this repository's own checkout
+    # first, because that is the line the verified kernel was built from and the one every fix
+    # here lands in, then the tree, then the core checkout beside either.
+    candidates = []
     link = tree / 'kits' / 'dby_w09'
-    if link.exists():
-        device = link.resolve().parent
+    device = link.resolve().parent if link.exists() else None
+    if device is not None:
+        candidates.append(device / 'drivers' / 'Adreno740')
+    candidates.append(tree / 'drivers/Adreno740')
+    if device is not None:
         candidates.append(device.parent / 'UniXNU' / 'drivers' / 'Adreno740')
     candidates.append(Path(__file__).resolve().parents[2] / 'UniXNU' / 'drivers' / 'Adreno740')
     driver = next((p for p in candidates if (p / 'NativeAdrenoAccelerator.cpp').is_file()), None)

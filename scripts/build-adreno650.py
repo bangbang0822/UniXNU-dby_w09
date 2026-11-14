@@ -343,16 +343,21 @@ def find_tool(name, compiler, fallbacks):
     die(f'missing {name}: it ships with the LLVM the kernel build uses')
 
 
-# Where the pinned driver line can be found. `unixnu tree` keeps only selected
-# components under schema_version 2 (scripts/unixnu/components.py:102, :111-117), so a
-# feeds.toml [[source]] that is not in `[components] include` never reaches the tree. The
-# board's own checkout carries the identical line, and it is reachable through the
-# package symlink even when unixnu runs this script from inside the tree.
+# Where the driver line this board builds can be found, best first. `unixnu tree` keeps only
+# selected components under schema_version 2 (scripts/unixnu/components.py:102, :111-117), so
+# drivers/Adreno740 never reaches the assembled tree, and this repository's own copy is the line
+# the verified kernel was built from (feat(repo) eada6c5) plus every fix made here since. The core
+# checkout beside it carries a *different* line - measured 2026-11-14: the board's copy has
+# NativeAdrenoGmuContextBringupRoutes, NativeAdrenoRing::setGeneration and NativeAdrenoCpInit::reopen
+# and the core's has none of them - so picking the core first builds someone else's driver.
 def driver_candidates(tree):
-    candidates = [('tree', tree / 'drivers/Adreno740')]
+    candidates = []
     package = board_package(tree)
-    if package is not None:
-        device = package.resolve().parent
+    device = package.resolve().parent if package is not None else None
+    if device is not None:
+        candidates.append((f'{device.name} checkout', device / 'drivers' / 'Adreno740'))
+    candidates.append(('tree', tree / 'drivers/Adreno740'))
+    if device is not None:
         candidates.append((f'core checkout beside {device.name}',
                            device.parent / 'UniXNU' / 'drivers' / 'Adreno740'))
     candidates.append(('core checkout beside this script',
@@ -399,7 +404,7 @@ def collect_driver(tree, notes):
             f'REQUIRED (1) at the top of this file.')
     if driver_origin != 'tree':
         notes.append(f'driver from the {driver_origin} ({driver}): the assembled tree '
-                     f'has no drivers/Adreno740 link')
+                     f'has no drivers/Adreno740 link, so the build reads this repository')
     missing = [name for name in DRIVER_SOURCES
                if not (driver / (name + '.cpp')).is_file()]
     if missing:
@@ -515,8 +520,11 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     package = board_package(tree)
+    # The headers have to come from the same directory the sources came from: the tree has no
+    # drivers/Adreno740 link, and the core's copy is a different line (see driver_candidates).
+    driver, _, _ = find_driver(tree)
     includes = [tree / 'kits' / kit for kit in KITS]
-    includes += [tree / '.cache/xnu-work/osfmk', tree / 'drivers/Adreno740']
+    includes += [tree / '.cache/xnu-work/osfmk', driver if driver is not None else tree / 'drivers/Adreno740']
     if package is not None:
         includes.append(package)
         if (package / 'DbyGpu').is_dir():
