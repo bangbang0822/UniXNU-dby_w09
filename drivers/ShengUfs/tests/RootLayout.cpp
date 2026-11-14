@@ -8,9 +8,10 @@
 #include <functional>
 #include <fstream>
 #include "../RootDiagnostics.h"
+#include "../RootTransportLayout.h"
 using IOReturn=uint32_t;
 constexpr IOReturn kIOReturnSuccess=0;
-constexpr unsigned kDataMax=131072;
+/* kDataMax comes from the production header, as in RootWindowRead.cpp. */
 static UfsRootDiagnostics gRootDiagnostic;
 static uint8_t header[4096],entries[16384],manifest[4096];
 static uint64_t userdata=8;

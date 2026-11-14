@@ -9,7 +9,10 @@
 #include <condition_variable>
 using IOReturn = uint32_t;
 constexpr IOReturn kIOReturnSuccess=0, kIOReturnBadArgument=1, kIOReturnIOError=2, kIOReturnNotPrivileged=3;
-constexpr uint64_t kDataMax=131072;
+/* kDataMax is the production transport constant: it comes from ../RootTransportLayout.h, which this
+ * harness includes exactly as RootCommandsBridge.cpp does, so a change to the window cannot leave the
+ * fixture testing a size the driver no longer uses. */
+#include "../RootTransportLayout.h"
 #include "../RootWindowRead.h"
 struct Shared {
   std::mutex window, control;
