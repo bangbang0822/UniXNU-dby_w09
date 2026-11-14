@@ -677,43 +677,54 @@ class DbyBattery : public IOPMPowerSource {
     // chg->real_charger_type says USB while the APS-D result says FLOAT, and real_charger_type is a
     // driver variable that the FSA9685 path fills (qpnp-smb5.c:1249). No register holds it, so an
     // offline service cannot know it and will not pretend to.
-    void applySdpArm(Sample &s) {
-        maskedWrite(kPpidUsb, kAdUsbinIclOptions,
+    // Each arm answers with the number of writes that did not land. It is the arm's own verdict, not
+    // the sample's aggregate tally: a sequence where one of the five or six writes failed leaves a
+    // register state that no table describes, and reading ok>0 as "applied" would print that state
+    // as an applied override.
+    unsigned applySdpArm(Sample &s) {
+        unsigned failed = 0;
+        failed += maskedWrite(kPpidUsb, kAdUsbinIclOptions,
                         static_cast<uint8_t>((1u << kIclOptionsUsb3p0Bit) |
                                              (1u << kIclOptionsUsb51Bit)),
-                        static_cast<uint8_t>(1u << kIclOptionsUsb51Bit), s);   // :1475-1477
-        maskedWrite(kPpidUsb, kAdUsbinIclOptions, 1u << kIclOptionsModeChgBit, 0, s);   // :208-212
-        maskedWrite(kPpidUsb, kAdCmdIclOverride, 1u << kCmdIclOverrideBit,
-                    1u << kCmdIclOverrideBit, s);                                       // :214-218
-        maskedWrite(kPpidUsb, kAdUsbinLoadCfg, 1u << kLoadCfgOverrideAfterApsdBit, 0, s);  // :220-222
-        maskedWrite(kPpidUsb, kAdUsbinCmdIl, 1u << kUsbinSuspendSetBit, 0, s);           // :775-777
+                        static_cast<uint8_t>(1u << kIclOptionsUsb51Bit), s) != 0;   // :1475-1477
+        failed += maskedWrite(kPpidUsb, kAdUsbinIclOptions, 1u << kIclOptionsModeChgBit, 0, s) != 0;   // :208-212
+        failed += maskedWrite(kPpidUsb, kAdCmdIclOverride, 1u << kCmdIclOverrideBit,
+                    1u << kCmdIclOverrideBit, s) != 0;                                       // :214-218
+        failed += maskedWrite(kPpidUsb, kAdUsbinLoadCfg, 1u << kLoadCfgOverrideAfterApsdBit, 0, s) != 0;  // :220-222
+        failed += maskedWrite(kPpidUsb, kAdUsbinCmdIl, 1u << kUsbinSuspendSetBit, 0, s) != 0;           // :775-777
         // smblib_run_aicl() :2683-2705: no rerun while the input is still suspended, otherwise one
         // bit in MISC 0x1644. The vendor's own tail call at :1543 repeats the three override writes
         // with the same values; one pass reaches the same register state, so the second is not sent.
         uint8_t path = 0;
         if (readByte(kPpidDcdc, kAdPowerPath, &path, s) == kWhyOk &&
             ((path >> kUsbinSuspendStsBit) & 0x01u) == 0)
-            maskedWrite(kPpidMisc, kAdAiclCmd, 1u << kAiclRerunBit, 1u << kAiclRerunBit, s);
+            failed += maskedWrite(kPpidMisc, kAdAiclCmd, 1u << kAiclRerunBit, 1u << kAiclRerunBit, s) != 0;
+        return failed;
     }
 
-    void applyHcArm(int ua, Sample &s) {
-        writeByte(kPpidUsb, kAdUsbinIclCfg, static_cast<uint8_t>(ua / 50000), s);  // :754, full byte
-        maskedWrite(kPpidUsb, kAdUsbinIclOptions, 1u << kIclOptionsModeChgBit,
-                    1u << kIclOptionsModeChgBit, s);                               // :208-212
-        maskedWrite(kPpidUsb, kAdCmdIclOverride, 1u << kCmdIclOverrideBit,
-                    1u << kCmdIclOverrideBit, s);                                   // :191-196
-        maskedWrite(kPpidUsb, kAdUsbinLoadCfg, 1u << kLoadCfgOverrideAfterApsdBit, 0, s);
-        maskedWrite(kPpidUsb, kAdUsbinCmdIl, 1u << kUsbinSuspendSetBit, 0, s);
+    unsigned applyHcArm(int ua, Sample &s) {
+        unsigned failed = 0;
+        failed += writeByte(kPpidUsb, kAdUsbinIclCfg, static_cast<uint8_t>(ua / 50000), s) != 0;  // :754, full byte
+        failed += maskedWrite(kPpidUsb, kAdUsbinIclOptions, 1u << kIclOptionsModeChgBit,
+                    1u << kIclOptionsModeChgBit, s) != 0;                               // :208-212
+        failed += maskedWrite(kPpidUsb, kAdCmdIclOverride, 1u << kCmdIclOverrideBit,
+                    1u << kCmdIclOverrideBit, s) != 0;                                   // :191-196
+        failed += maskedWrite(kPpidUsb, kAdUsbinLoadCfg, 1u << kLoadCfgOverrideAfterApsdBit, 0, s) != 0;
+        failed += maskedWrite(kPpidUsb, kAdUsbinCmdIl, 1u << kUsbinSuspendSetBit, 0, s) != 0;
+        return failed;
     }
 
     // HW_AUTO_MODE, the state the vendor is in when it is not overriding anything (smb5-lib.c:203-207
     // with icl_override = 0 and apsd_override = 0). This is the rollback, and it is the vendor's own
-    // spelling rather than an invented "off".
-    void applyHwAuto(Sample &s) {
-        maskedWrite(kPpidUsb, kAdUsbinIclOptions, 1u << kIclOptionsModeChgBit,
-                    1u << kIclOptionsModeChgBit, s);
-        maskedWrite(kPpidUsb, kAdCmdIclOverride, 1u << kCmdIclOverrideBit, 0, s);
-        maskedWrite(kPpidUsb, kAdUsbinLoadCfg, 1u << kLoadCfgOverrideAfterApsdBit, 0, s);
+    // spelling rather than an invented "off". It answers the same way, so a rollback that did not
+    // land is reported rather than assumed.
+    unsigned applyHwAuto(Sample &s) {
+        unsigned failed = 0;
+        failed += maskedWrite(kPpidUsb, kAdUsbinIclOptions, 1u << kIclOptionsModeChgBit,
+                    1u << kIclOptionsModeChgBit, s) != 0;
+        failed += maskedWrite(kPpidUsb, kAdCmdIclOverride, 1u << kCmdIclOverrideBit, 0, s) != 0;
+        failed += maskedWrite(kPpidUsb, kAdUsbinLoadCfg, 1u << kLoadCfgOverrideAfterApsdBit, 0, s) != 0;
+        return failed;
     }
 
     // The APS-D byte decoded the way smblib_get_apsd_result() decodes it, for the row and nothing
@@ -883,11 +894,14 @@ class DbyBattery : public IOPMPowerSource {
             return;
         }
         if (iclPhase == 3) {
-            if (iclStep == 0) applySdpArm(s); else applyHcArm(kIclLadder[iclStep].ua, s);
+            // The verdict is the arm's own count of writes that did not land. `ok > 0` is not one: an
+            // arm that took one register out of six leaves a controller in a state no register table
+            // describes, and advancing to settle would print it as an applied override.
+            const unsigned failed = iclStep == 0 ? applySdpArm(s) : applyHcArm(kIclLadder[iclStep].ua, s);
             kprintf("DbyBattery: icl apply step=%u name=%s want=%d ceiling=%d apsd=%s "
-                  "writes=%u ok=%u deny=%u\n", iclStep, kIclLadder[iclStep].name,
+                  "writes=%u ok=%u deny=%u failed=%u\n", iclStep, kIclLadder[iclStep].name,
                   kIclLadder[iclStep].ua / 1000, iclCeiling,
-                  apsdName(stat, res & kApsdResultMask), s.wOps, s.wOk, s.wDenied);
+                  apsdName(stat, res & kApsdResultMask), s.wOps, s.wOk, s.wDenied, failed);
             if (s.wOps == 0 || (s.wOk == 0 && s.wDenied > 0)) {
                 // No channel, or the arbiter's ownership rule refused it, or the window never mapped.
                 // Saying so once and stopping is the honest answer; a controller that only counts
@@ -899,6 +913,15 @@ class DbyBattery : public IOPMPowerSource {
                 iclLocked = true;
                 kprintf("DbyBattery: icl stopped: no write answered (ops=%u to=%u er=%u wform=%d); "
                       "registers left as they were found\n", s.wOps, s.wTimeouts, s.wErrors, wForm);
+            } else if (failed) {
+                // A partial arm is not an arm. Put the controller back in the vendor's idle spelling
+                // (HW_AUTO_MODE), say how much of the rollback also failed, and stop voting: the next
+                // rung would be applied on top of a state this file cannot name.
+                const unsigned rolled = applyHwAuto(s);
+                iclLocked = true;
+                kprintf("DbyBattery: icl partial apply step=%u name=%s failed=%u write(s) did not "
+                      "land; rollback hw_auto failed=%u, ladder stopped (writes=%u ok=%u)\n", iclStep,
+                      kIclLadder[iclStep].name, failed, rolled, s.wOps, s.wOk);
             } else {
                 iclGood = iclStep;
                 iclTicks = 0;
@@ -919,10 +942,11 @@ class DbyBattery : public IOPMPowerSource {
                 return;
             }
             if (iclStep == 0) {
-                applyHwAuto(s);
+                const unsigned rolled = applyHwAuto(s);
                 iclLocked = true;
                 kprintf("DbyBattery: icl rollback: even %d mA collapsed the input (rt=0x%02x); "
-                      "HW_AUTO_MODE restored, controller off for this boot\n", armed, s.rtRaw);
+                      "HW_AUTO_MODE restored (failed=%u), controller off for this boot\n", armed,
+                      s.rtRaw, rolled);
                 return;
             }
             // One table step down.  The measurement said this cable could give more and the
@@ -941,10 +965,10 @@ class DbyBattery : public IOPMPowerSource {
             const int armed = kIclLadder[iclStep].ua / 1000;
             if (refused) {
                 if (iclStep == 0) {
-                    applyHwAuto(s);
+                    const unsigned rolled = applyHwAuto(s);
                     iclLocked = true;
-                    kprintf("DbyBattery: icl late rollback: %d mA collapsed the input (rt=0x%02x)\n",
-                          armed, s.rtRaw);
+                    kprintf("DbyBattery: icl late rollback: %d mA collapsed the input (rt=0x%02x); "
+                          "HW_AUTO_MODE restored (failed=%u)\n", armed, s.rtRaw, rolled);
                     return;
                 }
                 --iclStep;
