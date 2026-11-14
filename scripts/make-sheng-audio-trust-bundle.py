@@ -49,7 +49,9 @@ bundle = struct.pack('<4I', 3, *starts) + b''.join(modules)
 
 
 def valid_like_the_loader(data):
-    # The same structural checks as drivers/DarwinBoot/Test ... ValidTrustCaches in core's builder.
+    # The same structural checks as the core builder's ValidTrustCaches (drivers/DarwinBoot): the bundle is
+    # three module images after a four-word header of version and start offsets, and every start has to fall
+    # inside the concatenation this function builds.
     count = struct.unpack_from('<I', data)[0]
     if not 0 < count <= 128:
         return False
