@@ -72,7 +72,11 @@ def object_symbols(path):
 
 
 def undefined_of(symbols):
-    return sorted({name for name, value, kind in symbols if kind == 1 and
+    # n_type is N_TYPE in the low three bits (0 = N_UNDF) plus N_EXT in bit 0, with the flags above them -
+    # N_WEAK_REF 0x40, N_WEAK_DEF 0x80 - outside the type. Testing kind == 1 dropped a weak undefined
+    # reference, whose binding would then be missing from the archive this script writes.
+    return sorted({name for name, value, kind in symbols
+                   if (kind & 0x0e) == 0 and (kind & 0x01) and
                    ('IOBlockStorageDevice' in name or 'IOMedia' in name or 'IOStorage' in name)})
 
 
