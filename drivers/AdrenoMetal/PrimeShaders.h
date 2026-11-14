@@ -276,6 +276,10 @@ static std::string library(id<MTLDevice> device, const std::string &path, const 
                     for (char &c : firstRefusal) if (c == '\n' || c == '\t') c = ' ';
                 }
                 error = nil;
+                /* The marker names the function being compiled, and the next run turns whatever it holds into
+                 * prime-bad. It was only unlinked after the whole library, so a process that ended between two
+                 * pipelines marked a function that had already succeeded as bad, and it was never tried again. */
+                unlink(current.c_str());
                 // Low priority already; a short pause between pipelines keeps the render server's own work ahead.
                 usleep(20000);
             }

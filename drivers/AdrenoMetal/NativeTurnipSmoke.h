@@ -38,7 +38,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL onMessage(VkDebugUtilsMessageSeverityFlagB
 }
 
 struct Result {
-    int stage = 0;          // first setup failure (0 = none): 1 library .. 9 fence wait
+    int stage = 0;          // first setup failure (0 = none): 1 library .. 9 fence wait, 10 the worker thread did not start
     int vkResult = 0;
     int verified = -1;      // fill test: words of 1024 that hold the expected value (-1 = not run)
     int computeWords = -1;  // compute test: words of 1024 written by the shader with the expected value (-1 = not run)
@@ -623,7 +623,16 @@ static Result runWatched(Marker &mark, Reporter &&report, const char *libraryPat
     pthread_t worker;
     const bool started = pthread_create(&worker, &attr, watchedWorker, w) == 0;
     pthread_attr_destroy(&attr);
-    if (!started) {Result r; r.stage = 0; r.vkResult = -12; return r;}
+    if (!started) {
+        /* A worker that never started is a setup failure like any other, and this file's contract says one leaves the
+         * 6fSS/6eRR marker pair. Stage 10 is that case -- 0 is documented as "none", and the old code returned stage 0
+         * with vkResult -12 and emitted no marker at all, so a run that could not start a thread logged nothing. */
+        Result r; r.stage = 10; r.vkResult = -12;
+        mark(0x6f00 | 10);
+        mark(0x6e00 | 12);
+        delete w;
+        return r;
+    }
     static const unsigned checkpoints[] = {15, 45, 90};
     unsigned next = 0;
     for (unsigned tenths = 0; !__atomic_load_n(&w->done, __ATOMIC_ACQUIRE); ++tenths) {
