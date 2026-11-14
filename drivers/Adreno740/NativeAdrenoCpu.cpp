@@ -67,7 +67,7 @@ static IOReturn maintainOwnedPages(void *mapping,size_t bytes,NativeAdrenoCacheO
      * Pin this CPU while reading its CTR and issuing a run of cache operations: runs of up to 64 pages, each closed by a DSB on the
      * core that issued it, so preemption stays off for a bounded time (xnu-12377 panics past 6.25 ms; the 1.5 GiB pool took 41 ms). */
     if(!mapping || !bytes || (((uintptr_t)mapping|bytes)&4095) ||
-        bytes>UINTPTR_MAX-(uintptr_t)mapping || op>NativeAdrenoInvalidate || op<NativeAdrenoClean)
+        bytes>UINTPTR_MAX-(uintptr_t)mapping || op>NativeAdrenoInvalidate)   /* the lower bound is the enumerator itself */
         return kIOReturnBadArgument;
     uintptr_t address=(uintptr_t)mapping;
     const uintptr_t end=address+bytes;
@@ -97,7 +97,7 @@ IOReturn NativeAdrenoMaintainOwnedPages(void *mapping,size_t bytes,NativeAdrenoC
 }
 IOReturn NativeAdrenoMaintainPhysicalPages(uint64_t physical,size_t bytes,NativeAdrenoCacheOperation op)
 {
-    if(!physical || !bytes || ((physical|bytes)&4095) || physical>UINT64_MAX-bytes || op>NativeAdrenoInvalidate || op<NativeAdrenoClean)
+    if(!physical || !bytes || ((physical|bytes)&4095) || physical>UINT64_MAX-bytes || op>NativeAdrenoInvalidate)   /* the lower bound is the enumerator itself */
         return kIOReturnBadArgument;
     const uint64_t began=mach_absolute_time();
     /* One barrier pair per run of up to 64 pages instead of per page (an imported 3048x2032 surface is 5952 pages): preemption stays off
