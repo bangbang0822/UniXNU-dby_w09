@@ -20,7 +20,7 @@ commits inside the same pull request, which is why the check is scoped to the ra
 than to each commit.
 
 Usage:
-  python3 scripts/check-commit-messages.py                    # HEAD~10..HEAD
+  python3 scripts/check-commit-messages.py                    # @{u}..HEAD, or HEAD~1..HEAD with no upstream
   python3 scripts/check-commit-messages.py --range main..HEAD
   python3 scripts/check-commit-messages.py --message-file .git/COMMIT_EDITMSG
   python3 scripts/check-commit-messages.py --strict-scopes    # scope must be an area id
