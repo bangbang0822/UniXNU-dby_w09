@@ -202,6 +202,20 @@ bool startSe3Root() {
  * 末端电平交给 resetPa 按 BOM 的 ctl_sequence 决定；119/120 复用成 qup3。 */
 bool configurePins() {
     if (!gTlmm.va) return false;
+    /* The pin ids have no citation this repository can check - the vendor dtsi that states them is not
+     * obtainable (porting.toml, audio limits). So they are measured instead: the bootloader leaves the SE3
+     * pins muxed to qup3 before XNU starts, so reading the state BEFORE this function writes is evidence of
+     * which pins the vendor graph used. The scan counts every pin already on qup3, so a wrong pair shows up
+     * as a count that does not include 119 and 120. */
+    const uint32_t sclBefore = rd(gTlmm.va, kPinCtl(kSclGpio));
+    const uint32_t sdaBefore = rd(gTlmm.va, kPinCtl(kSdaGpio));
+    unsigned alreadyQup3 = 0;
+    for (uint32_t id = 0; id <= 156u; ++id) {
+        if (((rd(gTlmm.va, kPinCtl(id)) & kPinMuxBits) >> 2) == 1u) ++alreadyQup3;
+    }
+    kprintf("[pa] pins before: scl%u=0x%08x(func%u) sda%u=0x%08x(func%u) qup3=%u\n", kSclGpio, sclBefore,
+            (unsigned)((sclBefore & kPinMuxBits) >> 2), kSdaGpio, sdaBefore,
+            (unsigned)((sdaBefore & kPinMuxBits) >> 2), alreadyQup3);
     wr(gTlmm.va, kPinCtl(kResetGpio),
        (rd(gTlmm.va, kPinCtl(kResetGpio)) & ~(kPinPullBits | kPinMuxBits | kPinDriveBits)) | kPinOutputEnable);
     const uint32_t i2cPins[] = {kPinCtl(kSclGpio), kPinCtl(kSdaGpio)};
