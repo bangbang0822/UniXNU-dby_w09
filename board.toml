@@ -417,7 +417,16 @@ kernel_args = [
   "native-ufs-stream=0xe0",
   "native-ufs-stream2=0x4e0",
   "native-ufs-root=1",
-  "sheng-pmgr=2",
+  # Renamed from sheng-pmgr on 2026-11-14: upstream's scripts/unixnu/payload.py (commit 47ec6a5, which
+  # dropped the prefix from every boot argument) refuses the native-UFS-root payload unless the command
+  # line carries exactly one pmgr=2. Nothing in this tree reads the argument - the kernel calls
+  # sheng_pmgr_run() from patches/xnu/sheng-platform-power.patch when CONFIG_XNU_SHENG_PMGR is set, and
+  # the component publishes no argument of its own - so it is a marker for the payload check, and it now
+  # carries the name that check looks for. The other twelve sheng- arguments keep the prefix because this
+  # board's own drivers parse them (CpuFreqProbe.cpp, DbyTouch.cpp, KeyStoreProbe.cpp, BootLog.c,
+  # LinkStubs.c, Adreno740, GopFramebuffer); renaming those is a coordinated change across those files
+  # and is not part of a payload unblock.
+  "pmgr=2",
   "panic_on_crash_disabled=1",
   "kt_fixed_zones=120",
   # offline-legacy-unit-scale=1 发布 /chosen display-scale，SpringBoard 的
