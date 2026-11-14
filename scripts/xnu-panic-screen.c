@@ -248,8 +248,20 @@ __attribute__((noreturn, used, section(".text.b_main"))) void panic_screen_main 
   /* First panic wins: a marker in the last row's first two pixels means a panic already drew
    * the screen; a later panic (another thread or exception) must not overwrite it. */
   volatile u32 *mark = (volatile u32 *)(g.base + (u64)(v->v_height - 1) * g.rb);
+  /* The claim is taken here, before the clear, not at the end of the render: the marker used to be stored
+   * after format(), the frame walk and the VM samples, so a second exception on another core could pass this
+   * test while the first was still drawing and then clear and redraw the screen. A CAS on the first word
+   * settles which panic owns the screen; the loser parks immediately. The second word is written after the
+   * claim and goes last so a partially claimed pair is never mistaken for a finished one. */
   if (mark[0] == 0xC0FFEE11u && mark[1] == 0x5CEEDA7Au) {
     park ();
+  }
+  {
+    u32 expected = mark[0];
+    if (mark[0] != 0xC0FFEE11u && !__atomic_compare_exchange_n ((u32 *)&mark[0], &expected, 0xC0FFEE11u, 0,
+                                                              __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+      park ();   /* another core claimed it between the test above and this exchange */
+    }
   }
   g.x = 0;
   g.y = g.h / 8;
@@ -293,7 +305,7 @@ __attribute__((noreturn, used, section(".text.b_main"))) void panic_screen_main 
   hex (&g, "\npages=", *(volatile const u32 *)PAGE_TOTAL);
   hex (&g, "\nfree=", *(volatile const u32 *)PAGE_FREE);
   /* The raw argument slots are not dumped: the formatted message above already carries them (room for the PANIC_TEXT copy). */
-  mark[0] = 0xC0FFEE11u;
+  /* mark[0] was claimed before the clear; the second word publishes that the screen is finished. */
   mark[1] = 0x5CEEDA7Au;
   __asm__ volatile ("dsb sy");
   park ();
