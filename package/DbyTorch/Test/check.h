@@ -5,6 +5,8 @@
 #define DBY_TORCH_TEST_CHECK_H
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>   /* SEQ below calls strcmp(); both includers happen to pull this in first today,
+                       * which is why the header compiled without it */
 
 static unsigned checks;
 #define CHECK(x) do {if (!(x)) {fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #x); exit(1);} ++checks;} while (0)
