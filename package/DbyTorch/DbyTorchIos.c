@@ -3,8 +3,10 @@
 /* The rules of the iOS switch; see DbyTorchIos.h. Freestanding (the kernel archive and the host
  * tests compile it), PaganiTorch's TorchIos.c with this module's argument names. */
 #include "DbyTorchIos.h"
+#include "DbyTorchRegs.h"
 
-enum { LEVEL_MAX = 1000 };
+/* DBT_LEVEL_MAX, from DbyTorchRegs.h: the native torch range the OS hands down. This copy used to restate
+ * it as 1000 under a different name. */
 
 static int refuse(DbtIosPlan *plan, const char *why)
 {
@@ -37,4 +39,4 @@ int dbt_ios_final(const DbtIosPlan *plan, int driver_ready, int plugin_visible, 
     return 0;
 }
 
-int dbt_ios_level(uint64_t scalar) {return scalar <= LEVEL_MAX ? (int)scalar : -22;}
+int dbt_ios_level(uint64_t scalar) {return scalar <= DBT_LEVEL_MAX ? (int)scalar : -22;}
