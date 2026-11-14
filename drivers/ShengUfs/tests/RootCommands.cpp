@@ -62,6 +62,9 @@ static void reset(Fault f=Fault::None)
 {
   fault=f; device.fill(0); registers.fill(0); now=0; writes=releases=0; released=false;
   registers[0x34/4]=1; registers[0x30/4]=15; registers[0x60/4]=1;
+  /* The base is the high-DMA window the transcript recorded: check_qemu_root_commands.py:57-69 hands the
+   * virtual board 256 MiB there and drives the same two bases (0x40010000 and this one) at :139, so every
+   * register expectation below is derived from a value the harness that produced it also names. */
   ufs_test_reset(io,0x8cb5e9000);
 }
 static void assertQuarantined()
