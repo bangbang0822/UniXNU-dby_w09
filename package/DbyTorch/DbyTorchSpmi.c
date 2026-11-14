@@ -91,6 +91,9 @@ static int laddered(DbtSpmi *s, uint8_t addr, uint8_t *byte, int write, uint64_t
         ++s->errors;
         ++s->retries;
     }
+    /* Every shape failed: record that, so the field says "all tried" (-1) instead of still saying
+     * "not settled" (-2), which is the value it starts in and the one an early return would leave. */
+    *form = -1;
     return DBT_ERROR;
 }
 
