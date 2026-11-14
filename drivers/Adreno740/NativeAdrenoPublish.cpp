@@ -44,7 +44,8 @@ struct NativeAdrenoMetalDiag {
  * import, and repeating the layout there is how a width mismatch gets in (the [ib] row did). Accessors keep the coupling to two prototypes.
  * report is the line the plugin streams as markers 0x7ffe + characters: its Metal-bridge verdict, "M s<stage> ... F0 ..." - the only place
  * that says whether the self-test and the frontend passed, which is the gate that starts the GPU scanout client
- * (research/repos/AdrenoMetal/NativeMetalBridgePhase.h:189). report2 is the same for the Turnip phase. */
+ * (drivers/AdrenoMetal/NativeMetalBridgePhase.h: the phase's verdict/frontend gate; this repository has no
+ * research/ tree). report2 is the same for the Turnip phase. */
 extern "C" const char *native_adreno_metal_report_line(uint32_t which)
 {
     return which==0?native_adreno_metal_diag.report:native_adreno_metal_diag.report2;
@@ -935,9 +936,12 @@ extern "C" IOReturn native_adreno_new_user_client(IOService *provider,task_t own
         }
         native_adreno_metal_diag.marks[slot]=value;
         native_adreno_metal_diag.marks_total=native_adreno_metal_diag.marks_total+1;
-        /* Mirror for the boot log: [0] the total, [1..16] the newest ring of markers. BootLog.c cannot carry this struct (it is
-         * defined here in full), and a process that reads MetalPluginName but never opens the device can only be described by
-         * where the plugin stopped -- which is exactly what the wallpaper extension does. */
+        /* The marker mirror: [0] the total, [1..16] the newest ring. The boot log does not read this array - it calls
+         * native_adreno_metal_marks_dump() (declared above) - so what this pair is for is any reader that cannot
+         * carry the struct: a process that reads MetalPluginName but never opens the device can only be described by
+         * where the plugin stopped, which is what the wallpaper extension does. The dump path is the one the log
+         * uses; this array is the copy for everything else, and the comment now says so instead of claiming a reader
+         * that does not exist. */
         native_adreno_metal_marks[0]=native_adreno_metal_diag.marks_total;
         for(unsigned i=0;i<16;++i)native_adreno_metal_marks[1+i]=native_adreno_metal_diag.marks[i];
         if(value==1) {
