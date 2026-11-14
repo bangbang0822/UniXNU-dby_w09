@@ -125,7 +125,10 @@ static void serveScanout(Gpu &gpu, id device) {
         if (opened) {
             uint64_t reportedFrames = 0, reportedFailures = 0;
             while (client.serveOne(500)) {
-                const bool frame = st.frames && (st.frames == 1 || st.frames - reportedFrames >= 5);
+                /* "at the first frame, every fifth after": `st.frames == 1` stayed true for the rest of the run once one
+                 * frame had been served, so the row was re-emitted on every 500 ms timeout. A frame counts when it is
+                 * newer than the last report and either nothing has been reported yet or five frames have passed. */
+                const bool frame = st.frames > reportedFrames && (reportedFrames == 0 || st.frames - reportedFrames >= 5);
                 if (frame || (st.failures && !reportedFailures)) {
                     reportedFrames = st.frames ? st.frames : reportedFrames;
                     reportedFailures = st.failures ? st.failures : reportedFailures;

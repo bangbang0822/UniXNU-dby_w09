@@ -949,13 +949,25 @@ id<MTLDevice> offline_metal_frontend_open_service(const char *serviceName) {
  unsigned extra=next(iterator);int openStatus=-1;
  if(service && !extra)openStatus=open(service,mach_task_self(),0,&connection);
  if(extra)release(extra);if(service)release(service);release(iterator);if(openStatus)return nil;
- transaction=[NSRecursiveLock new];pendingLock=[NSLock new];pendingCommands=[NSMutableSet set];pendingNotifications=[NSMutableSet set];notificationFailure=nil;asyncEnabled=false;closing=false;live=true;OMResult result={};NSData *body=checked(OM_DEVICE,nullptr,0,&result);
+ transaction=[NSRecursiveLock new];pendingLock=[NSLock new];pendingCommands=[NSMutableSet set];pendingNotifications=[NSMutableSet set];notificationFailure=nil;asyncEnabled=false;closing=false;live=true;
+ /* Everything from here to the return can refuse through fail(), which throws. Nothing unwound that: live stayed
+  * true, so the guard at the top of this function answered nil to every later open for the rest of the process,
+  * and the user client stayed open. Clean up and let the exception through -- fail() is how this file reports a
+  * hard error, and its reason must reach the caller. */
+ @try {
+ OMResult result={};NSData *body=checked(OM_DEVICE,nullptr,0,&result);
  deviceInfo=[NSJSONSerialization JSONObjectWithData:body options:0 error:nil];if(![deviceInfo isKindOfClass:[NSDictionary class]])fail(@"Actual device metadata missing");
  Class base=objc_getClass("_MTLDevice");if(!base || class_getInstanceSize(base)!=536)fail(@"Wrong original Metal base ABI");
  Class cls=objc_allocateClassPair(base,"NativeOfflineMetalDevice",0);if(!cls)fail(@"Own device class allocation failed");
  unsigned count=0;Method *methods=class_copyMethodList([OMDeviceMethods class],&count);
  for(unsigned i=0;i<count;i++)if(!class_addMethod(cls,method_getName(methods[i]),method_getImplementation(methods[i]),method_getTypeEncoding(methods[i])))fail(@"Own method installation failed");
  free(methods);objc_registerClassPair(cls);remoteDevice=[(id)cls new];return remoteDevice;
+ } @catch(NSException *exception) {
+  auto close=(int (*)(unsigned))dlsym(RTLD_DEFAULT,"IOServiceClose");
+  if(close)close(connection);
+  connection=0;live=false;asyncEnabled=false;
+  @throw;
+  }
 }
 extern "C" BOOL offline_metal_frontend_enable_async(void) {
  if(!live)return NO;[pendingLock lock];BOOL allowed=!closing && (asyncEnabled || !pendingCommands.count);if(allowed)asyncEnabled=true;[pendingLock unlock];return allowed;
