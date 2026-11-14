@@ -147,8 +147,9 @@ __attribute__((noinline)) void native_hid_live_checkpoint(IOService *device) {
                 interface->setProperty("PrimaryUsagePage",(unsigned long long)0x0d,32);interface->setProperty("PrimaryUsage",(unsigned long long)4,32);
             }
         }
-        // The Digitizer/DebugState dumps (appendProperty) are not read on hardware runs without a photograph and walk
-        // driver-internal state from a foreign thread; only the cheap Built-In readback stays.
+        // The Digitizer/DebugState dumps were removed: nothing on a hardware run reads them without a photograph and
+        // they walk driver-internal state from a foreign thread. Three cheap reads stay, and they are the ones the
+        // boot's property row needs: Built-In, PrimaryUsagePage and PrimaryUsage (0x0d / 4, the digitizer pair).
         appendProperty(driver,"Built-In","BI",props);
         appendProperty(driver,"PrimaryUsagePage","PP",props);appendProperty(driver,"PrimaryUsage","PU",props);
     }
@@ -187,7 +188,7 @@ void native_hid_input_probe(void) {
         // readout QEMU gave (resource_found=0, then no sink, no report, no touchSend).
         // IOService::getResourceService() is the official provider for an owned offline service and needs no matching: it
         // returns the IOResources instance IOKit creates at init (IOService.cpp:652), and the reference board already
-        // attaches its two other offline services to it (package/KeyStoreProbe.cpp:97, package/LegacyDisplayProbe.cpp:523).
+        // attaches its two other offline services to it (package/KeyStoreProbe.cpp:118, package/LegacyDisplayProbe.cpp:544).
         // Keep the real resource wherever it exists - hardware behaviour is unchanged - and only fall back where it does not.
         IOService *provider=resource;
         if(!provider) provider=IOService::getResourceService();
