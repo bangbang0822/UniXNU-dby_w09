@@ -8,6 +8,11 @@ changing that code, and one whose file is gone moved out with its component. A f
 still present was fixed *around*, with the audited text kept as the explanation of why the code is what it
 is - the note says which.
 
+One limit of the matcher: it compares sentences with whitespace collapsed, so an evidence snippet that is
+only indentation or a tab still matches the file after a reindent. A handful of the entries below persist for
+that reason alone - `package/LinkStubs.c` is the clearest, its seventeen tab-indented lines now use four spaces -
+and the note beside each still says what was done.
+
 ## Counts
 
 | severity | findings | audited text gone | addressed with the text kept | moved out |
