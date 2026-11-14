@@ -25,7 +25,6 @@ the evidence that they changed nothing at run time.
 | `scripts/check-modem-fw-host.py` | PASS modem firmware reader (FAT32): 112889 checks, 164318 disk reads | firmware-image reader |
 | `scripts/check-nvt-host.py` | PASS: N9Z protocol layer against the vendor driver's own register map and reset sequence | Novatek touch protocol |
 | `scripts/check-nvt-trim-tables.py` (also run by the gate above) | PASS trim tables: both copies carry the same 23 rows and masks | the two copies of the N9Z version/trim table cannot drift apart unnoticed |
-| `scripts/check-nvt-trim-tables.py` (also run by the gate above) | PASS trim tables: both copies carry the same 23 rows and masks | the two copies of the N9Z version/trim table cannot drift apart unnoticed |
 | `scripts/check-qrtr-host.py` | PASS qrtr and service locator: 41 checks | QRTR and the locator |
 | `scripts/check-smp-topology.py --tree <built tree>` | dby_w09.dts declares 8 unixnu,cluster-type node(s); cluster-type is backed by the cluster patch and MAX_CPU_CLUSTERS >= 2 | the device tree's cluster description against the patched kernel |
 
