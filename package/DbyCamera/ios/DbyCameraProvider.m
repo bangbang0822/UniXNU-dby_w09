@@ -46,7 +46,7 @@ volatile int32_t dbc_status[8];
 // 官方 README 的阶段 1b 是"内建假设备，进相机 App"，它要 FigCaptureSource 的字段布局；母本是从 21H461 的静态反汇编拿的，
 // 这台机器上没有 dyld 共享缓存可反汇编，所以只能在这里取一次等价的事实：类名、ivar 的名字/类型/偏移、方法在不在。
 // 有界：最多 40 行，走上面那个 [cam] ios: 通道（内核那侧一次启动最多 48 行）。
-static int gShapeLines;
+static int gShapeLines;   /* reserved with __atomic_add_fetch in shape_emit() */
 static id gShapeDevice;
 
 static int shape_interesting(const char *name)
@@ -59,11 +59,12 @@ static int shape_interesting(const char *name)
 
 static void shape_emit(const char *tag, char kind, const char *name, const char *extra, int value)
 {
-    if (gShapeLines >= 40) return;
+    /* Reserve a line atomically: the same two threads can be inside shape_emit() at once, and a
+     * plain counter let both pass the 40-line gate and write the row too. */
+    if (__atomic_add_fetch(&gShapeLines, 1, __ATOMIC_RELAXED) > 40) return;
     char line[DbcLogMax];
     snprintf(line, sizeof line, "%s %c %s %s %d", tag, kind, name ? name : "-", extra ? extra : "-", value);
     dbc_kernel_line(line);
-    ++gShapeLines;
 }
 
 static void shape_dump(const char *tag, Class cls)
@@ -96,9 +97,13 @@ static void shape_dump(const char *tag, Class cls)
 
 static void shape_dump_once(void)
 {
-    static int done;
-    if (done) return;
-    done = 1;
+    /* Two threads can reach this: the CMIOExtension connectClient: callback on the provider queue and
+     * the five-second dispatch_after block on a utility queue (both call it below). A plain check-then-set
+     * let both through, and each dump spends from the same 40-line budget, so one boot could emit twice
+     * the promised rows and eat the kernel side's 48 (DbyCameraIos.cpp:38). Whoever wins the exchange
+     * dumps; the loser returns. */
+    static uint32_t done;
+    if (__atomic_exchange_n(&done, 1u, __ATOMIC_RELAXED)) return;
     shape_dump("1b.dev", gShapeDevice ? object_getClass(gShapeDevice) : Nil);
     shape_dump("1b.fcs", objc_getClass("FigCaptureSource"));
 }

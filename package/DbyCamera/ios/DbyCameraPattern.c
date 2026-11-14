@@ -188,6 +188,11 @@ static const uint8_t kBars[8][3] = {
 int dbc_pattern_init(DbcPattern *p, unsigned width, unsigned height)
 {
     if (!p || width < 64 || height < 64 || (width & 1) || (height & 1) || width > 8192 || height > 8192) return -1;
+    /* The frame-number stamp is drawn as DbcStampBits cells of DbcStampCell pixels on every one of its
+     * rows, so it needs DbcStampBits * DbcStampCell = 512 columns before it can stay inside the row.
+     * Admitting a narrower frame let dbc_pattern_fill() write past every row's end - the header only
+     * asks for stride >= width - so the stamp's own width is part of what this function may accept. */
+    if (width < DbcStampBits * DbcStampCell) return -1;
     memset(p, 0, sizeof *p);
     DbcQr qr;
     if (dbc_qr_encode(DBC_QR_TEXT, strlen(DBC_QR_TEXT), 0, &qr)) return -2;
