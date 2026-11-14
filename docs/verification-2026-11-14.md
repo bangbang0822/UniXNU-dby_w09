@@ -38,6 +38,20 @@ the evidence that they changed nothing at run time.
 | `drivers/ShengUfs/tests/TransferPoll.cpp` | PASS: unaccepted, delayed, immediate, failed, stuck and fatal UFS completions | the completion state machine |
 | `drivers/ShengUfs/tests/check_legacy_descriptors.py --output <dir>` | PASS 14 legacy/current descriptor comparisons | the historical builder prefixes against the current command path |
 
+## Component pins
+
+The board selects eighteen components (`board.toml`'s `[components].include`) and the published core's
+`components.toml` carries all eighteen: no id is missing, and each entry names a repository. Seven of the pins
+are gitlinks - commits, not branch tips - so `git ls-remote` does not advertise them; that is the shape of a
+pinned component, not a broken pin. Two were confirmed against the tree they build from: the catalogue's
+`RamBlock` revision `4be2d7eb05ef` and the core tree's gitlink for `drivers/RamBlock` are the same commit, and
+`drivers/DarwinBoot`'s gitlink (`5243c68ec332`) matches its checkout. The other five were not verified
+individually here; what a fresh clone would have to do is fetch the component and check the object exists.
+
+The core branch published at `uni-xnu-dby-w09/UniXNU` is `dby-w09` = `113070122ab4`, which is what this tree
+built against (the WSL clone's `origin/dby-w09` ref was stale and made it look one commit behind; `git
+ls-remote` against the remote answers `1130701...`).
+
 ## What is not covered
 
 * **No hardware run.** Every change that alters a decision at run time is listed in `porting.toml`'s limits
