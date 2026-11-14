@@ -215,7 +215,12 @@ __attribute__((weak)) uint64_t native_adsp_text[96];
 __attribute__((weak)) uint64_t native_audio_stats[16];
 __attribute__((weak)) uint64_t native_backlight_request[6];
 __attribute__((weak)) uint64_t native_backlight_stats[16];
-__attribute__((weak)) uint64_t native_battery_stats[16];
+/* The three readers of this one declare it int32_t[16] and index it that way: DbyBattery.cpp:126,
+ * BatteryProbe.cpp:38 and BootLog.c:117 (THE battery ABI; DbyBattery.cpp calls it that in as many words).
+ * It was uint64_t[16] here until 2026-11-14, i.e. 128 bytes against a 64-byte contract, so any reader
+ * that trusted the definition's stride would halve every index - the same same-name mismatch
+ * native_cpufreq_row below had to repair. int32_t is authoritative. */
+__attribute__((weak)) int32_t native_battery_stats[16];
 __attribute__((weak)) uint64_t native_buttons_stats[10];
 /* Both readers declare this as char[120]: BootProgress.c:110/978 draw it as a string and BootLog.c:143
  * archives it with %s.  It was uint64_t[120] until 2026-11-03 - 960 bytes, a stride eight times what the
