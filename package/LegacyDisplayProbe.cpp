@@ -137,6 +137,13 @@ void native_legacy_surface_rejected(uint64_t width,uint64_t height,uint32_t form
     native_legacy_rej_surface[0]=width;native_legacy_rej_surface[1]=height;native_legacy_rej_surface[2]=format;native_legacy_rej_surface[3]=planes;
     native_legacy_rej_surface[4]=stride;native_legacy_rej_surface[5]=allocation;native_legacy_rej_surface[6]=bytes;
 }
+/* The swap request's fields, by offset in the request object the display driver hands its client. These are
+ * Apple's ivars, not this driver's: the layout is the one the 21H461 IOMobileFramebuffer request object has,
+ * read here on purpose - this probe exists to report what a refused swap carried - and nothing can assert it
+ * at compile time because the class is opaque. 2624 is the four surface ids, 792/796/800 the three state words,
+ * 804/808/812 their options, 816/820 width and height, 17 and 81 the first two bytes of the two rectangles.
+ * A kernel whose object moved reports whatever is at those offsets; the display area's limits record that these
+ * are hand-derived offsets rather than a checked ABI. */
 static void recordRejectedSwap(unsigned reason,const void *request,const void *surface) {
     const unsigned char *bytes=reinterpret_cast<const unsigned char *>(request);
     if(!bytes)return;
@@ -264,6 +271,10 @@ bool native_legacy_gpu_offer(void *display,IOMemoryDescriptor *memory,uint64_t s
 void native_legacy_gpu_fallback_observed(int status) {
     native_legacy_gpu_last_status=(uint32_t)status;native_legacy_gpu_fallbacks=native_legacy_gpu_fallbacks+1;
 }
+/* The display object's retirement counters, by offset: 5472 current, 5480 pending, 5820 completed generation,
+ * 5824 presented generation, 252 the frame count. Same rule as recordRejectedSwap above - Apple's ivars read
+ * raw because reporting them is the probe's job, with the layout hand-derived from the 21H461 object and no
+ * compile-time check possible. */
 __attribute__((noinline)) void native_legacy_retirement_observed(IOService *display) {
     const unsigned char *bytes=reinterpret_cast<const unsigned char *>(display);
     uint64_t current=0,pending=0;uint32_t completed=0,presented=0,frames=0;
