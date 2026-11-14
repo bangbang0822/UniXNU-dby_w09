@@ -67,7 +67,6 @@ def kit_candidates(tree):
 # 100 ms poll, CM3 fault BIT(15), GBIF clear before the release through a fourth GPU window).  The
 # other kit TUs come from the same board-owned directory.
 KIT_REGIONS_NAME = 'A650GmuRegions.c'
-FIRMWARE_SOURCES = ('AdrenoFirmware.c', 'AdrenoHfi.c', 'AdrenoHfiStartup.c', 'AdrenoHfiVotes.c')
 FIRMWARE = 'FIRM:'
 FIRMWARE_CANDIDATES = (
     Path('kits/AdrenoFirmware/AdrenoFirmware.h'),
@@ -79,16 +78,11 @@ SMMU_CANDIDATES = (
     Path('kits/ArmSmmu4K/ArmSmmu4K.c'),
     Path('..') / 'UniXNU' / 'kits' / 'ArmSmmu4K' / 'ArmSmmu4K.c',
 )
-SMMU_SOURCES = (
-    'ArmSmmu4K.c', 'ArmSmmu4KContext.c', 'ArmSmmu4KStreams.c', 'ArmSmmu4KMmio.c',
-    'ArmSmmu4KTableMemory.c', 'ArmSmmu4KProgram.c', 'ArmSmmu4KLive.c',
-)
 # Mode 14 emits PM4 packets; the encoder is the pinned AdrenoPM4 kit, not a local copy.
 PM4_CANDIDATES = (
     Path('kits/AdrenoPM4/AdrenoPM4.c'),
     Path('..') / 'UniXNU' / 'kits' / 'AdrenoPM4' / 'AdrenoPM4.c',
 )
-PM4_SOURCES = ('AdrenoPM4.c',)
 
 # (source path relative to the tree, or a KIT marker, language, object suffix)
 KIT = 'KIT'
@@ -102,6 +96,8 @@ SOURCES = (
     (KIT_GMU, 'c', '.gmu.o'),
     (KIT_REGIONS, 'c', '.regions.o'),
     # The 12 shared kit TUs (ArmSmmu4K x7, AdrenoFirmware/Hfi x4, AdrenoPM4 x1) are NOT
+    # listed here: the SMMU_SOURCES/FIRMWARE_SOURCES/PM4_SOURCES tuples that used to name them were
+    # removed once nothing iterated them any more, and with them the SOURCES entries they fed.
     # compiled here since 2026-11-06: they live in build/adreno-kits/libAdrenoKits.a,
     # which the kernel link places after both force_load'ed archives so one copy serves
     # the driver and this probe (work/tracks/gpu-r3-wiring/REPORT.md Q1, option ii).
