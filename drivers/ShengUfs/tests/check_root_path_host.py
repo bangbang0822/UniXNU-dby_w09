@@ -19,7 +19,10 @@ args=parser.parse_args()
 source=Path(__file__).resolve().parent
 out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
 openssl=args.openssl_prefix or Path(subprocess.check_output(['brew','--prefix','openssl@3'],text=True).strip())
-for name in ('RootLayout','RootWindowRead','RootDiagnostics','RootPublication'):
+# SmmuTakeover, TransferPoll and RootCommands have a main() and were referenced by nothing in this
+# repository, so their fault cases never ran here. None of the three needs OpenSSL or QEMU.
+for name in ('RootLayout','RootWindowRead','RootDiagnostics','RootPublication',
+             'SmmuTakeover','TransferPoll','RootCommands'):
     binary=out/name
     command=['clang++','-std=c++17','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=undefined','-g',str(source/(name+'.cpp')),'-o',str(binary)]
     if name=='RootLayout':command+=['-I',str(openssl/'include'),'-L',str(openssl/'lib'),'-lcrypto']
