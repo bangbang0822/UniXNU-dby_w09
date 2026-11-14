@@ -1776,17 +1776,15 @@ renderTail(unsigned mode, const A650GpuResult *r)
 		at = putHex16(at, end, gDbySmmuTtbr0);
 		at = putStr(at, end, " asid=");
 		at = putDec(at, end, DBY_GMU_CTX_ASID);
-	} else if (r->gpu != A650GpuDone) {
-		/* Every mode masks the GPU window, so rbbm_status is the memset zero, not a measurement
-		 * (review 2026-11-04 03:47, text 8). */
+	} else {
+		/* Every mode that reaches renderTail masks the GPU window, so A650GpuBringup stores
+		 * A650GpuNoMap in r->gpu and rbbm_status stays the memset zero - it is not a measurement
+		 * (review 2026-11-04 03:47, text 8). The branch that printed one was unreachable by
+		 * construction and is gone; a mode that enables GX would have to stop returning early above
+		 * before a measured rbbm= would mean anything, so it changes this function too. */
 		at = putStr(at, end, "GPU PWR rbbm=n/a (gpu=");
 		at = putDec(at, end, r->gpu);
 		at = putStr(at, end, ") ioerr=");
-		at = putSigned(at, end, r->io_error);
-	} else {
-		at = putStr(at, end, "GPU PWR rbbm=");
-		at = putHex8(at, end, r->rbbm_status);
-		at = putStr(at, end, " ioerr=");
 		at = putSigned(at, end, r->io_error);
 	}
 	*at = 0;
