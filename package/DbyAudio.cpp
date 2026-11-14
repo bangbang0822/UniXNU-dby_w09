@@ -468,7 +468,10 @@ void traceRow() {
         const uint32_t s = t->entry[i][0], w = t->entry[i][1];
         // The plug-in packs the word as object in the top byte, the first byte of the scope under it, the kind in the low half and the
         // failure in bit 1, which no kind it uses occupies.
-        const uint32_t kind = w & 0xfffeu;
+        /* Clear the failure flag (bit 1), not bit 0: bit 0 is part of the kind - the plug-in packs 1 for a
+         * property write and 0 for a read (hal/ShengAudioPlugIn.c:146,200) - so masking with 0xfffe turned every
+         * successful set into a get and printed it as one. */
+        const uint32_t kind = w & 0xfffdu;
         char text[5] = {'?', '?', '?', '?', 0};
         for (unsigned b = 0; b < 4; ++b) {
             const uint32_t c = s >> (24 - 8 * b);
