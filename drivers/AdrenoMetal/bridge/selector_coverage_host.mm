@@ -76,6 +76,9 @@ int main(int argc, char **argv) {
                         missing.count ? ": " : "", [missing componentsJoinedByString:@" "].UTF8String);
         }
         std::printf("%s: %u selectors the target's QuartzCore references are not answered by the frontend's objects\n", total ? "GAPS" : "PASS", total);
+        /* A GAPS verdict used to be followed by exit 0, so a run that reported real coverage failures still passed
+         * whatever ran it. The count is the failure. */
+        return total ? 1 : 0;
     }
     return 0;
 }

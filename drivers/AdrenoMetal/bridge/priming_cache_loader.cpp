@@ -48,6 +48,8 @@ static VKAPI_ATTR VkResult VKAPI_CALL primeCompute(VkDevice device,VkPipelineCac
         }
     }
     auto real=reinterpret_cast<PFN_vkCreateComputePipelines>(realDevice.load()(device,"vkCreateComputePipelines"));
+    /* The base loader rejects a missing symbol rather than calling it; this path did not. */
+    if(!real)return VK_ERROR_INITIALIZATION_FAILED;
     computeCounts[0]+=count;const auto result=real(device,cache,count,copies.data(),allocator,pipelines);
     if(result==VK_PIPELINE_COMPILE_REQUIRED)computeCounts[2]++;
     for(uint32_t i=0;i<count;++i)if(pipelines[i]) {

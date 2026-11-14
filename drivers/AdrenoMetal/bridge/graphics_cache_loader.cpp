@@ -61,6 +61,9 @@ static VKAPI_ATTR VkResult VKAPI_CALL createCache(VkDevice device,const VkPipeli
         bytes.assign(source,source+info->initialDataSize);bytes[16]^=1;copy.pInitialData=bytes.data();counts[5]++;
     }
     auto real=reinterpret_cast<PFN_vkCreatePipelineCache>(realDevice.load()(device,"vkCreatePipelineCache"));
+    /* A vkGetDeviceProcAddr lookup is the one thing here that can fail, and calling what it returned used to be the
+     * only thing this line did about it. */
+    if(!real)return VK_ERROR_INITIALIZATION_FAILED;
     return real(device,&copy,allocator,cache);
 }
 static VKAPI_ATTR VkResult VKAPI_CALL createGraphics(VkDevice device,VkPipelineCache cache,uint32_t count,
@@ -81,6 +84,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL createGraphics(VkDevice device,VkPipelineC
         }
     }
     auto real=reinterpret_cast<PFN_vkCreateGraphicsPipelines>(realDevice.load()(device,"vkCreateGraphicsPipelines"));
+    if(!real)return VK_ERROR_INITIALIZATION_FAILED;
     counts[0]+=count;if(cache)counts[7]+=count;const auto result=real(device,cache,count,copies.data(),allocator,pipelines);
     if(result==VK_PIPELINE_COMPILE_REQUIRED)counts[2]++;
     for(uint32_t i=0;i<count;++i)if(pipelines[i]) {

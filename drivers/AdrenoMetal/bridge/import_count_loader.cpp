@@ -39,6 +39,8 @@ static VKAPI_ATTR VkResult VKAPI_CALL allocate(VkDevice device,const VkMemoryAll
         if(delay)std::this_thread::sleep_for(std::chrono::milliseconds(delay));
     }
     auto real=reinterpret_cast<PFN_vkAllocateMemory>(realDevice(device,"vkAllocateMemory"));
+    /* The loader above rejects a missing symbol at line 26; this lookup was called without that check. */
+    if(!real)return VK_ERROR_INITIALIZATION_FAILED;
     const VkResult result=real(device,info,allocator,memory);
     if(result==VK_SUCCESS && hostImport)imported++;
     return result;

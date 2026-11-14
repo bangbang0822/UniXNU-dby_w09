@@ -11,7 +11,10 @@
 #define CHECK(x) do {if(!(x)){std::fprintf(stderr,"line %d: %s\n",__LINE__,#x);std::exit(1);}}while(0)
 
 static std::vector<uint8_t> slurp(const std::string &path) {
-    std::vector<uint8_t> out;FILE *f=fopen(path.c_str(),"rb");if(!f)return out;
+    std::vector<uint8_t> out;FILE *f=fopen(path.c_str(),"rb");
+    /* A file that cannot be opened used to return an empty vector, so the byte-for-byte comparison below passed when
+     * the import had produced nothing: two unreadable paths compare equal. */
+    CHECK(f);
     uint8_t b[4096];for(size_t n;(n=fread(b,1,sizeof b,f))>0;)out.insert(out.end(),b,b+n);fclose(f);return out;
 }
 static void spill(const std::string &path,const std::vector<uint8_t> &data) {FILE *f=fopen(path.c_str(),"wb");CHECK(f);CHECK(fwrite(data.data(),1,data.size(),f)==data.size());fclose(f);}
