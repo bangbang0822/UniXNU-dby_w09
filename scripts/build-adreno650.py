@@ -24,7 +24,7 @@ this script touches the device, and the archive it produces cannot execute until
 the payload's command line carries `pipa-gpu=<mode>` (see the gate below).
 
 WHY THE ARCHIVE IS CALLED libAdreno740.a EVEN THOUGH THE SILICON IS AN A650
-  scripts/build-xnu-4k-baseline.sh:644-650 is the only thing that consumes this
+  scripts/build-xnu-4k-baseline.sh:632-638 is the only thing that consumes this
   build, and it does:
       if [ "${XNU_NATIVE_ADRENO:-0}" = 1 ]; then
         ADRENO_ARCHIVE=$ROOT/build/adreno740/libAdreno740.a
@@ -151,7 +151,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ARCH = 'DEVELOPMENT_ARM64_BCM2837'
 
-# build-xnu-4k-baseline.sh:647. Not a preference: the name and the directory are
+# build-xnu-4k-baseline.sh:635. Not a preference: the name and the directory are
 # both hard-coded there, so this is the only path that links.
 OUT_DIR = Path('build/adreno740')
 ARCHIVE_NAME = 'libAdreno740.a'
@@ -513,7 +513,7 @@ def main():
         archive = out / KITS_ARCHIVE_NAME
     else:
         sources = collect_driver(tree, notes)
-        # The archive path is not configurable. build-xnu-4k-baseline.sh:647 hard-codes
+        # The archive path is not configurable. build-xnu-4k-baseline.sh:635 hard-codes
         # it and force-loads exactly it, so any other location is a silent no-op.
         out = tree / OUT_DIR
         archive = out / ARCHIVE_NAME
@@ -598,7 +598,7 @@ def main():
         'tree': str(tree),
         'archive': str(archive),
         'archive_name': archive.name,
-        'archive_note': 'build-xnu-4k-baseline.sh:647 hard-codes this path for '
+        'archive_note': 'build-xnu-4k-baseline.sh:635 hard-codes this path for '
                         '-Wl,-force_load and does not read CONFIG_XNU_NATIVE_ADRENO_ARCHIVE',
         'archive_bytes': archive.stat().st_size,
         'archive_sha256': sha256(archive),
