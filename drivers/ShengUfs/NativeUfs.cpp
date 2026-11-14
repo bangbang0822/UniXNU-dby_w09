@@ -2275,6 +2275,23 @@ bool NativeUfs::startWholeUserdataRoot (IOService *provider)
     return false;
   }
 
+  /* The layout below is parsed at 4096-byte offsets - the GPT header at LBA 1, the entry array, the partition
+   * size - so the device's own logical block size has to be that unit. findRootLayout assigns 4096 because that
+   * is what it parses in, which makes its own check tautological; this is the comparison the storage limits used
+   * to record as owed, and it belongs here rather than in the parser because the parser is the host-testable part
+   * and reading the capacity needs the transport. */
+  UfsReadCapacity unit = {};
+  if (hostReadCapacity (0, &unit) != kIOReturnSuccess) {
+    rootDiagnosticFailure ("whole-userdata READ CAPACITY failed");
+    return false;
+  }
+  if (unit.blockBytes != alioth::whole_userdata_root::kMediaBlockBytes) {
+    rootDiagnosticFailure ("whole-userdata logical block size is not 4 KiB");
+    IOLog ("NativeUfs: whole-userdata refused: device block size %u, the layout parses at %u\n",
+           unit.blockBytes, alioth::whole_userdata_root::kMediaBlockBytes);
+    return false;
+  }
+
   native_ufs_root_step = 2;
   RootLayout *layout = static_cast<RootLayout *> (IOMalloc (sizeof (RootLayout)));
   if (!layout || !findRootLayout (layout, &why)) {

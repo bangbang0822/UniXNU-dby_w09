@@ -12,8 +12,8 @@ struct RootWindow {
 struct RootLayout {
   uint64_t userdataFirst, userdataLast;   // 4096-byte LBAs on LUN 0
   uint32_t lbaBytes;                      // this driver's fixed media unit (kMediaBlockBytes, 4096), NOT what READ
-                                          // CAPACITY answers: hostReadCapacity is the only reader of that, and it is
-                                          // recorded rather than compared (porting.toml, storage limits)
+                                          // CAPACITY answers: hostReadCapacity reads that, and NativeUfs::startWholeUserdataRoot
+                                          // compares it against kMediaBlockBytes before this layout is parsed
   uint8_t typeGuid[16];                   // GPT partition type GUID, on-disk byte order
   uint8_t uniqueGuid[16];                 // GPT partition unique GUID, on-disk byte order
   uint64_t imageBytes;                    // size of the flashed root image from the manifest (0 when none)
