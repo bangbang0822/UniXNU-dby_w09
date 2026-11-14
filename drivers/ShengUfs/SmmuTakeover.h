@@ -192,8 +192,14 @@ static UfsSmmuPlan planUfsSmmuBank(uint16_t stream, uint64_t dma, uint64_t bytes
     }
   }
   uint32_t sctlr = read((p.pages + p.bank) * 4096);
+  /* A reused bank has to be the one the configurator will accept untouched: it reads SCTLR back
+   * and refuses anything but 0, and on the reuse path it writes neither SCTLR nor CBAR - so both
+   * are checked here, which is also the only place CBAR is checked for a reused bank. Requiring
+   * just M == 0 planned banks that configuration then refused, on the reuse path the file calls
+   * the preferred transport. */
   if ((sctlr & 1) ||
-      (p.reuse && (!ufsSmmuContextIsBypass(read(0x1000 + 4 * p.bank), sctlr) ||
+      (p.reuse && (sctlr != 0 ||
+                   !ufsSmmuContextIsBypass(read(0x1000 + 4 * p.bank), sctlr) ||
                    (read(0x1800 + 4 * p.bank) & ~1U)))) {
     p.error = "reserved context bank not bypass"; return p;
   }
