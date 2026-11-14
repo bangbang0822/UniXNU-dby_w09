@@ -4639,9 +4639,14 @@ dbyButtonsThread(void *arg, wait_result_t wait)
 			if (count >= static_cast<uint32_t>(kBtnStableFrames) && candidate != stable) {
 				stable = candidate;
 				gBtnMask = stable;
-				if (gBtnSink != nullptr) {
+				/* Release/acquire on both, the way this file's touch sink already does it
+				 * (native_touch_set_sink() / dbyTouchPublishContact()): the poller is a thread of its
+				 * own, and a plain load of the function pointer can observe it before the context
+				 * store, which would call the sink with a stale or null context. */
+				void (*sink)(void *, uint32_t) = __atomic_load_n(&gBtnSink, __ATOMIC_ACQUIRE);
+				if (sink != nullptr) {
 					gBtnSinkCalls++;
-					gBtnSink(gBtnSinkCtx, stable);
+					sink(__atomic_load_n(&gBtnSinkCtx, __ATOMIC_RELAXED), stable);
 				}
 			}
 		}
@@ -4693,8 +4698,10 @@ dby_buttons_start(void)
 extern "C" void
 native_buttons_set_sink(void (*sink)(void *, uint32_t), void *context)
 {
-	gBtnSink = sink;
+	/* Context first, then the pointer with release: the poller acquires the pointer and only then
+	 * reads the context, so a non-null sink always comes with the context that was set beside it. */
 	gBtnSinkCtx = context;
+	__atomic_store_n(&gBtnSink, sink, __ATOMIC_RELEASE);
 }
 
 /* ------------------------------------------------------------------ */
