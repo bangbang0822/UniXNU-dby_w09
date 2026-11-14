@@ -434,7 +434,9 @@ dby_touch_snapshot_read(struct dby_touch_snapshot *snap,
 int
 dby_touch_should_log(uint32_t frame_index)
 {
-	/* One line every 120 frames (~1.2 s at a 100 Hz report rate) is enough to
-	 * see contacts move without drowning a slow serial console. */
+	/* One line every 120 published frames. In time that is 120 * DBY_TOUCH_HID_PERIOD_MS (25 ms in
+	 * DbyTouchBoard.h:318) = three seconds - not the 1.2 s a 100 Hz report rate would give, which is
+	 * the number this note used to state while the publisher ran at 40 Hz. Frames are the stable
+	 * unit; the millisecond figure follows whatever period the board sets. */
 	return (frame_index % 120U) == 0U;
 }
