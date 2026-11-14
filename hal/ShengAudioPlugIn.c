@@ -532,8 +532,10 @@ static OSStatus StartIO(AudioServerPlugInDriverRef d, AudioObjectID o, UInt32 cl
     pthread_mutex_lock(&gLock);
     OSStatus r = 0;
     if (gIoUsers == 0) {
+        /* connectService() returns 0 only after it has stored gControl (or because it already had one), so the
+         * "connected but unmapped" branch that used to sit here could not be taken. It is gone rather than left
+         * looking like a state this code distinguishes. */
         if (connectService()) r = kAudioHardwareNotRunningError;
-        else if (!gControl) r = kAudioHardwareNotRunningError;
         else {
             setHostClock();   // again: the shared page may have been read back from disk since
             if (call(ShengAudioStartOutput) != KERN_SUCCESS) r = kAudioHardwareNotRunningError;
