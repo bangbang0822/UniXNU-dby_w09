@@ -271,13 +271,9 @@ static IOReturn hostQueryRead (uint8_t opcode, uint8_t idn, uint32_t *value)
   return kIOReturnSuccess;
 }
 
-// Read `blocks` (<= kDataMax / 4096) 4096-byte blocks of LUN `lun` starting at `lba` into dst.
-static IOReturn hostRead4k (uint8_t lun, uint64_t lba, uint32_t blocks, void *dst)
+// The read and its copy, with gHost.lock already held.
+static IOReturn hostRead4kLocked (uint8_t lun, uint64_t lba, uint32_t blocks, void *dst)
 {
-  if (!gHost.ready || !dst || !blocks || blocks > kDataMax / 4096 || lba > 0xffffffffULL - (blocks - 1)) {
-    return kIOReturnBadArgument;
-  }
-  IOLockLock (gHost.lock);
   gRootDiagnostic.lba = lba;
   uint8_t cdb[10] = { 0x28, 0, uint8_t (lba >> 24), uint8_t (lba >> 16), uint8_t (lba >> 8), uint8_t (lba),
                       0, uint8_t (blocks >> 8), uint8_t (blocks), 0 };
@@ -286,6 +282,17 @@ static IOReturn hostRead4k (uint8_t lun, uint64_t lba, uint32_t blocks, void *ds
   if (status == kIOReturnSuccess) {
     memcpy (dst, gHost.virt + kDataOffset, blocks * 4096U);
   }
+  return status;
+}
+
+// Read `blocks` (<= kDataMax / 4096) 4096-byte blocks of LUN `lun` starting at `lba` into dst.
+static IOReturn hostRead4k (uint8_t lun, uint64_t lba, uint32_t blocks, void *dst)
+{
+  if (!gHost.ready || !dst || !blocks || blocks > kDataMax / 4096 || lba > 0xffffffffULL - (blocks - 1)) {
+    return kIOReturnBadArgument;
+  }
+  IOLockLock (gHost.lock);
+  const IOReturn status = hostRead4kLocked (lun, lba, blocks, dst);
   IOLockUnlock (gHost.lock);
   return status;
 }
@@ -295,15 +302,13 @@ static IOReturn hostRead4k (uint8_t lun, uint64_t lba, uint32_t blocks, void *ds
 // route. Every write is checked against the open window here, so a caller whose own range logic is wrong cannot reach
 // outside the window it selected.
 //
-// What that check does NOT cover: the window variables below are written by hostLogOpen/hostStoreOpen/hostRootOpen/
-// hostRootClose without gHost.lock, while hostWrite4k/hostRead4k test them before taking the lock and then do the copy
-// and the SCSI command inside it. A close that lands between the test and the lock is therefore not observed by that
-// write - the admission and the I/O are not one atomic step. The open/close helpers are called from the IOKit thread
-// (start/stop and the store/log claim paths) and the I/O from the block-device thread, so the window is a snapshot,
-// not a lease: it decides whether a write is in the region the driver selected, not whether that region is still open a
-// microsecond later. Making it a lease means taking gHost.lock in the four helpers and checking inside the same critical
-// section as the copy; that changes the order the block-device thread and the IOKit thread take the lock and is owed
-// with a test that drives both, so it is recorded in porting.toml rather than done here.
+// The window is a lease, not a snapshot: hostLogOpen/hostStoreOpen/hostRootOpen/hostRootClose take gHost.lock, and the
+// four I/O entry points (hostWrite4k, hostRead4k, hostRootWrite4k, hostRootRead4k) test the window inside the same
+// critical section as their copy and their SCSI command. A close that lands while a transfer is in flight is therefore
+// observed either wholly before it or wholly after it, never between the test and the DMA. The helpers are called from
+// the IOKit thread and the I/O from the block-device thread; both now take the same lock for the same span, and the
+// IOLock is not held across any call that could block on another lock (hostScsiDir is the only callee and it does not
+// take one).
 static bool gStoreOpen = false, gLogOpen = false;
 static bool gRootOpen = false, gRootWritable = false;
 static uint64_t gStoreFirst = 0, gStoreBlocks = 0, gLogFirst = 0, gLogBlocks = 0;
@@ -311,12 +316,17 @@ static uint64_t gRootFirst = 0, gRootBlocks = 0;
 
 static bool hostLogOpen (uint64_t first, uint64_t blocks)
 {
-  if (gLogOpen || gRootOpen || !blocks || first > 0xffffffffULL || blocks > 0xffffffffULL - first) return false;
-  if (gStoreOpen && first < gStoreFirst + gStoreBlocks && gStoreFirst < first + blocks) return false;
-  gLogFirst = first;
-  gLogBlocks = blocks;
-  gLogOpen = true;
-  return true;
+  bool opened = false;
+  IOLockLock (gHost.lock);
+  if (!gLogOpen && !gRootOpen && blocks && first <= 0xffffffffULL && blocks <= 0xffffffffULL - first &&
+      !(gStoreOpen && first < gStoreFirst + gStoreBlocks && gStoreFirst < first + blocks)) {
+    gLogFirst = first;
+    gLogBlocks = blocks;
+    gLogOpen = true;
+    opened = true;
+  }
+  IOLockUnlock (gHost.lock);
+  return opened;
 }
 
 static bool hostInWindow (uint64_t lba, uint32_t blocks)
@@ -331,27 +341,39 @@ static bool hostInWindow (uint64_t lba, uint32_t blocks)
 
 static bool hostStoreOpen (uint64_t first, uint64_t blocks)
 {
-  if (gStoreOpen || gRootOpen || !blocks || first > 0xffffffffULL || blocks > 0xffffffffULL - first) return false;
-  if (gLogOpen && first < gLogFirst + gLogBlocks && gLogFirst < first + blocks) return false;
-  gStoreFirst = first;
-  gStoreBlocks = blocks;
-  gStoreOpen = true;
-  return true;
+  bool opened = false;
+  IOLockLock (gHost.lock);
+  if (!gStoreOpen && !gRootOpen && blocks && first <= 0xffffffffULL && blocks <= 0xffffffffULL - first &&
+      !(gLogOpen && first < gLogFirst + gLogBlocks && gLogFirst < first + blocks)) {
+    gStoreFirst = first;
+    gStoreBlocks = blocks;
+    gStoreOpen = true;
+    opened = true;
+  }
+  IOLockUnlock (gHost.lock);
+  return opened;
 }
 
-// WRITE(10) of `blocks` 4096-byte blocks from src to lba on LUN 0; the range must lie inside one open window.
-static IOReturn hostWrite4k (uint8_t lun, uint64_t lba, uint32_t blocks, const void *src, bool fua = false)
+// The copy and the command, with gHost.lock already held (hostWrite4k and hostRootWrite4k both use it).
+static IOReturn hostWrite4kLocked (uint64_t lba, uint32_t blocks, const void *src, bool fua)
 {
-  if (!gHost.ready || !src || !blocks || blocks > kDataMax / 4096 || lun != 0 || !hostInWindow (lba, blocks)) {
-    return kIOReturnBadArgument;
-  }
-  IOLockLock (gHost.lock);
   gRootDiagnostic.lba = lba;
   memcpy (gHost.virt + kDataOffset, src, blocks * 4096U);
   uint8_t cdb[10] = { 0x2a, uint8_t (fua ? 0x08 : 0), uint8_t (lba >> 24), uint8_t (lba >> 16), uint8_t (lba >> 8), uint8_t (lba),
                       0, uint8_t (blocks >> 8), uint8_t (blocks), 0 };
   uint32_t scsi = 0;
-  IOReturn status = hostScsiDir (0, cdb, 10, 1, blocks * 4096U, 2000000, &scsi);
+  return hostScsiDir (0, cdb, 10, 1, blocks * 4096U, 2000000, &scsi);
+}
+
+// WRITE(10) of `blocks` 4096-byte blocks from src to lba on LUN 0; the range must lie inside one open window.
+// The window is tested inside the same critical section as the copy and the command, so a close that lands
+// between an outside test and the lock cannot be missed by this write.
+static IOReturn hostWrite4k (uint8_t lun, uint64_t lba, uint32_t blocks, const void *src, bool fua = false)
+{
+  if (!gHost.ready || !src || !blocks || blocks > kDataMax / 4096 || lun != 0) return kIOReturnBadArgument;
+  IOLockLock (gHost.lock);
+  const IOReturn status = hostInWindow (lba, blocks) ? hostWrite4kLocked (lba, blocks, src, fua)
+                                                    : kIOReturnBadArgument;
   IOLockUnlock (gHost.lock);
   return status;
 }
@@ -372,23 +394,28 @@ static IOReturn hostSyncCache (void)
 // store/log windows, and read-only selection is represented explicitly.
 [[maybe_unused]] static bool hostRootOpen (uint64_t first, uint64_t blocks, bool writable)
 {
-  if (gRootOpen || gStoreOpen || gLogOpen || !blocks ||
-      first > 0xffffffffULL || blocks > 0xffffffffULL - first) {
-    return false;
+  bool opened = false;
+  IOLockLock (gHost.lock);
+  if (!gRootOpen && !gStoreOpen && !gLogOpen && blocks && first <= 0xffffffffULL &&
+      blocks <= 0xffffffffULL - first) {
+    gRootFirst = first;
+    gRootBlocks = blocks;
+    gRootWritable = writable;
+    gRootOpen = true;
+    opened = true;
   }
-  gRootFirst = first;
-  gRootBlocks = blocks;
-  gRootWritable = writable;
-  gRootOpen = true;
-  return true;
+  IOLockUnlock (gHost.lock);
+  return opened;
 }
 
 [[maybe_unused]] static void hostRootClose (void)
 {
+  IOLockLock (gHost.lock);
   gRootOpen = false;
   gRootWritable = false;
   gRootFirst = 0;
   gRootBlocks = 0;
+  IOLockUnlock (gHost.lock);
 }
 
 static bool hostInRoot (uint64_t lba, uint32_t blocks)
@@ -398,17 +425,30 @@ static bool hostInRoot (uint64_t lba, uint32_t blocks)
          blocks <= gRootBlocks - (lba - gRootFirst);
 }
 
+/* The root route's own admission, inside one critical section with its I/O: the window the caller selected and
+ * the window the write sees are then the same one, which the previous outside-then-lock shape could not promise
+ * once hostRootClose() existed as a concurrent operation. */
 [[maybe_unused]] static IOReturn hostRootRead4k (uint8_t lun, uint64_t lba, uint32_t blocks, void *dst)
 {
-  if (lun != 0 || !hostInRoot (lba, blocks)) return kIOReturnBadArgument;
-  return hostRead4k (lun, lba, blocks, dst);
+  if (lun != 0 || !dst || !blocks || blocks > kDataMax / 4096 || lba > 0xffffffffULL - (blocks - 1)) {
+    return kIOReturnBadArgument;
+  }
+  IOLockLock (gHost.lock);
+  const IOReturn status = hostInRoot (lba, blocks) ? hostRead4kLocked (lun, lba, blocks, dst)
+                                                   : kIOReturnBadArgument;
+  IOLockUnlock (gHost.lock);
+  return status;
 }
 
 [[maybe_unused]] static IOReturn hostRootWrite4k (uint8_t lun, uint64_t lba, uint32_t blocks, const void *src, bool fua)
 {
-  if (lun != 0 || !hostInRoot (lba, blocks)) return kIOReturnBadArgument;
-  if (!gRootWritable) return kIOReturnNotWritable;
-  return hostWrite4k (lun, lba, blocks, src, fua);
+  if (lun != 0 || !src || !blocks || blocks > kDataMax / 4096) return kIOReturnBadArgument;
+  IOLockLock (gHost.lock);
+  const IOReturn status = !hostInRoot (lba, blocks) ? kIOReturnBadArgument
+                        : !gRootWritable       ? kIOReturnNotWritable
+                                               : hostWrite4kLocked (lba, blocks, src, fua);
+  IOLockUnlock (gHost.lock);
+  return status;
 }
 
 [[maybe_unused]] static IOReturn hostRootSync (void)
