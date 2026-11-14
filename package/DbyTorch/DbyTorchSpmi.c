@@ -75,7 +75,7 @@ static int laddered(DbtSpmi *s, uint8_t addr, uint8_t *byte, int write, uint64_t
         const unsigned f = (unsigned)*form;
         const int r = write ? xact_write(s, f, addr, *byte) : xact_read(s, f, addr, byte);
         if (r == 1) { ++*counter; return DBT_OK; }
-        if (r == 0) { s->silent = 1; return DBT_TIMEOUT; }
+        if (r == 0) { s->silent = 1; ++s->timeouts; return DBT_TIMEOUT; }
         ++s->errors;
         *form = -2;
         ++s->retries;
@@ -87,7 +87,7 @@ static int laddered(DbtSpmi *s, uint8_t addr, uint8_t *byte, int write, uint64_t
             ++*counter;
             return DBT_OK;
         }
-        if (r == 0) { s->silent = 1; return DBT_TIMEOUT; }
+        if (r == 0) { s->silent = 1; ++s->timeouts; return DBT_TIMEOUT; }
         ++s->errors;
         ++s->retries;
     }

@@ -44,6 +44,10 @@ typedef struct {
     unsigned ppid_hits;       /* how many of them claim PPID 0x5d3 */
     uint32_t last_reg, last_status;
 
+    /* timeouts counts the transactions that stopped answering (laddered()'s two `r == 0` sites),
+     * not the calls refused afterwards because `silent` is already set: those are a consequence of the
+     * first timeout, and counting them made the field grow with the caller's poll rate. It was
+     * declared here and never incremented until 2026-11-14. */
     uint64_t reads, writes, retries, timeouts, errors, refused, denied;
     int rform, wform;         /* -2 not settled, -1 every shape failed, 0..2 the shape that works */
     int silent;               /* a transaction stopped answering at all: end the cycle */
