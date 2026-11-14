@@ -205,6 +205,7 @@ extern "C" void native_legacy_swap_stage(unsigned stage) {
     }
 }
 extern "C" unsigned native_legacy_swap_timeline(char *out,unsigned cap) {
+    if(!out || !cap)return 0;   // the same guard native_legacy_properties_now opens with
     unsigned at=0;out[0]=0;
     uint32_t total=swapEventCount,first=total>40?total-40:0;
     for(uint32_t i=first;i<total && at+90<cap;++i) {
@@ -225,6 +226,7 @@ void native_legacy_vsync_observed(unsigned event,unsigned hz) {
     vsyncHz=hz;
 }
 extern "C" unsigned native_legacy_prepare_report(char *out,unsigned cap) {
+    if(!out || !cap)return 0;
     return snprintf(out,cap,"prepare calls=%u failures=%u retried=%u max_attempts=%u waited_ms=%llu vsync hz=%u sent=%llu arms=%llu idle=%llu late=%llu start=%llu refresh=%llu",
         native_legacy_prepare_calls,native_legacy_prepare_failures,native_legacy_prepare_retried,native_legacy_prepare_max_attempts,
         (unsigned long long)(native_legacy_prepare_wait_us/1000),vsyncHz,(unsigned long long)vsyncEvents[1],(unsigned long long)vsyncEvents[0],
@@ -362,6 +364,7 @@ static void interpose(IOUserClient *client,int pid) {
 }
 // The display object's state words the original wait selector tests (offsets 5832..5864, as dwords), for the log.
 extern "C" unsigned native_legacy_state_words(char *out,unsigned cap) {
+    if(!out || !cap)return 0;
     out[0]=0;
     const unsigned char *object=reinterpret_cast<const unsigned char *>(native_legacy_object);
     if(!object)return 0;
@@ -370,6 +373,7 @@ extern "C" unsigned native_legacy_state_words(char *out,unsigned cap) {
     return at;
 }
 extern "C" unsigned native_legacy_clients_dump(char *out,unsigned cap) {
+    if(!out || !cap)return 0;
     unsigned at=0;out[0]=0;
     for(unsigned c=0;c<seenClientCount && at+120<cap;++c) {
         const ClientStat &s=seenClients[c];
