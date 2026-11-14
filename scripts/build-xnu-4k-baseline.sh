@@ -351,6 +351,10 @@ if [ "$(cat "$SHENG_PMGR_STAMP" 2>/dev/null || echo 0)" != "$SHENG_PMGR" ]; then
   printf '%s\n' "$SHENG_PMGR" > "$SHENG_PMGR_STAMP"
 fi
 QCOM_USB_DEBUG=${XNU_QCOM_USB_DEBUG:-0}
+if [ "$QCOM_USB_DEBUG" != 0 ] && [ "$QCOM_USB_DEBUG" != 1 ]; then
+  echo 'XNU_QCOM_USB_DEBUG must be 0 or 1' >&2
+  exit 1
+fi
 # The module is a catalog component since 2026-11-14 (components.toml QcomXnuUsbDebug), so it sits at
 # its declared path in the assembled tree -- the same path this block uses in the core tree.
 QCOM_USB_INCLUDE="-I$ROOT/drivers/QcomXnuUsbDebug/include"
