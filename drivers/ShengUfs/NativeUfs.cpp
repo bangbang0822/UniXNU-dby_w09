@@ -1336,6 +1336,11 @@ extern "C" int native_ufs_part_find (const char *name, uint32_t *lun, uint64_t *
     memcpy (&count, buffer + 80, 4);
     memcpy (&size, buffer + 84, 4);
     if (size < 128 || size > 4096 || count > 512) continue;
+    /* The one-block buffer is only re-read when the next entry starts inside it, which is a valid
+     * test only when the entry size divides the block: with a size that does not (129, say), an entry
+     * can begin at any residue and the memcpy/name scan below would read past the 4096-byte
+     * allocation. The spec's entry size is a power of two; anything else is refused here. */
+    if (4096u % size) continue;
     for (uint32_t i = 0; i < count && !found; ++i) {
       const uint64_t at = static_cast<uint64_t> (i) * size;
       if (i == 0 || at % 4096 < size) {
