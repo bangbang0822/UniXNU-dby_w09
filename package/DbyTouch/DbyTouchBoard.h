@@ -68,10 +68,14 @@
 #define DBY_TOUCH_GCC_RCG_ROOT_EN    0x2U
 #define DBY_TOUCH_GCC_RCG_UPDATE     0x1U
 #define DBY_TOUCH_GCC_SE_RCG_CXO_19M 0x00100001U
-/* Only the fields written above: DIV[4:0] | SRC_SEL[10:8] | HW_CLK_CTRL[20].  Comparing the whole
- * word would also require MODE and the reserved bits to read back identically. */
-/* DIV[7:0] | SRC_SEL[10:8] | MODE[13:12] | HW_CLK_CTRL[20]: only the documented fields, so
- * a read-only or reserved bit cannot fail the compare. */
+/* The mask the read-back compares after the 0x00100001 write, stated as the bits it sets:
+ * bits[10:0] | bits[13:12] | bit 20, i.e. DIV[4:0] with the reserved bits[7:5], SRC_SEL[10:8],
+ * MODE[13:12] and HW_CLK_CTRL[20]. One of the two comments that used to sit here claimed only
+ * DIV[4:0] | SRC_SEL[10:8] | HW_CLK_CTRL[20] - 0x0010071F - and so disagreed with the constant;
+ * that claim is what this note replaces. What the wider mask costs is real: a reserved bit or MODE
+ * that latches differently from the write fails the compare. Left at 0x001037FF because this
+ * read-back is on a path that has run on hardware; narrowing it to the written fields is a change
+ * of assertion, not of comment, and is recorded in porting.toml's input limits. */
 #define DBY_TOUCH_GCC_RCG_CFG_MASK   0x001037FFU
 /* CMD bit31 is ROOT_OFF: the cheap liveness bit mainline's is_enabled() checks. */
 #define DBY_TOUCH_GCC_RCG_ROOT_OFF   0x80000000U
