@@ -5,6 +5,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* Not compiled into this board's libAdreno740.a: scripts/build-adreno650.py:121-124 lists this file among
+ * the exclusions the reference recipe makes for the same reasons (the preemption list is only built by a
+ * board that asks for it). It is kept, and correctness fixes in it still apply to that code, so a change
+ * here does not move this board's kernel - expect the archive and the kernel image to stay byte-identical. */
+
 /* Pack the A7xx power-up register list consumed by CP_ME_INIT. The layout is
  * the pinned `struct cpu_gpu_lock`: three u32 lock words, a union of either
  * {u8 ifpc_len, u8 preemption_len, u16 dynamic_len} (A7xx) or two u16 fields
