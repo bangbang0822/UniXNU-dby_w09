@@ -265,10 +265,13 @@ bool selectAddress(uint8_t address) {
     return true;
 }
 
-/* regmap-i2c 的窄/宽两种帧：地址字节高位在前，值字节高位在前。cs35l36 是 4+4=8，正好在上限内。 */
+/* regmap-i2c 的窄/宽两种帧：地址字节高位在前，值字节高位在前。cs35l36 是 4+4=8，正好在上限内。
+ * 宽度先判再拷：旧写法把 regBytes/valBytes 个字节先写进栈数组，之后才测 n，于是这个测试对表里
+ * 任何一项都不成立（kSets 的宽度只有 1/1/4），而一项更宽的表就会把栈写穿。 */
 bool writeReg(const PaSet &set, uint8_t address, uint32_t reg, uint32_t value) {
-    if (!selectAddress(address)) return false;
     uint8_t bytes[8];
+    if (set.regBytes + set.valBytes > sizeof bytes) return false;
+    if (!selectAddress(address)) return false;
     unsigned n = 0;
     for (unsigned i = set.regBytes; i-- > 0;) bytes[n++] = static_cast<uint8_t>(reg >> (8u * i));
     for (unsigned i = set.valBytes; i-- > 0;) bytes[n++] = static_cast<uint8_t>(value >> (8u * i));
@@ -278,11 +281,13 @@ bool writeReg(const PaSet &set, uint8_t address, uint32_t reg, uint32_t value) {
 /* 读回来的是大端：线上第一个字节落在 rx 的 bits 7:0（GeniI2c.c:16 的打包方式 + :123 的一次 FIFO 读），
  * 所以第 i 个字节就是高位往后的第 i 个。 */
 bool readReg(const PaSet &set, uint8_t address, uint32_t reg, uint32_t *value) {
-    if (!selectAddress(address)) return false;
     uint8_t bytes[4];
+    // Same bound as writeReg: the width is judged before the copy, not after it.
+    if (set.regBytes > sizeof bytes || set.valBytes > sizeof(uint32_t)) return false;
+    if (!selectAddress(address)) return false;
     unsigned n = 0;
     for (unsigned i = set.regBytes; i-- > 0;) bytes[n++] = static_cast<uint8_t>(reg >> (8u * i));
-    if (n > 4 || xfer(bytes, n, set.valBytes) != 0) return false;
+    if (xfer(bytes, n, set.valBytes) != 0) return false;
     uint32_t v = 0;
     for (unsigned i = 0; i < set.valBytes; ++i) v = (v << 8) | ((gBus.rx >> (8u * i)) & 0xffu);
     *value = v;
