@@ -1811,11 +1811,15 @@ static bool ufsHasAncestor (IORegistryEntry *entry, const IORegistryEntry *ances
 // IOBlockStorageDriver publishes a normal IOMedia and IOMediaBSDClient assigns
 // diskX after that. Override the final BSD name only after this media is
 // reachable from our exact whole-userdata block device.
-static void renameWholeUserdataThread (void *, wait_result_t)
+static void renameWholeUserdataThread (void *argument, wait_result_t)
 {
-  NativeUfsWholeUserdataBlock *device = gWholeUserdataDevice;
+  /* The starter takes this thread's reference before it spawns us and hands the pointer over as
+   * the argument: reading gWholeUserdataDevice here first and retaining afterwards left a window in
+   * which NativeUfs::stop() could clear the pointer, terminate, detach and release the object, so a
+   * retain could land on freed memory and the walk below would use a dangling window. The reference
+   * taken by the starter is the one released at the end of this function. */
+  auto *device = static_cast<NativeUfsWholeUserdataBlock *> (argument);
   if (!device) return;
-  device->retain ();
 
   bool observedAssignedName = false;
   for (unsigned tick = 0; tick < 300; ++tick) {
@@ -2334,7 +2338,9 @@ bool NativeUfs::startWholeUserdataRoot (IOService *provider)
   gWholeUserdataDevice = device;
   gWholeUserdataRenameDone = false;
   thread_t renameThread = nullptr;
-  if (kernel_thread_start (renameWholeUserdataThread, nullptr, &renameThread) != KERN_SUCCESS) {
+  device->retain ();   // the rename thread-s reference, released at the end of its body
+  if (kernel_thread_start (renameWholeUserdataThread, device, &renameThread) != KERN_SUCCESS) {
+    device->release ();
     IOLog ("NativeUfs: whole-userdata BSD rename thread creation failed\n");
   } else {
     thread_deallocate (renameThread);
