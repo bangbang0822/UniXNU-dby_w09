@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 // Pass-through stream mapping in the firmware-managed apps SMMU, for a device whose DMA must reach physical memory
 // (not a page-table mapping, not an Adreno context). This is the sequence Linux's qcom_smmu bypass quirk describes and the
-// UFS driver already uses on this board (docs/native-ufs.md): the last context bank (SCTLR=0, CBAR.TYPE=S1_TRANS_S2_BYPASS,
+// UFS driver in drivers/ShengUfs already uses on this board: the last context bank (SCTLR=0, CBAR.TYPE=S1_TRANS_S2_BYPASS,
 // CBA2R.VA64=1) is shared by every bypass stream; a stream maps to it with S2CR TYPE=TRANSLATE (a TYPE=BYPASS S2CR reads
 // back as FAULT on this firmware) and S2CR is written before SMR. Unlike the UFS planner this one lets several streams share
-// the bank. Pure planning/configuration over register callbacks; host-tested by TouchBoardTests.c.
+// the bank. Pure planning/configuration over register callbacks; its three consumers are package/AudioProbe.cpp,
+// package/DbyAudio.cpp and package/TouchProbe.cpp (the last is the reference copy of the upstream probe), and it has
+// no host test of its own - the suites under package/tests/ cover the ADSP, QRTR and APR paths, not this header.
 #ifndef SHENG_SMMU_BYPASS_H
 #define SHENG_SMMU_BYPASS_H
 #include <stdint.h>
