@@ -2904,7 +2904,7 @@ dbyTouchStartScanning(struct dby_touch_bus *bus)
 static int
 dbyTouchChipEnable(struct dby_touch_bus *bus)
 {
-	struct dby_touch_identify id;
+	struct dby_touch_identify id = {};
 	int rc;
 
 	gEnableRan = true;
@@ -2963,7 +2963,9 @@ dbyTouchChipEnable(struct dby_touch_bus *bus)
 	dbyBusDelay(nullptr, 10);
 	rc = dby_touch_identify_n9z(bus, &id);
 	gEnableIdentRc = (rc == DBY_TOUCH_OK) ? 0u : ((rc == DBY_TOUCH_ERR_PROTO) ? 2u : 3u);
-	gEnableIdentRow = id.trim_row;
+	/* Read the row only once the identify answered: a failed identify leaves the struct untouched,
+	 * and this line used to publish whatever the stack happened to hold as a trim row. */
+	gEnableIdentRow = (rc == DBY_TOUCH_OK) ? id.trim_row : -1;
 	if (rc != DBY_TOUCH_OK) {
 		gEnableRc = 6;
 		dbyTouchResetRelease();
@@ -4370,7 +4372,9 @@ out:
 		if (at + 1 < capacity) {
 			out[at++] = static_cast<char>((rc < 0) ? '-' : ('0' + (rc % 10)));
 		}
-		if (at + 1 < capacity) {
+		/* Two characters, so the guard has to leave room for both and for the terminator. The old
+		 * `at + 1 < capacity` let this pair run one byte past the buffer on the last fitting slot. */
+		if (at + 2 < capacity) {
 			out[at++] = 'v';
 			out[at++] = static_cast<char>('0' + (mark % 10));
 		}
