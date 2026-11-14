@@ -1535,8 +1535,15 @@ static bool computeDescriptor(MTLComputePipelineDescriptor *d,NmbComputePipeline
 - (NSUInteger)options {return 0;}
 - (BOOL)addRenderPipelineFunctionsWithDescriptor:(MTLRenderPipelineDescriptor *)d error:(NSError **)error {
  auto *p=new NmbRenderPipelineDescriptor();
- const bool ok=renderDescriptor(d,p,error) && nmb_binary_archive_add_render(_handle,p);delete p;
- if(!ok)return failWith<BOOL>(error,@"archive render pipeline",NO);
+ /* The two failures were fused into one `ok`, so a descriptor the frontend refused on its own terms ("foreign
+  * function", "not implemented") came back as "archive render pipeline: " plus whatever the runtime last failed at,
+  * which has nothing to do with this call. Only a runtime refusal goes through failWith(); a descriptor refusal keeps
+  * the error it set, which is what the compute sibling below already does. */
+ const bool described=renderDescriptor(d,p,error);
+ const bool added=described && nmb_binary_archive_add_render(_handle,p);
+ delete p;
+ if(!described)return NO;
+ if(!added)return failWith<BOOL>(error,@"archive render pipeline",NO);
  if(error)*error=nil;return YES;
 }
 - (BOOL)addComputePipelineFunctionsWithDescriptor:(MTLComputePipelineDescriptor *)d error:(NSError **)error {
