@@ -21,4 +21,5 @@ trap 'rm -rf "$build"' EXIT HUP INT TERM
 "$cxx" -std=c++17 -Wall -Wextra -Werror -pedantic \
   -fsanitize=address,undefined -fno-omit-frame-pointer \
   "$test_dir/WholeUserdataDisk.cpp" -o "$build/WholeUserdataDisk-sanitized"
-"$build/WholeUserdataDisk-sanitized"
+UBSAN_OPTIONS=halt_on_error=1 "$build/WholeUserdataDisk-sanitized"   # a recovered report must fail the run,
+                                                                     # as run-native-ufs-bsd-root-core.sh has it
