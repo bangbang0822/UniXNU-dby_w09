@@ -355,6 +355,9 @@ static void waitForResource(id resource);
 @property(nonatomic,strong) NBBuffer *buffer;
 @property(nonatomic) IOSurfaceRef surface;
 @property(nonatomic) NSUInteger offset,rowBytes;
+/* The IOSurface plane this texture was imported from, for -iosurfacePlane. 0 for a texture over a buffer; set from the
+ * plane argument in textureOnSurface() and inherited by every view, because a view keeps the same plane. */
+@property(nonatomic) NSUInteger iosurfacePlaneIndex;
 @property(nonatomic,strong) id<MTLTexture> parent;
 @property(nonatomic,strong) id<MTLHeap> parentHeap;
 @property(nonatomic) NSUInteger heapOffset;
@@ -441,7 +444,7 @@ static bool textureDescriptor(MTLTextureDescriptor *d,NmbTextureDescriptor *out)
 - (MTLCPUCacheMode)cpuCacheMode {return (MTLCPUCacheMode)((_descriptor.options&MTLResourceCPUCacheModeMask)>>MTLResourceCPUCacheModeShift);}
 - (BOOL)isFramebufferOnly {return NO;}
 - (IOSurfaceRef)iosurface {return _surface;}
-- (NSUInteger)iosurfacePlane {return 0;}
+- (NSUInteger)iosurfacePlane {return _iosurfacePlaneIndex;}
 - (id<MTLBuffer>)buffer {return _surface?nil:(id<MTLBuffer>)_buffer;}
 - (NSUInteger)bufferOffset {return _offset;}
 - (NSUInteger)bufferBytesPerRow {return _rowBytes;}
@@ -457,6 +460,7 @@ NB_RESOURCE_SPI
  if(!handle){NBLOG(@"native-metal: texture view refused: %@",lastError());return nil;}
  NBTexture *view=[NBTexture new];view.handle=handle;NmbTextureDescriptor descriptor;nmb_texture_describe(handle,&descriptor);view.descriptor=descriptor;
  view.parent=(id<MTLTexture>)self;view.buffer=_buffer;view.offset=_offset;view.rowBytes=_rowBytes;
+ view.iosurfacePlaneIndex=_iosurfacePlaneIndex;
  if(_surface)view.surface=(IOSurfaceRef)CFRetain(_surface);
  return (id<MTLTexture>)view;
 }
@@ -518,7 +522,9 @@ static NBTexture *textureOnSurface(NBBuffer *buffer,MTLTextureDescriptor *d,IOSu
   IOSurfaceGetWidth(surface),IOSurfaceGetHeight(surface),chroma>=base?chroma-base:0,IOSurfaceGetBytesPerRowOfPlane(surface,1));
  if(!handle){NBLOG(@"native-metal: texture over surface refused: %@",lastError());return nil;}
  NBTexture *texture=[NBTexture new];texture.handle=handle;nmb_texture_describe(handle,&descriptor);texture.descriptor=descriptor;
- texture.buffer=buffer;texture.offset=offset;texture.rowBytes=row;return texture;
+ /* The plane the caller asked for: -iosurfacePlane used to answer a constant 0, so a texture imported from plane 1
+  * claimed plane 0 and every view inherited that. */
+ texture.buffer=buffer;texture.offset=offset;texture.rowBytes=row;texture.iosurfacePlaneIndex=plane;return texture;
 }
 @implementation NBBuffer (Textures)
 - (id<MTLTexture>)newTextureWithDescriptor:(MTLTextureDescriptor *)d offset:(NSUInteger)offset bytesPerRow:(NSUInteger)row {
