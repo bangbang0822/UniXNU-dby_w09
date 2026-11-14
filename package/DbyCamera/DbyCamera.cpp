@@ -138,6 +138,8 @@ int arcVote(void *, const char *resource, uint32_t vlvl, uint32_t *hlvl)
     const int level = qcom_rpmh_level_index(&res, vlvl, &index);
     if (level) return level;
     dby_camera_status[11] |= sameName(resource, DBCAM_ARC_MM) ? 1 : 2;    // bit 0 mmcx，bit 1 mxc
+    // 今天只有 mmcx 一条投票（DbyCamBringup.c:314 是唯一调用），所以 bit 1 和下面的 status[9] 一样恒 0：
+    // 读到 0 是「没有这条投票」，不是「mxc 没找到」。
     dby_camera_status[10] = (int32_t)rd32(gRsc, 0);
     const QcomRscLayout layout = qcom_rsc_layout((uint32_t)dby_camera_status[10]);
     QcomRpmhWrite writes[16];
@@ -207,7 +209,7 @@ void cameraThread(void *, wait_result_t)
     dby_camera_status[6] = (int32_t)bringup.cci_version;
     dby_camera_status[7] = (int32_t)bringup.gdscr;
     dby_camera_status[8] = (int32_t)bringup.mm_hlvl;
-    dby_camera_status[9] = (int32_t)bringup.mxc_hlvl;
+    dby_camera_status[9] = (int32_t)bringup.mxc_hlvl;   // mx 投票已删除，恒 0（DbyCamBoard.h:139-140）
     dby_camera_status[13] = (int32_t)bringup.rail_rc;
     dby_camera_status[14] = (int32_t)bringup.scan_ack;
     dby_camera_status[15] = (int32_t)bringup.scan_id[0];

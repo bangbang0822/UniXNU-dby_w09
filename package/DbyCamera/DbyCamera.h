@@ -24,8 +24,11 @@ extern "C" {
 void dby_camera_start(void);
 
 /* [0] 状态（0 关或没起来，1 在跑，2 跑完），[1] 步号（失败是负的），[2] 错误码，[3] 参数要的级，
- * [4] 实际走的级，[5] 闸门拒绝的写次数，[6] CCI_HW_VERSION，[7] titan GDSCR，[8] ARC mm 档，[9] ARC mx 档，
- * [10] RSC id，[11] cmd-db 里两条 ARC 资源各找到没有（bit 0 mmcx，bit 1 mxc），[12] cam_vio 的 cmd-db 地址，
+ * [4] 实际走的级，[5] 闸门拒绝的写次数，[6] CCI_HW_VERSION，[7] titan GDSCR，[8] ARC mm 档，
+ * [9] ARC mx 档——mx 那条投票已经删掉（DbyCamBoard.h:139-140），所以这格恒 0；留着是因为数组对外的
+ *     形状不变，读到 0 是「没有这条投票」，不是「mxc 失败」，
+ * [10] RSC id，[11] cmd-db 里找没找到 ARC 资源：bit 0 = mmcx，bit 1 留给 mxc——今天只投 mmcx
+ *     （DbyCamBringup.c:314 是唯一调用），所以 bit 1 恒 0，[12] cam_vio 的 cmd-db 地址，
  * [13] cam_vio 投票的返回码，[14] 扫到应答的地址位图（bit n = kDbcamScanAddr[n]），[15] 第一个地址的读回值。 */
 extern volatile int32_t dby_camera_status[16];
 
