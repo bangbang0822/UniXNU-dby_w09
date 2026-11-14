@@ -4,6 +4,7 @@
  * A negative control corrupts only a private copy of a cache UUID. Never deploy. */
 #include <vulkan/vulkan.h>
 #include <atomic>
+#include <cstddef>   // offsetof, for the cache header assertions
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
