@@ -83,7 +83,9 @@ class NativeAdrenoSubmit final {
     NativeAdrenoSubmitStats stats_{};
     void noteStall(uint32_t observed,const NativeAdrenoRingClock *clock);   /* the CP's state for a fence that stopped advancing (native_adreno_stall) */
     bool attached_=false,poisoned_=false;
-    uint32_t audit_tick_=0;   /* submissions since attach; every eighth one audits its IB lines */
+    uint32_t audit_tick_=0;   /* submissions since attach. The write-combine audit runs on each of the first
+                                 sixteen (the window a fresh mapping is suspect in) and never again afterwards -
+                                 every eighth one was the earlier shape and is not what the code does */
     /* submit()'s distinct buffers and ring words: too large for the kernel stack at 128 IBs (callers serialize every method) */
     uint64_t scratch_handles_[NativeAdrenoSubmitMaxBuffers]{};
     uint32_t scratch_words_[NativeAdrenoSubmitMaxBuffers*4]{};
