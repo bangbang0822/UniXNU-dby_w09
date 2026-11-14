@@ -10,11 +10,12 @@
  *   MEASURED an actual observation from this handset (log/command recorded)
  *   DOC     unixnu.com page shipped from dby-port/UniXNU-full/docs (cite path)
  *
- * Anything that is still unknown is written as DBY_TOUCH_TODO_* and is listed in
- * README.md §"还缺哪些数值".  Do not replace a TODO with a plausible-looking
- * number: the touch block on this board has four independent unknown layers
- * (GPIO ownership, SPI bring-up, IC protocol, report scaling) and a wrong
- * constant in any of them looks exactly like "touch does not work".
+ * Anything still unknown is marked where it would be used, next to the tag that would settle it -
+ * there is no DBY_TOUCH_TODO_* token and no section of a README to list it in (the notes that
+ * carried the four unknown layers, GPIO ownership, SPI bring-up, IC protocol and report scaling,
+ * live in work/tracks/touchprot/, outside this repository).  Do not replace one of those marks
+ * with a plausible-looking number: a wrong constant in any of the four layers looks exactly like
+ * "touch does not work".
  */
 
 #ifndef DBY_TOUCH_BOARD_H
