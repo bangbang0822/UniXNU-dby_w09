@@ -14,7 +14,7 @@
  *
  * WHY EMBEDDED: the Adreno bring-up path validates each image by exact byte
  * count plus SHA-256 before use, and this board has no vendor-firmware reader
- * in the kernel. The reference board does the same: its GpuProbe.cpp:58-63
+ * in the kernel. The reference board does the same: its GpuProbe.cpp:81-86
  * weak-imports native_gpu_{gmu,sqe,zap}_firmware and their _size words, so this
  * header defines both spellings and a port of that probe links unchanged. The
  * 87144 bytes below cost that much kernel image and nothing at runtime.
@@ -62,7 +62,9 @@ enum DbyGpuFirmwareKind : uint32_t {
 };
 
 /* Exact lengths of the embedded images. These are properties of the images,
- * not policy constants: DBY_GPU_SQE_BYTES is what a CP upload must move. */
+ * not policy constants: DBY_GPU_SQE_FIRMWARE_BYTES is the whole SQE image, and a
+ * CP upload moves its first four bytes' worth less than that (the instruction
+ * pointer starts past the header the upload does not carry). */
 #define DBY_GPU_ZAP_FIRMWARE_BYTES   13964u
 #define DBY_GPU_GMU_FIRMWARE_BYTES   41548u
 #define DBY_GPU_SQE_FIRMWARE_BYTES   31632u
@@ -5824,7 +5826,7 @@ extern const uint8_t native_gpu_sqe_firmware[DBY_GPU_SQE_FIRMWARE_BYTES] __attri
 };
 
 /* The length words the reference probe reads beside the arrays (uint32_t, as
- * GpuProbe.cpp:59-63 declares them). */
+ * GpuProbe.cpp:81-86 declares them along with the arrays themselves). */
 extern const uint32_t native_gpu_zap_firmware_size __attribute__((weak)) = DBY_GPU_ZAP_FIRMWARE_BYTES;
 extern const uint32_t native_gpu_gmu_firmware_size __attribute__((weak)) = DBY_GPU_GMU_FIRMWARE_BYTES;
 extern const uint32_t native_gpu_sqe_firmware_size __attribute__((weak)) = DBY_GPU_SQE_FIRMWARE_BYTES;
