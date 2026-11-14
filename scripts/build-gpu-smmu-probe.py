@@ -19,7 +19,7 @@ flags are exactly the ones the kernel was built with:
     DbyGpuSmmuProbe.cpp <- build/xnu/ios-obj/.../iokit/DEVELOPMENT/*.json  (C++)
 
 That is the same technique, and the same four warning demotions, as scripts/build-dby-touch.py and
-scripts/build-cpufreq.py in this repository.
+scripts/build-gop-legacy-display.py in this repository.
 
 The kernel tree is only read (compile record, headers). Every output lands under {tree}/build/gpusmmu/.
 The defconfig force-loads it through CONFIG_XNU_EXTRA_LD_ARCHIVES:
