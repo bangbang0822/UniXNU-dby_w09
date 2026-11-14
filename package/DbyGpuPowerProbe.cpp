@@ -91,8 +91,11 @@
  *         (the four regions mode 8 allocated and the TTBR0 root, page numbers, so mode 9 is readable alone)
  *   row4 / row5 in modes 10..14:  GPU COLD st= phase= blocks= ver= init= hfi= rdy=   and
  *         GPU COLD rst= rsc= clk=<rc>/<step> ao= HFI pst= stg= ack= err=
- *         (mode 11 replaces row5 with the GMU state, mode 12 with the AO/SMMU fault registers and the
- *          GMU log, modes 13/14 with  GPU GX st= gx= on= oob= info= vote= err=)
+ *         (mode 11 replaces row5 with the GMU state, modes 13/14 with
+ *          GPU GX st= gx= on= oob= info= vote= err=.  Mode 12 writes the AO/SMMU fault registers over
+ *          row5 and the GMU log over ROW 3, not row 5: renderLogRow() targets rows[3], which is the
+ *          mode-9 SMMUCTX stage row, so that evidence is not on the panel in mode 12 - and modes >= 13
+ *          lose it the same way, where renderFaultDbg(3u) writes the same row.)
  *   row2 / row3 in mode 14:  GPU CP st=<hex> step= sqe=<bytes>/<bad> rptr= wptr= me= mw= hf= mark=<hex>
  *         and  GPU GPUCTX pre= bld= enc= prog= str= tlb= obs= val= pg= rw=<hex> ttbr0=<hex>
  *         (st= 0 is the only success; every other value names the failing step (0xFFFFFF01..19).  step is
@@ -3077,10 +3080,11 @@ render:
  *
  * NativeAdrenoSmmuMemory decodes ID2[11:8] as {32,36,40,42,44} else 48 and refuses every
  * non-kernel client when the result is <= 32, so the publish gate needs that number measured.
- * The ladder has it: dbyGpuCpStart reads ID0 at GR0 0x020 and ID2 at 0x028 (:2704-2705) and
- * stores them in gDbyGpuCtxContext (:2713-2714); the encode at :2722 and the read-back
- * validation at :2760 only pass if they are coherent, and the encode additionally requires
- * this board's input_bits (36, :2680) to fit in va, so a rendered row already proves >= 36.
+ * The ladder has it: dbyGpuCpStart reads ID0 at GR0 0x020 and ID2 at 0x028 and stores both in
+ * gDbyGpuCtxContext; dbyGpuCtxEncode and the read-back validation only pass if the two are
+ * coherent, and the encode additionally requires this board's input_bits (36) to fit in va, so a
+ * rendered row already proves >= 36. Named rather than numbered: a line reference into this file
+ * does not survive the next edit, and the first version of it had already drifted.
  * Reading the block a second time would add an MMIO access this boot does not need; the first
  * version of this change did exactly that and used sCR0/sCR1/sCR2 offsets by mistake (review
  * 2026-11-06, must-fix 1).
@@ -3923,7 +3927,7 @@ static volatile uint32_t *gDbyArcCpu[5];
 /* The archive's attach refuses a target slot whose S2CR is not the canonical FAULT word
  * (ArmSmmu4KStreams.c:43-44) and the first un-normalised attempt on this tablet returned
  * pre=10 = ArmSmmu4KBusy (evidence/edl-log-s69). So every slot this mode hands over is
- * normalised here first, in the same order dbyGpuCpStart uses (:2650-2676): S2CR to FAULT,
+ * normalised here first, in the same order dbyGpuCpStart uses: S2CR to FAULT,
  * barrier, read back, then SMR left invalid so the attach can claim the SID. */
 static uint32_t gDbyArcNorm;
 
@@ -3969,7 +3973,7 @@ dbyArcSmmuPreflight(const unsigned *slots, unsigned count)
 
 	for (i = 0u; i < count; ++i) {
 		/* S2CR first, SMR second: the order ArmSmmu4KStreams.c:129-139 uses and the one the
-		 * probe's own path takes (:2647-2648). The SMR is then cleared so the archive's attach
+		 * probe's own path takes. The SMR is then cleared so the archive's attach
 		 * is the one that claims the SID (valid_smr() looks at bit 31 only). */
 		if (!dbyArcSmmuSlotFault(slots[i])) {
 			return 0;
@@ -4039,8 +4043,8 @@ dbyArcGmuContext(void)
 	 * (valid_smr() is V only, ArmSmmu4KStreams.c:9,136 - the driver has no mask path). The DT
 	 * encodes args[1]=0x400 into ARM_SMMU_SMR_MASK because bit 10 of the SID says which GPU TBU
 	 * the transaction came from (kona-gpu.dtsi:340,346), so an exact-SID route misses every
-	 * gfx_1_tbu transfer of that client - the probe's own GMU path ORs the same mask at
-	 * :1610-1612. Without it the GMU's first icache fetch can arrive unmatched: a global fault
+	 * gfx_1_tbu transfer of that client - the probe's own GMU path ORs the same mask in
+	 * dbyGpuGmuSmmuSetup. Without it the GMU's first icache fetch can arrive unmatched: a global fault
 	 * and a cold-start timeout. */
 	{
 		unsigned k;
@@ -4106,7 +4110,7 @@ dbyArcColdStart(void)
 	memset(&gDbyColdIo, 0, sizeof gDbyColdIo);
 
 	/* This path has its own status range (0xFFFFFE0x) so a refusal here can never be read as
-	 * one of the mode-10 codes (:1904-1941) that mean something else. */
+	 * one of the mode-10 codes that mean something else. */
 	if (gDbyArcCpuRc != 0u || gDbyArcPayload[0].physical == 0u) {
 		gDbyColdStatus = 0xFFFFFE01u;
 		return;
@@ -4436,7 +4440,7 @@ dbyRingBringup(void)
 	/* The SQE buffer the archive allocates is empty and its CP registers are untouched:
 	 * NativeAdrenoGpuContextBringupRoutes takes only the SMMU pointer, and the probe's own CP
 	 * setup lives in dbyGpuCpStart, which mode 18 does not run. So this loads the microcode and
-	 * programs the base here, the same work mode 14 does at :2616-2633, :2826 and :2853. */
+	 * programs the base here, the same work mode 14 does in dbyGpuCpStart. */
 	gDbyRingStep = 4u;
 	{
 		void *sqe_cpu = nullptr;
@@ -4533,7 +4537,8 @@ dbyZapLeaveSecureRing(void)
 
 /* The board's GPU restart for the driver's hangcheck (NativeAdrenoSubmit.h NativeAdrenoRestart), the
  * sequence the reference board installs (research/repos/UniXNU-alioth/package/GpuProbe.cpp:1870-1890,
- * installed at :1898): hw_init, the microcode started again, the ring reprogrammed, then CP_ME_INIT.
+ * the same function it installs there): hw_init, the microcode started again, the ring reprogrammed,
+ * then CP_ME_INIT.
  * The ring's restart(completed) clears the ring, the memptrs and the fence page and writes CP_RB_BASE,
  * CP_RB_CNTL, CP_RB_RPTR_ADDR and CP_RB_SCRATCH itself (NativeAdrenoRing.cpp:381-405), so the ring
  * registers are not written by hand; CP_SQE_INSTR_BASE and CP_SQE_CNTL are, because a6xx_hw_init
@@ -4570,7 +4575,7 @@ extern "C" IOReturn dbyGpuRestart(void *cookie, NativeAdrenoRing *ring, uint32_t
 	if (dbyGpuHwInit() != 0) {
 		return kIOReturnIOError;
 	}
-	/* The microcode start the bring-up does at :4311-4312: the kit's CP_ME_INIT compares
+	/* The microcode start the bring-up does in dbyGpuHwInit: the kit's CP_ME_INIT compares
 	 * CP_SQE_INSTR_BASE instead of rewriting it once the SQE runs (NativeAdrenoCpInit.h:8-10), so the
 	 * base has to be written here, before CP_SQE_CNTL starts the microcode again.
 	 *
