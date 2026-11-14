@@ -1471,6 +1471,22 @@ extern "C" int native_ufs_log_write (uint64_t rel, uint32_t blocks, const void *
   return 1;
 }
 
+// Read a block range back out of the log window. The writer (kits/sheng BootLog.c) only needs writes while it runs, but a
+// run that dies before a reader can be booted leaves its text in this window, and the next boot can replay it through the
+// console it does have. The range is checked against the window the same way the write path checks it.
+extern "C" int native_ufs_log_read (uint64_t rel, uint32_t blocks, void *dst)
+{
+  if (!gLogRegionBlocks || !dst || !blocks || rel >= gLogRegionBlocks || blocks > gLogRegionBlocks - rel) return 0;
+  while (blocks) {
+    uint32_t chunk = blocks > kDataMax / 4096 ? static_cast<uint32_t> (kDataMax / 4096) : blocks;
+    if (hostRead4k (0, gLogRegionFirst + rel, chunk, dst) != kIOReturnSuccess) return 0;
+    dst = static_cast<uint8_t *> (dst) + chunk * 4096ULL;
+    rel += chunk;
+    blocks -= chunk;
+  }
+  return 1;
+}
+
 // The export region below the log window: its size in blocks once the log is open, else 0; writes at a block offset inside it.
 extern "C" uint64_t native_ufs_export_blocks (void) { return gLogRegionBlocks ? kExportBlocks : 0; }
 

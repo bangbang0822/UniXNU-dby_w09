@@ -18,6 +18,7 @@
 
 extern int native_ufs_log_open(uint64_t *, uint64_t *, const char **) __attribute__((weak_import));
 extern int native_ufs_log_write(uint64_t, uint32_t, const void *) __attribute__((weak_import));
+extern int native_ufs_log_read(uint64_t, uint32_t, void *) __attribute__((weak_import));
 extern uint64_t native_ufs_export_blocks(void) __attribute__((weak_import));
 extern int native_ufs_export_write(uint64_t, uint32_t, const void *) __attribute__((weak_import));
 extern int native_ufs_log_sync(void) __attribute__((weak_import));
@@ -1400,6 +1401,49 @@ static uint32_t copy_msgbuf(uint8_t *out) {
   return n;
 }
 
+
+/* Replay the previous run's message buffer through the console this boot does have.
+ *
+ * A run that dies before it can be read leaves its text in the window (the header and the message blocks), and the console
+ * is only alive for part of a boot: the interesting rows are the ones printed after the USB stack came up, which is also
+ * when a late panic prints. So this waits for that window, then reads the *previous* header, and prints its message area
+ * with a "prev" tag. It writes nothing to the medium. */
+#define kReplayDelayMs 6000
+#define kReplayBytes   (96u * 1024u)
+
+static void replay_previous(void *arg, wait_result_t result) {
+  (void)arg; (void)result;
+  thread_set_thread_name(current_thread(), "boot_log_r");
+  if (!&native_ufs_log_read) return;
+  IOSleep(kReplayDelayMs);
+  uint64_t first = 0, blocks = 0;
+  const char *why = "";
+  if (!native_ufs_log_open(&first, &blocks, &why) || blocks < 34) return;
+  uint8_t *block = (uint8_t *)IOMalloc(LogBlock);
+  uint8_t *text = (uint8_t *)IOMalloc(kReplayBytes);
+  if (!block || !text) { if (block) IOFree(block, LogBlock); if (text) IOFree(text, kReplayBytes); return; }
+  if (native_ufs_log_read(0, 1, block) && memcmp(block, "SHLOG001", 8) == 0) {
+    const struct boot_log_header *h = (const struct boot_log_header *)block;
+    kprintf("[prev] boot_id=%llu tag=%s rounds=%u err=%u state=%u slots=%u msg_blocks=%u\n",
+            h->boot_id, h->tag, h->rounds, h->write_errors, h->state, h->slots_written, h->msg_blocks);
+    if (h->msg_blocks && h->msg_blocks <= (kReplayBytes / LogBlock)) {
+      if (native_ufs_log_read(h->msg_first, h->msg_blocks, text)) {
+        uint32_t used = h->msg_bytes < kReplayBytes ? h->msg_bytes : kReplayBytes;
+        kprintf("[prev] --- message buffer, %u of %u bytes ---\n", used, h->msg_bytes);
+        for (uint32_t at = 0; at < used; ) {
+          uint32_t room = kReplayBytes - at;
+          uint32_t take = strnlen((const char *)text + at, room < 900 ? room : 900);
+          if (take == 0) { ++at; continue; }        // the ring leaves gaps where nothing was written
+          kprintf("[prev] %.*s\n", (int)take, (const char *)text + at);
+          at += take + 1;
+        }
+        kprintf("[prev] --- end ---\n");
+      }
+    }
+  }
+  IOFree(block, LogBlock); IOFree(text, kReplayBytes);
+}
+
 static void writer(void *arg, wait_result_t result) {
   (void)arg; (void)result;
   thread_set_thread_name(current_thread(), "boot_log");
@@ -1510,4 +1554,8 @@ void boot_log_tick(unsigned now) {
   export_lock = IOLockAlloc();
   thread_t thread;
   if (kernel_thread_start_priority(writer, 0, BASEPRI_KERNEL, &thread) == KERN_SUCCESS) thread_deallocate(thread);
+  // sheng-log-replay=1 prints the previous run's message area once the console is up; nothing is written.
+  uint32_t replay = 0;
+  if (PE_parse_boot_argn("sheng-log-replay", &replay, sizeof replay) && replay == 1 &&
+      kernel_thread_start_priority(replay_previous, 0, BASEPRI_KERNEL, &thread) == KERN_SUCCESS) thread_deallocate(thread);
 }
