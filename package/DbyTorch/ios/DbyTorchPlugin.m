@@ -18,6 +18,16 @@
 // kept, compared and released. So the constructor replaces those six methods (implementations in this process's memory; no Apple file and no
 // code page changes): each passes everything through to the original, except for a client registered under the name FigFlashlight, which
 // gets a token device and a stream object of this file. All six are found first, or none is replaced.
+//
+// PRECONDITION, and it belongs to the camera provider: none of those six is ever called unless
+// +[BWFigCaptureDeviceVendor sharedCaptureDeviceVendor] exists, and it does not on its own. Its
+// initWithDefaultDeviceCreateFunction: bails to nil when the default create function is empty and the
+// phone is not running under a hypervisor (FigCaptureIsRunningInVirtualization, kern.hv_vmm_present =
+// 0 here), and this port's H6ISP load leaves that function empty on purpose - the same deliberate dlsym
+// failure the first paragraph describes. Without package/DbyCamera/ios/DbyCameraProvider.m replacing
+// that init in the same process, every message to the vendor lands nowhere: no external camera, and not
+// one of the six methods here runs. So a torch-only delivery is not this file alone; porting.toml's
+// power area records the combination that was built and what was observed with it.
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #include <dlfcn.h>
