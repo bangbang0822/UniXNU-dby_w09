@@ -2389,10 +2389,13 @@ dbyGpuCtxPoolAlloc(void)
 {
 	IOBufferMemoryDescriptor *pool;
 
-	gDbyGpuPoolOk = 0u;
+	/* The early return means "already allocated", not "not available": clearing the flag first made a
+	 * second call report the pool as unusable while the descriptor was still held, and every caller that
+	 * consults gDbyGpuPoolOk would then skip a pool that is fine. */
 	if (gDbyGpuPool != nullptr) {
 		return;
 	}
+	gDbyGpuPoolOk = 0u;
 	pool = IOBufferMemoryDescriptor::withOptions(kIOMemoryPhysicallyContiguous | kIODirectionOutIn,
 	                                             DBY_SMMU_GPU_POOL_BYTES, 4096);
 	if (pool == nullptr) {
@@ -3402,7 +3405,9 @@ dbyZapLoad(void)
 		if (end > hi) {
 			hi = end;
 		}
-		if (off + filesz > size) {
+		/* Compare in 64 bits: `off + filesz` as uint32_t wraps, and a wrapped sum is <= size, so
+		 * the check the segment is supposed to fail would pass (review finding 3405). */
+		if ((uint64_t)off + filesz > size) {
 			return 0xFFFFFF25u;
 		}
 	}
@@ -3417,7 +3422,8 @@ dbyZapLoad(void)
 	ehdr = dbyLe32(fw + phoff + 16u);
 	hashOff = dbyLe32(fw + phoff + hash * 32u + 4u);
 	hashBytes = dbyLe32(fw + phoff + hash * 32u + 16u);
-	if (ehdr > size || hashOff + hashBytes > size || ehdr + hashBytes > 0x4000u) {
+	if (ehdr > size || (uint64_t)hashOff + hashBytes > size ||
+	    (uint64_t)ehdr + hashBytes > 0x4000u) {   // 64-bit sums: both pairs can wrap as uint32_t
 		return 0xFFFFFF27u;
 	}
 
@@ -3742,7 +3748,7 @@ dbyTzMeta(uint64_t mask, IOBufferMemoryDescriptor **out, uint64_t *phys, uint32_
 	ehdr = dbyLe32(fw + phoff + 16u);
 	hashOff = dbyLe32(fw + phoff + hash * 32u + 4u);
 	hashBytes = dbyLe32(fw + phoff + hash * 32u + 16u);
-	if (ehdr > size || hashOff + hashBytes > size) {
+	if (ehdr > size || (uint64_t)hashOff + hashBytes > size) {   // 64-bit sum, same reason
 		return 1u;
 	}
 	gDbyTzEhdr = ehdr;
