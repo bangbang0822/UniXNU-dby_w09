@@ -169,6 +169,11 @@ Status ParseUserdataPartition(const void *entries, size_t entry_bytes,
   if (selected_first < first_usable || selected_last > last_usable) {
     return Status::OutOfBounds;
   }
+  /* Both guards below are unreachable as the entry is validated above: last is rejected past
+   * UINT32_MAX (line 140) and last >= first, so the difference is at most 0xffffffff and
+   * blocks * kMediaBlockBytes cannot overflow a uint64_t. They stay because the arithmetic they
+   * protect is the capacity the overlay is sized from, but the bound is established at line 140 -
+   * read it there, not here. */
   if (selected_last - selected_first == UINT64_MAX) {
     return Status::Overflow;
   }
