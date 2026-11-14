@@ -193,7 +193,13 @@ void native_hid_input_probe(void) {
         if(!provider) provider=IOService::getResourceService();
         native_hid_provider_used=resource?1:(provider?2:0);
         unsigned sendHome=0;PE_parse_boot_argn("offline-hid-home",&sendHome,sizeof(sendHome));
-        if(provider && sendHome==1 && native_hid_class_sizes[4]==208) {
+        /* 208 is IOHIDDevice's class size in the donor kernel this port was written against: the offline device
+         * below fills an object of that layout, so a kernel whose IOHIDDevice answers another size gets no
+         * offline device at all rather than one whose ivars sit at the wrong offsets. The gate is the check -
+         * native_hid_class_sizes[4] is the value the loaded family actually reports, and the row prints it, so a
+         * mismatched kernel shows the number instead of a silent refusal. */
+        static constexpr uint32_t kIOHIDDeviceBytes = 208;
+        if(provider && sendHome==1 && native_hid_class_sizes[4]==kIOHIDDeviceBytes) {
             void *handle=OSMetaClass::preModLoad(g_kernel_kmod_info.name);
             if(handle) {
                 native_hid_static_init();native_hid_input_meta_status=OSMetaClass::postModLoad(handle);
