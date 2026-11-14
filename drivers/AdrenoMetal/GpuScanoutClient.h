@@ -81,12 +81,12 @@ public:
             return false;
         }
         const size_t page = (size_t)getpagesize();
-        {   // measurement: the second half of the run copies half the rows
-            static uint64_t first = 0;
-            const uint64_t nowS = clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / 1000000000ull;
-            if (!first) first = nowS;
-            (void)first; gpupresent::gHalfRows.store(false, std::memory_order_relaxed);
-        }
+        /* gpupresent::gHalfRows is read by the presenter (GpuScanoutPresenter.h:53) to copy a frame's half rows
+         * instead of all of them. The block that used to sit here timed the run, discarded the timestamp and
+         * stored false - the flag's own default - while its comment said "the second half of the run copies half
+         * the rows", so the experiment it described never ran and the store could only ever write what was
+         * already there. The flag keeps its default and is left to the caller that wants to measure; nothing here
+         * pretends to. */
         note(0x6730);   // a frame was offered
         const uint64_t offeredUs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / 1000;
         if (NBWaitInFlight) NBWaitInFlight(offeredUs);
