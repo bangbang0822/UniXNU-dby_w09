@@ -70,7 +70,11 @@ constexpr uint32_t kHalt[] = {0x17004, 0x17008, 0x23000, 0x23008, 0x1739c};
  * mux_bit=2 且 nfuncs=10，所以功能选择占 bits[5:2]、写的是 funcs[] 的下标而不是 kona_functions[] 的全局编号
  * （qup3 在全表里排 66，但在每个 pin 的 funcs[] 里是 [1]，写进去的值是 1）。 */
 constexpr uint64_t kTlmmNorth = 0x0F900000;
-constexpr uint32_t kResetGpio = 109;             // 三套 BOM 共用这一根，dtsi 的 gpio_reset
+constexpr uint32_t kResetGpio = 109;             // 三套 BOM 共用这一根，dtsi 的 gpio_reset = <&tlmm 109 0>（上方 :13）
+/* SCL/SDA 这两个编号的来源只到文件名一级，写在这里是为了让下一位看得出它不是实测值：它们来自
+ * kona/DBY/W09_VA/huawei-audio.dtsi 里 &qupv3_se3_i2c 那条节点的 pinctrl state，而那份 vendor 树不在本仓，
+ * 所以给不出 file:line —— 复位脚 109 有（:13 的 gpio_reset），这两个没有。要变成可复核的引用需要 vendor
+ * 树里的文件名与行号；在那之前这一条记在 porting.toml 的 audio limits 里，按"待补出处"对待。 */
 constexpr uint32_t kSclGpio = 119, kSdaGpio = 120;
 constexpr uint32_t kPinCtl(uint32_t id) {return id * 0x1000u;}
 constexpr uint32_t kPinPullBits = 0x003u;        // pull_bit=0，两位：0=no pull
