@@ -14,7 +14,7 @@ is - the note says which.
 |---|---|---|---|---|
 | blocker | 11 | 9 | 1 | 1 |
 | major | 65 | 46 | 6 | 13 |
-| minor | 270 | 175 | 53 | 42 |
+| minor | 270 | 176 | 52 | 42 |
 | nit | 248 | 177 | 23 | 48 |
 
 ## The findings whose audited text is still in the file
@@ -138,7 +138,7 @@ Last change this session: fc4ca7b docs(storage): record the 2026-10-17 clock rea
 
 ### `drivers/ShengUfs/NativeUfs.cpp` - fixed/documented: GPT entry size refused, rename reference handed over, layout from the header
 
-Last change this session: 4f8b5c6 chore(storage): use the shared transport layout in the diagnostic path
+Last change this session: 7ea71ff fix(storage): compare the device block size before parsing the layout
 
 - [minor] lines 1333-1342: native_ufs_part_find reads a GPT entry out of a 4096-byte one-block buffer (`uint8_t *buffer = static_cast<uint8_t *> (IOMalloc (4096))`, line 1322) but only refreshes that buffer 
 - [minor] lines 1802-1806, 2926-2935: The whole-userdata rename thread loads the file-scope pointer gWholeUserdataDevice and only afterwards takes its own reference, while NativeUfs::stop clears that pointer, terminate
@@ -149,12 +149,6 @@ Last change this session: b3d9e39 fix(storage): size the GPT entry buffer from t
 
 - [minor] lines 172-178 (also 290-291, 357): Two overflow guards in ParseUserdataPartition can never fire: every accepted entry's last LBA is already rejected above UINT32_MAX at line 140, so selected_last - selected_first is
 
-### `drivers/ShengUfs/RootCommands.h` - documented: window is a snapshot, lease recorded as owed
-
-Last change this session: 4311623 chore(storage): give the six guard-less ShengUfs headers a guard
-
-- [minor] lines 331, 334 (window state written at 359-378): A write is admitted against the open window before gHost.lock is taken, and the window variables that hostInWindow() reads (gRootOpen/gRootFirst/gRootBlocks, gStoreOpen/gLogOpen an
-
 ### `drivers/ShengUfs/RootDiagnostics.h` - fixed: include guards on all six headers
 
 Last change this session: 4311623 chore(storage): give the six guard-less ShengUfs headers a guard
@@ -163,7 +157,7 @@ Last change this session: 4311623 chore(storage): give the six guard-less ShengU
 
 ### `drivers/ShengUfs/RootLayout.h` - documented: lbaBytes is the driver's unit; comparison owed
 
-Last change this session: eff642f docs(storage): say what lbaBytes is, and what it is not
+Last change this session: 7ea71ff fix(storage): compare the device block size before parsing the layout
 
 - [minor] lines 14, 170 (also 1, 123, 207): lbaBytes is documented as the 'Logical block size reported by the device', but findRootLayout assigns the literal 4096 instead of the value READ CAPACITY returns (RootCommands.h:22
 
