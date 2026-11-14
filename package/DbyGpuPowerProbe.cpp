@@ -839,7 +839,8 @@ dbyGpuGmuContextPrep(void)
 		IOBufferMemoryDescriptor *pool = IOBufferMemoryDescriptor::withOptions(
 		    kIOMemoryPhysicallyContiguous | kIODirectionOutIn, DBY_SMMU_TABLE_POOL_BYTES, 4096);
 		if (pool != nullptr) {
-			if (pool->prepare(kIODirectionOutIn) == kIOReturnSuccess) {
+			const bool prepared = pool->prepare(kIODirectionOutIn) == kIOReturnSuccess;
+			if (prepared) {
 				IOPhysicalAddress phys = pool->getPhysicalAddress();
 				volatile uint32_t *cpu = reinterpret_cast<volatile uint32_t *>(pool->getBytesNoCopy());
 				if (phys != 0 && cpu != nullptr) {
@@ -850,6 +851,12 @@ dbyGpuGmuContextPrep(void)
 				}
 			}
 			if (gDbySmmuPoolOk == 0) {
+				/* Release a descriptor that prepared only after completing it, the way
+				 * dbyGmuRegionAlloc does on its own failure path (~line 1003): releasing a prepared
+				 * buffer without complete() leaves the memory never completed. */
+				if (prepared) {
+					pool->complete(kIODirectionOutIn);
+				}
 				pool->release();
 			}
 		}
@@ -3758,6 +3765,12 @@ dbyTzMeta(uint64_t mask, IOBufferMemoryDescriptor **out, uint64_t *phys, uint32_
 	    static_cast<IOOptionBits>(kIODirectionInOut) | static_cast<IOOptionBits>(kIOMemoryPhysicallyContiguous),
 	    metaBytes, mask);
 	if (meta == nullptr || meta->prepare() != kIOReturnSuccess) {
+		/* A descriptor that was allocated but would not prepare is nobody else's: it used to be
+		 * dropped here, and the <4 GiB retry then allocated a second one over the first. */
+		if (meta != nullptr) {
+			meta->release();
+			meta = nullptr;
+		}
 		return 2u;
 	}
 	m = static_cast<uint8_t *>(meta->getBytesNoCopy());
@@ -3806,6 +3819,8 @@ dbyTzQueries(void)
 	/* Below 4 GiB first: that is the difference from mode 15's 40-bit buffer. */
 	rc = dbyTzMeta(0xFFFFF000ull, &meta, &phys, &bits);
 	if (rc == 2u) {
+		/* dbyTzMeta released its own descriptor on this path, so this second attempt starts
+		 * from nothing rather than from a leak. */
 		rc = dbyTzMeta(0xFFFFFFF000ull, &meta, &phys, &bits);   /* no <4 GiB run available */
 	}
 	if (rc != 0u) {
