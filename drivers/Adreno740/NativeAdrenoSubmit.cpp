@@ -782,7 +782,7 @@ void NativeAdrenoSubmit::noteStall(uint32_t observed,const NativeAdrenoRingClock
                      * Whether a comparison is possible comes from the fence and address guard, never from the value:
                      * 0xffffffff is a real reading and is exactly what this stall was found polling, so deciding on
                      * it would throw the answer away in the one case the window exists for. Snapshots are time-gated
-                     * (50 ms, then 1 s, NativeAdrenoSubmit.cpp:470), so "unchanged" covers that whole interval: it
+                     * (50 ms, then 1 s, snapshot_due() above), so "unchanged" covers that whole interval: it
                      * means no producer is coming, and a change means the producer runs and the comparison or the
                      * value is what is wrong. */
                     if(gDbyStallFence!=next) {
