@@ -76,7 +76,7 @@ static uint32_t threadCpuUs() {
  if(thread_info(pthread_mach_thread_np(pthread_self()),THREAD_BASIC_INFO,(thread_info_t)&info,&count)!=KERN_SUCCESS)return 0;
  return (uint32_t)((uint64_t)(info.user_time.seconds+info.system_time.seconds)*1000000ull+(uint64_t)(info.user_time.microseconds+info.system_time.microseconds));
 }
-static uint32_t threadIdLow() {uint64_t id=0;pthread_threadid_np(NULL,&id);return (uint32_t)id;}
+static uint32_t threadIdLow() {uint64_t id=0;pthread_threadid_np(nullptr,&id);return (uint32_t)id;}
 static void tracePush(const TraceRec &rec) {
  const uint32_t at=gTraceHead.fetch_add(1);
  gTrace[at%16384]=rec;
@@ -160,7 +160,7 @@ static void sampleWriteProfile(uint32_t &consumed,int &fd,const char *const *pat
   auto it=names.find(address);if(it!=names.end())return it->second;
   Dl_info info={};std::string name;
   if(dladdr((const void *)address,&info)){
-   const char *image=info.dli_fname?strrchr(info.dli_fname,'/'):NULL;image=image?image+1:(info.dli_fname?info.dli_fname:"?");
+   const char *image=info.dli_fname?strrchr(info.dli_fname,'/'):nullptr;image=image?image+1:(info.dli_fname?info.dli_fname:"?");
    char text[256];
    if(info.dli_sname)snprintf(text,sizeof text,"%s`%s+%llu",image,info.dli_sname,(unsigned long long)(address-(uint64_t)info.dli_saddr));
    else snprintf(text,sizeof text,"%s`+0x%llx",image,(unsigned long long)(address-(uint64_t)info.dli_fbase));
@@ -1033,7 +1033,13 @@ static void scheduled(void *context);
 // waited for the GPU of the frame before it (interval = GPU time + encode time). The handlers of the server's own render buffers run at submission
 // instead; the swap offered by them is held back by the scanout client until the GPU finished everything committed before the offer
 // (NBWaitInFlight), and waitUntilCompleted, the resource waits and the real completion work (surface flushes, release) are unchanged.
-static bool earlyOn() {return false;}   // reverted: with the handlers early the blur passes read frames that were not finished (i343, i344)
+/* The early-completion experiment, off: with the handlers running at submission the blur passes read frames that
+ * were not finished (i343, i344), so this answers false and everything behind it - fireEarly, the
+ * NBWaitInFlight wait loop and the earlyEligible flag - is unreachable by construction rather than by accident.
+ * It is kept, rather than deleted, because the measurement that reverted it is still the reason the blur path
+ * waits; turning it back on is a one-line change here and a re-run of that experiment, which is what the code
+ * around it is shaped for. Nothing else in this file depends on the value except those three call sites. */
+static bool earlyOn() {return false;}
 static bool onRenderServerThread() {
  char name[32]={};pthread_getname_np(pthread_self(),name,sizeof name);
  return !strncmp(name,"com.apple.coreanimation",23);
