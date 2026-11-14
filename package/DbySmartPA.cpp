@@ -77,6 +77,11 @@ constexpr uint32_t kResetGpio = 109;             // 三套 BOM 共用这一根�
  * 树里的文件名与行号；在那之前这一条记在 porting.toml 的 audio limits 里，按"待补出处"对待。 */
 constexpr uint32_t kSclGpio = 119, kSdaGpio = 120;
 constexpr uint32_t kPinCtl(uint32_t id) {return id * 0x1000u;}
+/* The measurement below reads every pin's control register up to the last one this SoC has; the TLMM
+ * window is mapped at 1 MiB, so the last register has to fit - 156 * 0x1000 + 4 = 0x9C004 does, and this
+ * keeps a later pin count from walking off the mapping. */
+constexpr uint32_t kLastScannedPin = 156u;
+static_assert(kPinCtl(kLastScannedPin) + 4u <= 0x100000u, "the pin scan must stay inside the TLMM window");
 constexpr uint32_t kPinPullBits = 0x003u;        // pull_bit=0，两位：0=no pull
 constexpr uint32_t kPinMuxBits = 0x03cu;         // mux_bit=2，四位
 constexpr uint32_t kPinMuxQuP3 = 1u << 2;        // funcs[1] = qup3
@@ -210,7 +215,7 @@ bool configurePins() {
     const uint32_t sclBefore = rd(gTlmm.va, kPinCtl(kSclGpio));
     const uint32_t sdaBefore = rd(gTlmm.va, kPinCtl(kSdaGpio));
     unsigned alreadyQup3 = 0;
-    for (uint32_t id = 0; id <= 156u; ++id) {
+    for (uint32_t id = 0; id <= kLastScannedPin; ++id) {
         if (((rd(gTlmm.va, kPinCtl(id)) & kPinMuxBits) >> 2) == 1u) ++alreadyQup3;
     }
     kprintf("[pa] pins before: scl%u=0x%08x(func%u) sda%u=0x%08x(func%u) qup3=%u\n", kSclGpio, sclBefore,
