@@ -173,6 +173,9 @@ def main():
         raise SystemExit('no __text')
 
     if text(obj) != text(late):
+        # text() is the __text section alone: this compares the code the two objects carry, not their
+        # __mod_init_func or data, so the check proves the accelerator's instructions are unchanged and says
+        # nothing about its initializer registration.
         sys.exit('only the owned initializer registration may change')
 
     archive = out / 'libAdrenoAccelerator.late.a'

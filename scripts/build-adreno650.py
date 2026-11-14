@@ -183,8 +183,11 @@ KITS = {
 # the failure this catches.
 KIT_REQUIRED = {'ArmSmmu4K': 1, 'AdrenoPM4': 1, 'AdrenoFirmware': 2}
 
-# drivers/Adreno740, exactly the reference recipe's set
-# (scripts/build-adreno650.py:46-50 of the A650 fork's board), in that order.
+# drivers/Adreno740: the reference recipe's set (scripts/build-adreno650.py:46-50 of the A650 fork's
+# board) minus what this line does not carry - the fork also lists NativeAdrenoAhb, NativeAdrenoGmu and
+# the three GPU-firmware TUs, which this driver reaches through their own archives and kits - in the
+# reference's order otherwise. The list is a check as well as a build input: :409-414 refuses a checkout
+# that is missing one of these names.
 DRIVER_SOURCES = (
     'NativeAdrenoGpuContext', 'NativeAdrenoSmmuContext', 'NativeAdrenoSmmuMemory',
     'NativeAdrenoMemory', 'NativeAdrenoCpu', 'NativeAdrenoVm', 'NativeAdrenoRing',
