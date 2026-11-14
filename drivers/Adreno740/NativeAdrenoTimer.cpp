@@ -2,12 +2,12 @@
 #include "NativeAdrenoTimer.h"
 #include <IOKit/IOLib.h>
 
-/* Derivation, not a guess. The two sources are named as [XML]/[DT] with the entry that carries each
- * number; neither tree is carried in this repository, so the citations are the files and the symbols
- * rather than line numbers (the gpu/ gmu@3d6a000 pair in the DT is one node each, looked up by address):
- *   [XML] a6xx_gmu.xml   GMU_ALWAYS_ON_COUNTER_L 0x1f888, _H 0x1f889
- *                        (dword offsets, variants A6XX-A7XX)
- *   [DT]  sm8550.dtsi    gpu@3d00000, gmu@3d6a000 (the two base addresses below)
+/* Derivation, not a guess, with both sources read at Linux master 97d73c825122 and Mesa main:
+ *   [XML] mesa main src/freedreno/registers/adreno/a6xx_gmu.xml:146 and :148
+ *         GMU_ALWAYS_ON_COUNTER_L 0x1f888 / _H 0x1f889, variants A6XX-A7XX (:147 is the A8XX pair at
+ *         0x1f840, which is why the variant qualifier matters)
+ *   [DT]  linux 97d73c825122 arch/arm64/boot/dts/qcom/sm8550.dtsi:2875 gpu: gpu@3d00000 (reg 0x03d00000,
+ *         0x40000) and :2966 gmu: gmu@3d6a000 (reg 0x03d6a000, 0x35000) - the two base addresses below
  *   byte offset = (offset << 2) - (gmu_base - gpu_base)
  *               = (0x1f888 << 2) - 0x6a000 = 0x14220
  *   [XML] a6xx.xml       CP_ALWAYS_ON_COUNTER 0x0980 (64-bit, A6XX-A7XX)
