@@ -23,8 +23,8 @@ inside a board archive) is written up in README.md.
 Link topology: the caller is the weak import in patches/xnu/zze-dby-torch-media-mount.patch, so the patched
 kern_exec.c carries an undefined _dby_camera_ios_publish and ld64 pulls this archive to answer it, the same way
 it pulls libDbyTorch.a for _dby_torch_ios_commit. CONFIG_XNU_EXTRA_LD_ARCHIVES
-(configs/dby_w09_defconfig:120-130: appended to KERNEL_EXTRA_ARCHIVES, the plain archive path, pulled by an
-undefined symbol, not force_load) lists it last. No board archive imports a name defined here, which is why
+(configs/dby_w09_defconfig:143: appended to KERNEL_EXTRA_ARCHIVES, the plain archive path, pulled by an
+undefined symbol, not force_load) lists it. No board archive imports a name defined here, which is why
 scripts/build-dby-torch.py's import table is untouched: that gate requires every name libDbyTorch.a leaves
 undefined to be a symbol the reference kernel defines, and a sibling board archive is not one - the mother keeps
 the caller and the definition in the same component (PaganiCamera.cpp:242 calls pagani_camera_ios_publish()).
@@ -64,7 +64,7 @@ EXTRA_IMPORTS = {'_kprintf', '_proc_selfname', '_g_kernel_kmod_info', '_IOMalloc
                  '_IODelay', '_IOSleep', '_kernel_thread_start', '_thread_deallocate', '_thread_set_thread_name',
                  '_current_thread', '_KHEAP_DATA_BUFFERS',
                  # The RPMh helper (package/QcomRpmh.c) is linked into the kernel by the audio probe's archive, so
-                 # these six are already defined there - the same names AdspProbe.cpp and AudioProbe.cpp import.
+                 # these five are already defined there - the same names AdspProbe.cpp and AudioProbe.cpp import.
                  '_qcom_cmd_db_find', '_qcom_rpmh_level_index', '_qcom_rpmh_active_request', '_qcom_rpmh_finish',
                  '_qcom_rsc_layout'}
 # What the plug-in's header must say, compared as the macro text itself: DBC_PROCESS is a string literal,

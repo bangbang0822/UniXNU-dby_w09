@@ -106,7 +106,7 @@ while i < len(arguments):
 # own compiler rejects, the probe scripts/linux/setup-toolchain.py:204 uses before emitting a warning flag.
 kit_warnings = ['-Wno-unused-parameter', '-Wno-c99-designator', '-Wno-reorder-init-list',
                 '-Wno-deprecated-enum-enum-conversion', '-Wno-unnecessary-virtual-specifier',
-                # The kernel build suppresses this for the same headers (build-xnu-4k-baseline.sh:346
+                # The kernel build suppresses this for the same headers (build-xnu-4k-baseline.sh:265
                 # EXTRA_CFLAGS): with __builtin_xnu_type_* reduced to constants, xnu's own
                 # _KALLOC_TYPE_DEFINE expands with fewer fields than the struct declares.
                 '-Wno-missing-designated-field-initializers',
