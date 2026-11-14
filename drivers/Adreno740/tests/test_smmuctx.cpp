@@ -50,7 +50,7 @@ int main()
     CHECK(context.configuration()->upper_tables!=nullptr);
     CHECK(tables.release()==kIOReturnSuccess);
     CHECK(fixture.live.empty() && fixture.metadata.empty());
-    std::printf("PASS: 1 prepared upper and 1 prepared lower SMMU context, 6 step-order refusals and 10 prepare refusals over host doubles\n");
+    std::printf("PASS: 1 prepared upper and 1 prepared lower SMMU context, 9 step-order refusals and 10 prepare refusals over host doubles\n");
 }
 /* Physical-page maintenance (imported BOs): record it; no host page is touched. */
 /* Host double: the page attribute change of user BOs has no host equivalent (no host page is touched). */

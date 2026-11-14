@@ -78,7 +78,7 @@ int main(int argc,char **argv)
         CHECK(NativeAdrenoFirmware::validate(image.data(),image.size(),nullptr,&view)==kIOReturnBadArgument);
         CHECK(NativeAdrenoFirmware::validate(image.data(),image.size(),&rules,nullptr)==kIOReturnBadArgument);
         CHECK(NativeAdrenoFirmware::validate(image.data(),0,&rules,&view)==kIOReturnBadArgument);
-        std::printf("PASS: 4 FIPS vectors and the pinned GMU firmware (%ld bytes) validated, 6 malformed/limit refusals\n",
+        std::printf("PASS: 4 FIPS vectors and the pinned GMU firmware (%ld bytes) validated, 7 malformed/limit refusals\n",
             static_cast<long>(image.size()));
     } else {
         std::printf("PASS: 4 FIPS vectors; no firmware path supplied\n");
