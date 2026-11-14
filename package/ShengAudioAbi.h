@@ -85,4 +85,16 @@ typedef struct {
     volatile uint32_t entry[SHENG_AUDIO_TRACE_SLOTS][2];
 } ShengAudioTrace;
 
+/* The two halves are addressed by offset on a 4096-byte page: the control block at 0, the diagnostic block at
+ * SHENG_AUDIO_DIAG_OFFSET and the trace block at SHENG_AUDIO_TRACE_OFFSET. Nothing used to check that the three
+ * structures still fit the windows those offsets leave them, so a field added to ShengAudioDiag could have written
+ * into the trace block and the reader would have decoded a different record. These are the constraints, checked at
+ * compile time instead of by a boot. */
+_Static_assert(sizeof(ShengAudioControl) <= SHENG_AUDIO_DIAG_OFFSET,
+               "the control block must end before the diagnostic window");
+_Static_assert(SHENG_AUDIO_DIAG_OFFSET + sizeof(ShengAudioDiag) <= SHENG_AUDIO_TRACE_OFFSET,
+               "the diagnostic block must end before the trace window");
+_Static_assert(SHENG_AUDIO_TRACE_OFFSET + sizeof(ShengAudioTrace) <= 4096u,
+               "the trace block must end inside the control page");
+
 #endif
