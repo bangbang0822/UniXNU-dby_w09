@@ -350,12 +350,9 @@ if [ "$(cat "$SHENG_PMGR_STAMP" 2>/dev/null || echo 0)" != "$SHENG_PMGR" ]; then
   printf '%s\n' "$SHENG_PMGR" > "$SHENG_PMGR_STAMP"
 fi
 QCOM_USB_DEBUG=${XNU_QCOM_USB_DEBUG:-0}
-# The module ships in this board's kit (package/QcomXnuUsbDebug -> tree/kits/dby_w09/...), not
-# in drivers/: scripts/unixnu/components.py:resolve keeps only refer/patch/package/script plus
-# catalog-selected components, and core's components.toml has no QcomXnuUsbDebug spec and cannot
-# be extended by the device repo (tree.py symlinks components.toml from ctx.root only). So the
-# upstream include path changes location here and nowhere else in this block.
-QCOM_USB_INCLUDE="-I$ROOT/kits/dby_w09/QcomXnuUsbDebug/include"
+# The module is a catalog component since 2026-11-14 (components.toml QcomXnuUsbDebug), so it sits at
+# its declared path in the assembled tree -- the same path this block uses in the core tree.
+QCOM_USB_INCLUDE="-I$ROOT/drivers/QcomXnuUsbDebug/include"
 echo "build-xnu: QCOM_USB_DEBUG=$QCOM_USB_DEBUG (env=${XNU_QCOM_USB_DEBUG:-unset})" >&2
 EXTRA_MAKE_ARGS+=("bsd_init.o_CFLAGS_ADD=-DXNU_SHENG_PMGR=$SHENG_PMGR -DXNU_VERIFIED_ROOT_PROBE=$OWNER_ROOT_PROBE -DXNU_OWNER_ROOT_AUDIT=$OWNER_ROOT_AUDIT -DXNU_OWNER_ROOT_TRUST=$OWNER_ROOT_TRUST -DXNU_ADRENO_FIRMWARE_PROBE=$ADRENO_FIRMWARE_PROBE -DXNU_ADRENO_PM4_PROBE=$ADRENO_PM4_PROBE -DXNU_SMMU4K_PROBE=$SMMU4K_PROBE -DXNU_CONSTANT_UPLOADS_PROBE=$CONSTANT_UPLOADS_PROBE -DXNU_NATIVE_LEGACY_DISPLAY=${XNU_NATIVE_LEGACY_DISPLAY:-0} -DXNU_NATIVE_OFFLINE_GPU=$NATIVE_OFFLINE_GPU -DXNU_QCOM_USB_DEBUG=$QCOM_USB_DEBUG $QCOM_USB_INCLUDE")
 NATIVE_MOBILE_DISPLAY=${XNU_NATIVE_MOBILE_DISPLAY:-0}

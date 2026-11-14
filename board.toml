@@ -31,10 +31,15 @@ kit = "dby_w09"                # 本仓 package/ 在构建树里出现为 kits/d
 # porting.toml 的 input area 里记为 device-verified（真机触摸与按键可用）。
 # Sm8250Platform 也不在这里（2026-11-13）：它是上游从来没列进 components.toml 的 kit，过去靠作者本机
 # 的目录补丁才被选中，干净 core 会直接报 “unknown component”。现在源码归板级所有，放在 package/Sm8250Platform/，
-# 由 [kernel] archives 的脚本位编译（scripts/build-gpu-power-probe.py），和 QcomXnuUsbDebug 同一种形状。
-# QcomXnuUsbDebug 不在这里，但并不是没接：core 的 components.toml 里还没有这条 spec，而 components.toml 只从 core 软链，设备仓不能添加组件规格。它的归档走 [kernel] archives 的脚本位（scripts/build-qcom-usb-debug.py），模块放在本仓 package/ 里 （构建树里的 kits/dby_w09/QcomXnuUsbDebug，和 DbyTouch 同一层：components.py:resolve 只保留 refer/patch/package/script 加目录选中的组件，设备仓 drivers/ 下没有目录规格的模块会被丢掉），补丁走 [kernel] patch_series 的第五条 device:patches/xnu/series-usb。
+# 由 [kernel] archives 的脚本位编译（scripts/build-gpu-power-probe.py）。
+# QcomXnuUsbDebug 自 2026-11-14 起是目录组件：core 的 components.toml 有了它的 spec（仓库指向本组织发布的
+# gitee 镜像，钉 62b2888，与设备仓原来的 package/ 副本逐字节相同），所以这里选中它，归档由组件自己的
+# scripts/build.py 产出（[kernel] archives 的 component:QcomXnuUsbDebug 位），模块在构建树里是
+# drivers/QcomXnuUsbDebug（unixnu fetch 下来的 feeds 检出）。两个 XNU 补丁由 os: 那条 series
+# 从组件里引用（os/patches/xnu/series 第 6-7 行），选中与不选中决定它们 apply 还是跳过；设备仓
+# 不再保存补丁副本，也不再有一条 device:...series-usb。
 [components]
-include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K", "ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi"]
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K", "ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi", "QcomXnuUsbDebug"]
 
 # ---------------------------------------------------------------------------
 # userdata：已取证（9008 完整备份 gpt_main0.bin，LUN 0）。
@@ -88,9 +93,9 @@ unixnu = "../UniXNU"           # UniXNU 检出相对本仓的路径，与 README
 defconfig = "dby_w09_defconfig"
 config_fragments = ["arch:configs/common.config", "soc:configs/sm8250.config", "os:configs/ipados.config"]
 patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "device:patches/xnu/series", "os:patches/xnu/series",
-  # QcomXnuUsbDebug 的两个补丁必须排在 os: 之后：port-sm8250.md §7.3 明写它们在 zzz-boot-progress.patch 之后 apply（PE_init_kprintf 的 hunk 拿
-  # boot-progress 插的行当上下文）。patch_series 是数组覆盖，所以这里要重复上面四项。
-  "device:patches/xnu/series-usb",
+  # QcomXnuUsbDebug 的两个补丁不在这里：它们在 os: 那条 series 里（os/patches/xnu/series 的第 6-7 行），
+  # 由组件选中与否决定是否 apply。2026-11-14 之前本行是 device:patches/xnu/series-usb，设备仓另存一份
+  # 逐字节副本；那条副本和它的两个补丁文件已随组件入目录删除。
   # 音频 HAL 的挂载点必须排在所有层之后：它的上下文是 os: 层那三个 kern_exec 补丁打完之后的样子（见
   # patches/xnu/series-audio 的说明）。
   "device:patches/xnu/series-audio",
@@ -222,10 +227,11 @@ archives = [
   "build-dby-camera.py",
   # 本机 core 没有 -linux 变体，沿用官方的 build-gop-legacy-display.py
   "build-gop-legacy-display.py",
-  # CDC-ACM 控制台归档：官方入口是组件目录 spec（components.toml:513-534）调模块自己的
-  # scripts/build.py，本 core 没有这条 spec 且 components.toml 只从 core 软链（tree.py:assemble），
-  # 所以同一条命令放在设备层脚本位。它读 bootstrap pass 留下的 pe_kprintf.o.json。
-  "build-qcom-usb-debug.py",
+  # CDC-ACM 控制台归档：目录组件位（components.toml 的 QcomXnuUsbDebug spec）调模块自己的
+  # scripts/build.py，读 bootstrap pass 留下的 pe_kprintf.o.json，写 {tree}/.cache/qcom-usb-debug，
+  # 由 build-xnu-4k-baseline.sh:769 以 -Wl,-force_load 链进去。位置就是原来设备层脚本位的位置：
+  # 整个 archives 段在内核第一次（bootstrap）pass 之后运行。
+  "component:QcomXnuUsbDebug",
 ]
 
 # ---------------------------------------------------------------------------

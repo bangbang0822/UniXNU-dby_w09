@@ -24,8 +24,9 @@ neither a build host nor the tablet.
 4. The `porting.toml` area your change lands in. Its `findings` say why the code is the way it is
    and its `limits` say what is still owed; a change that contradicts either updates the record in
    the same pull request.
-5. A component's own notes, if you are changing one: `package/QcomXnuUsbDebug/AGENTS.md` and the
-   `docs/` beside it, `package/DbyTorch/README.md`. They apply in addition to the root `AGENTS.md`,
+5. A component's own notes, if you are changing one: its `AGENTS.md` and the `docs/` beside it in
+   the component repository (`drivers/GopFramebuffer/AGENTS.md` is the one this repository still
+   carries a copy of), `package/DbyTorch/README.md`. They apply in addition to the root `AGENTS.md`,
    never instead of it.
 6. The upstream page the root `AGENTS.md` names for your task. Those are the authoritative
    descriptions; this repository does not restate them.
@@ -127,10 +128,10 @@ table, and a file is not converted just because it is being touched.
 
 Two things the table does not license:
 
-- **Do not restyle a file that came from somewhere else.** The fixtures under
-  `package/QcomXnuUsbDebug/fixture/` carry XNU's own `bsd/`, `osfmk/` and `pexpert/` paths, and they
-  keep their tabs, their brace placement and the header they arrived with, because the next reader
-  has to diff them against the original.
+- **Do not restyle a file that came from somewhere else.** The fixtures a component ships (the
+  QcomXnuUsbDebug component's `fixture/stock` and `fixture/ported`, for instance) carry XNU's own
+  `bsd/`, `osfmk/` and `pexpert/` paths, and they keep their tabs, their brace placement and the
+  header they arrived with, because the next reader has to diff them against the original.
 - **Do not reformat and change behaviour in the same commit.** If the tree ever adopts a formatter,
   it arrives as its own commit that touches only whitespace, so that a review can read it with
   `git diff -w` and know there is nothing else in it.
@@ -186,4 +187,5 @@ live under `.cache/`. A pull request that adds one of them is rejected, not disc
 ## License
 
 Contributions are licensed under BSD-2-Clause-Patent, the root `LICENSE`. Code that arrived from
-somewhere else keeps the licence it came with, as `package/QcomXnuUsbDebug/usb/LICENSE.m1n1` does.
+somewhere else keeps the licence it came with, as the QcomXnuUsbDebug component's
+`usb/LICENSE.m1n1` does.

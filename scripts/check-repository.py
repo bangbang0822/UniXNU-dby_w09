@@ -39,7 +39,7 @@ AREA_FIELDS = ('id', 'status', 'components', 'paths', 'inputs', 'configuration',
 # Files that are allowed to name a host path because they are a record of what was run,
 # or because they define the pattern this check looks for.
 HOST_PATH_EXEMPT = ('porting.toml', 'scripts/check-repository.py')
-HOST_PATH_EXEMPT_PREFIX = ('package/QcomXnuUsbDebug/fixture/',)
+HOST_PATH_EXEMPT_PREFIX = ()
 HOST_PATH = re.compile(r'/home/[a-zA-Z]|/Users/[a-zA-Z]|/opt/homebrew/|/Volumes/[A-Z]|(?<![A-Za-z])[A-Z]:\\\\|(?<![A-Za-z])[A-Z]:/[A-Za-z]')
 
 IGNORED_PREFIX = ('build/', '.cache/')
@@ -92,6 +92,10 @@ def tracked(device, others=False):
 
 def resolve_series_entry(device, series_path, entry):
     """Resolve one series line. Returns (kind, path-or-None): local, external or missing."""
+    # component:<ID>/<path> names a file inside a module checkout (profiles.py:resolve_path), so it
+    # resolves in the assembled tree and never inside this repository.
+    if entry.startswith('component:'):
+        return 'external', None
     stripped = re.sub(r'^(arch|soc|os|device):', '', entry)
     if '..' in pathlib.PurePosixPath(stripped).parts:
         return 'external', None
@@ -254,22 +258,12 @@ def main():
             print(f'            {item}')
 
     # ---- duplicate patch copies -----------------------------------------
-    def digest(path):
-        import hashlib
-        return hashlib.sha256(path.read_bytes()).hexdigest()
-
-    pairs = []
-    for local in sorted((device / 'patches/xnu').glob('qud-darwin23-*.patch')):
-        module = device / 'package/QcomXnuUsbDebug/patches/darwin23'
-        matches = sorted(module.glob('*.patch')) if module.is_dir() else []
-        for candidate in matches:
-            if digest(candidate) == digest(local):
-                pairs.append((local.name, candidate.relative_to(device).as_posix()))
-                break
-        else:
-            report.check(False, f'{local.name}: has an identical copy in the module directory')
-    report.check(bool(pairs), 'duplicate patch copies are present and byte-identical',
-                 f'{len(pairs)} pair(s)')
+    # Nothing to police since the module became a catalog component: patches/xnu/series-usb names
+    # component:QcomXnuUsbDebug/patches/darwin23/... and there is no device-side copy to drift from
+    # it. A copy reappearing here would be the defect, not the arrangement being checked for.
+    stray_copies = sorted((device / 'patches/xnu').glob('qud-darwin23-*.patch'))
+    report.check(not stray_copies, 'no device-side copy of a component patch',
+                 ', '.join(p.name for p in stray_copies) if stray_copies else 'none')
 
     # ---- no host paths ---------------------------------------------------
     offenders = []
