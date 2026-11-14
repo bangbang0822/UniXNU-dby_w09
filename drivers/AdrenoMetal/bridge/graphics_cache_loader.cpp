@@ -55,8 +55,14 @@ static VKAPI_ATTR VkResult VKAPI_CALL createDevice(VkPhysicalDevice physical,con
 static VKAPI_ATTR VkResult VKAPI_CALL createCache(VkDevice device,const VkPipelineCacheCreateInfo *info,
                                                   const VkAllocationCallbacks *allocator,VkPipelineCache *cache) {
     VkPipelineCacheCreateInfo copy=*info;std::vector<unsigned char> bytes;
+    /* The negative control below writes byte 16 - VkPipelineCacheHeaderVersionOne's first
+     * pipelineCacheUUID byte - and requires 32 bytes, the whole header. Both are asserted against the
+     * structure the driver's own header declares rather than restated as numbers. */
+    static_assert(offsetof(VkPipelineCacheHeaderVersionOne,pipelineCacheUUID)==16,
+                  "the corrupted byte must be the first UUID byte");
+    static_assert(sizeof(VkPipelineCacheHeaderVersionOne)==32,"the minimum cache is one header");
     if(badUuid.load() && info->initialDataSize) {
-        if(info->initialDataSize<32)return VK_ERROR_INITIALIZATION_FAILED;
+        if(info->initialDataSize<sizeof(VkPipelineCacheHeaderVersionOne))return VK_ERROR_INITIALIZATION_FAILED;
         const auto *source=static_cast<const unsigned char *>(info->pInitialData);
         bytes.assign(source,source+info->initialDataSize);bytes[16]^=1;copy.pInitialData=bytes.data();counts[5]++;
     }

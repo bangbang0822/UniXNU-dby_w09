@@ -82,14 +82,17 @@ void writePass(unsigned pass) {
 
 }  // namespace
 
-// Runs the passes (blocks for kPasses * kPeriodSeconds); returns at once if another instance holds the lock or the cache directory is absent.
+// Runs the passes (blocks for kPasses * kPeriodSeconds); returns at once if another instance holds the lock,
+// and before the passes when the cache directory cannot be created or is not a directory.
 extern "C" void nativeOsLogExport() {
     const int lock = open(kLock, O_CREAT | O_RDWR, 0600);
     if (lock < 0 || flock(lock, LOCK_EX | LOCK_NB) != 0) return;
+    mkdir(kDirectory, 0755);
+    struct stat st = {};
+    if (stat(kDirectory, &st) != 0 || !S_ISDIR(st.st_mode)) return;   // the comment above promised this return;
+                                                                     // the loop below used to run regardless
     for (unsigned pass = 1; pass <= kPasses; ++pass) {
-        mkdir(kDirectory, 0755);
-        struct stat st = {};
-        if (stat(kDirectory, &st) == 0 && S_ISDIR(st.st_mode)) writePass(pass);
+        writePass(pass);
         sleep(kPeriodSeconds);
     }
 }
