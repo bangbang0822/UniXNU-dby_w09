@@ -236,8 +236,13 @@ def assemble_c(source, va, workdir, symbols):
     # Optional: the board's banner buffer for the panic message (kits/sheng/BootProgress.c); kernels without it get 0 (no copy).
     text = symbols.get('_boot_progress_panic_text')
     if text is not None:
-        if not any(base <= text and text + 256 <= base + size for base, size, _, _ in SEGMENTS):
-            raise SystemExit('Invalid _boot_progress_panic_text')
+        # The screen writes up to PANIC_TEXT_BYTES - 1 bytes into this buffer (scripts/xnu-panic-screen.c:46,
+        # declared as char[2048] in package/BootProgress.c:43 and read with that length in
+        # package/BootLog.c:36). Requiring a 256-byte run after the symbol only proved the first eighth of the
+        # buffer was inside a segment, so a kernel whose buffer was smaller or nearer the end would have been
+        # accepted and the screen would have written past it.
+        if not any(base <= text and text + PANIC_TEXT_BYTES <= base + size for base, size, _, _ in SEGMENTS):
+            raise SystemExit(f'Invalid _boot_progress_panic_text: needs {PANIC_TEXT_BYTES} bytes of room in its segment')
         definitions.append(f'-DPANIC_TEXT={text:#x}UL')
     subprocess.run([clang, '--target=aarch64-none-elf', '-ffreestanding', '-fno-builtin', '-fno-stack-protector',
                     '-mgeneral-regs-only', '-fno-pic', '-mcmodel=tiny', '-Oz', f'-DVINFO={VINFO_VA:#x}UL',
@@ -290,6 +295,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 SEGMENTS = []   # (vmaddr, vmsize, fileoff, filesize) of the kernel being patched
+
+# The banner buffer the panic screen copies a message into (scripts/xnu-panic-screen.c PANIC_TEXT_BYTES);
+# the symbol's segment must have at least this many bytes after it.
+PANIC_TEXT_BYTES = 2048
 SEGMENT_NAMES = []
 SEGMENT_PROTS = []   # initprot per segment; a cave must be in an executable one
 
