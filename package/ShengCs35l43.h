@@ -3,7 +3,11 @@
  * reset line). Each amplifier takes 16-bit stereo I2S from the secondary MI2S as a clock slave and plays its slot straight from the serial
  * port: the amplifier's own DSP is bypassed, so no amplifier firmware is needed. The top three play slot 0, the bottom three slot 1.
  * Registers and values are 32-bit big-endian on the wire. A program is a list of steps; the runner turns each step into one bus transfer
- * (a read-modify-write takes two) and never waits: the owner performs the transfer and feeds the result back. */
+ * (a read-modify-write takes two) and never waits: the owner performs the transfer and feeds the result back.
+ *
+ * The six-amplifier topology above is the sheng board's: this unit's speaker count and bus wiring have not been read
+ * back, so treat the file as the port's amplifier model rather than as a measurement of this tablet. The audio limits
+ * in porting.toml record that, and say a boot whose speaker test passes would settle it. */
 #ifndef SHENG_CS35L43_H
 #define SHENG_CS35L43_H
 #include <stdint.h>

@@ -2,7 +2,11 @@
 /* The audio DSP's packet router (GPR) on the GLINK channel "adsp_apps": every packet starts with a 24-byte header (version and header
  * size in words, total size, destination and source domain, source and destination port, token, opcode) followed by the payload. This
  * is the codec and the first exchange an audio client makes: asking the DSP's audio framework manager (APM) whether the framework is
- * ready. No I/O and no waits: the owner sends the bytes, feeds back what arrives and runs the retry and answer timers. */
+ * ready. No I/O and no waits: the owner sends the bytes, feeds back what arrives and runs the retry and answer timers.
+ *
+ * Board-independent: no DBY-W09 address, clock, pin or partition appears in it, and scripts/build-gop-legacy-display.py
+ * compiles it into this board's audio archive because the DSP speaks the same protocol. By this repository's own test
+ * it belongs in a component; porting.toml's audio limits record that the move is owed. */
 #ifndef SHENG_GPR_H
 #define SHENG_GPR_H
 #include <stdint.h>
