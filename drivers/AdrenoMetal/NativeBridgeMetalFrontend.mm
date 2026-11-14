@@ -237,7 +237,10 @@ struct FrameAttribution {
 };
 static FrameAttribution gAttribution;
 // Who calls waitUntilCompleted: the caller's return address (the 36 low bits) and its caller's, with a count and the total wait.
-struct WaitCaller {std::atomic<uint64_t> lr{0},lr2{0};std::atomic<uint32_t> n{0};std::atomic<uint64_t> us{0};char thread[24]={0},symbol[28]={0};};
+// `published` is the release the telemetry reader acquires on: the two name arrays are plain chars, so without it a reader that
+// saw n>0 could print a half-written thread name (the reader takes gCommitLock, the writer never did and never needs to).
+struct WaitCaller {std::atomic<uint64_t> lr{0},lr2{0};std::atomic<uint32_t> n{0};std::atomic<uint64_t> us{0};
+                  std::atomic<bool> published{false};char thread[24]={0},symbol[28]={0};};
 static WaitCaller gWaitCallers[8];
 static void noteWaitCaller(uint64_t lr,uint64_t lr2,uint64_t us) {
  for(unsigned i=0;i<8;i++) {
@@ -245,6 +248,7 @@ static void noteWaitCaller(uint64_t lr,uint64_t lr2,uint64_t us) {
   if(!seen){uint64_t zero=0;if(gWaitCallers[i].lr.compare_exchange_strong(zero,lr)){
    gWaitCallers[i].lr2=lr2;pthread_getname_np(pthread_self(),gWaitCallers[i].thread,sizeof gWaitCallers[i].thread);
    Dl_info info;if(dladdr((void*)(uintptr_t)lr2,&info)&&info.dli_sname)strlcpy(gWaitCallers[i].symbol,info.dli_sname,sizeof gWaitCallers[i].symbol);
+   gWaitCallers[i].published.store(true,std::memory_order_release);   /* the reader acquires on this */
   }seen=gWaitCallers[i].lr.load();}
   if(seen==lr){gWaitCallers[i].n++;gWaitCallers[i].us+=us;return;}
  }
@@ -2077,7 +2081,9 @@ extern "C" size_t native_bridge_metal_telemetry(char *out,size_t size) {
   row("%s","Q timing v2: per-buffer API counts; ctc=commit-to-callback; age includes caller idle");
   for(unsigned i=0;i<8;i++) {
    const WaitCaller &w=gWaitCallers[i];
-   if(!w.n.load())continue;
+   /* Acquire pairs with the writer's release: the two name arrays are plain chars, so this is what makes them safe to
+    * print -- the lock this row takes is not held by noteWaitCaller, and never was. */
+   if(!w.published.load(std::memory_order_acquire) || !w.n.load())continue;
    row("WC%u lr=%llx n%u us%llu t=%.23s s=%.27s",i,(unsigned long long)w.lr.load(),w.n.load(),(unsigned long long)w.us.load(),w.thread,w.symbol);
   }
   for(unsigned i=0;i<4;i++) {
