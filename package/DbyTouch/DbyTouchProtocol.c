@@ -38,7 +38,15 @@
 
 /* The N9Z version/trim table.  Source: the stock kernel image's table (work/tracks/nvt-spec, the
  * 23-entry copy, not the 22-entry one in the vendor source tree), mask per byte, 0 means "do not
- * compare".  The vendor's check_ver_trim_table compares r_buf[i + 2], i.e. our rx[i + 2]. */
+ * compare".  The vendor's check_ver_trim_table compares r_buf[i + 2], i.e. our rx[i + 2].
+ *
+ * This is a second copy of the table in package/NvtProtocol.c:53-77 - same 23 rows, same masks,
+ * that one comparing id[i] because it is handed the id without the two header bytes; the two were
+ * checked byte for byte on 2026-11-14. It is not shared because that file is a pinned copy of
+ * ShengNovatekTouch with its own "keep in sync with components.toml's revision" rule, so editing it
+ * to export the table is a different change; the input limits record that the copies must move
+ * together. What this copy can do is stop being the weaker one: the matcher takes the receive
+ * length and every bound below comes from sizeof. */
 static const uint8_t kN9zTrim[23][6] = {
 	{ 0x0C, 0xFF, 0xFF, 0x72, 0x66, 0x03 }, { 0x0C, 0xFF, 0xFF, 0x82, 0x66, 0x03 },
 	{ 0x0A, 0xFF, 0xFF, 0x72, 0x65, 0x03 }, { 0x0B, 0xFF, 0xFF, 0x25, 0x65, 0x03 },
@@ -63,12 +71,22 @@ static const uint8_t kN9zMask[23][6] = {
 };
 
 static int
-dby_n9z_trim_matches(const uint8_t *rx)
+dby_n9z_trim_matches(const uint8_t *rx, size_t rxLen)
 {
-	for (unsigned row = 0; row < 23; row++) {
+	/* Two header bytes then the six compared ones: a shorter receive buffer cannot be matched, and
+	 * saying so is better than reading past it. The bounds are the table's own, so a row added to one
+	 * array and not the other cannot silently change how many rows are tried. */
+	const unsigned rows = (unsigned)(sizeof kN9zTrim / sizeof kN9zTrim[0]);
+	const unsigned maskRows = (unsigned)(sizeof kN9zMask / sizeof kN9zMask[0]);
+	const unsigned cols = (unsigned)(sizeof kN9zTrim[0]);
+
+	if (rx == NULL || rxLen < 2u + cols) {
+		return -1;
+	}
+	for (unsigned row = 0; row < rows && row < maskRows; row++) {
 		int ok = 1;
 
-		for (unsigned i = 0; i < 6; i++) {
+		for (unsigned i = 0; i < cols; i++) {
 			if (kN9zMask[row][i] && rx[i + 2] != kN9zTrim[row][i]) {
 				ok = 0;
 				break;
@@ -205,7 +223,7 @@ dby_touch_identify_n9z(struct dby_touch_bus *bus, struct dby_touch_identify *out
 		if (dby_n9z_read(bus, kAddrId, out->raw, 8) != DBY_TOUCH_OK) {
 			return DBY_TOUCH_ERR_IO;
 		}
-		out->trim_row = dby_n9z_trim_matches(out->raw);
+		out->trim_row = dby_n9z_trim_matches(out->raw, sizeof out->raw);
 		out->attempts = attempt + 1;
 		if (out->trim_row >= 0) {
 			return DBY_TOUCH_OK;
