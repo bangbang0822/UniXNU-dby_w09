@@ -911,6 +911,11 @@ extern "C" IOReturn native_adreno_new_user_client(IOService *provider,task_t own
             static uint32_t length;
             static char *line=native_adreno_metal_diag.report2;
             static_assert(sizeof(native_adreno_metal_diag.report)==sizeof(native_adreno_metal_diag.report2),"stream lines");
+            /* `line` can also point at a client-text row (entry.text, below), and every bound in this block
+             * is sizeof(report2): the three capacities have to be the same or the write that tests one
+             * overruns another. */
+            static_assert(sizeof(native_adreno_client_text[0].text)==sizeof(native_adreno_metal_diag.report2),
+                          "marker lines are as long as a client-text row");
             if(value==0x7fff || value==0x7ffe) {
                 line=value==0x7fff?native_adreno_metal_diag.report2:native_adreno_metal_diag.report;
                 /* A line from a process other than the render server goes to that process's own row (native_adreno_client_text): the render server
