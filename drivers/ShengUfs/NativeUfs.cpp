@@ -22,6 +22,11 @@ extern const uint8_t verified_root_key[];
 #include <libkern/c++/OSIterator.h>
 #include <IOKit/IOBSD.h>
 #include <kern/thread.h>
+/* The transport window and the block offsets are one declaration shared with the host harnesses
+ * (drivers/ShengUfs/RootTransportLayout.h). Included at file scope so the diagnostic path below can use
+ * the same names instead of restating the numbers; its guard makes the in-namespace include further down
+ * a no-op. */
+#include "RootTransportLayout.h"
 #include <IOKit/IOLib.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOMemoryDescriptor.h>
@@ -498,8 +503,8 @@ void NativeUfs::adoptAndRead (unsigned level)
   zero32 (virt, 16384);
   cacheClean (virt, 16384);
   // Layout: [0,4096) request list (slot 0 used), [4096,5120) command + response UPIU +
-  // PRDT, [8192,16384) data.
-  const uint32_t ucdOffset = 4096, rspOffset = 512, prdtOffset = 1024, dataOffset = 8192;
+  // PRDT, [8192,16384) data - the same offsets RootTransportLayout.h declares, used by name so this
+  // diagnostic path cannot drift from the transport it is describing.
   uint32_t hcsBefore = read32 (hc, 0x30);
   uint32_t doorbellBefore = read32 (hc, 0x58);
   if (doorbellBefore != 0 || read32 (hc, 0x78) != 0) {
@@ -531,10 +536,10 @@ void NativeUfs::adoptAndRead (unsigned level)
 
   auto command = [&] (uint8_t lun, const uint8_t *cdb, unsigned cdbLength, bool toHost, uint32_t length) -> UfsResult {
     uint8_t *utrd = virt;
-    uint8_t *ucd = virt + ucdOffset;
+    uint8_t *ucd = virt + kUcdOffset;
     zero32 (utrd, 32);
     zero32 (ucd, 1024 + 16);
-    zero32 (virt + dataOffset, 8192);
+    zero32 (virt + kDataOffset, 8192);
     ucd[0] = 0x01;                  // COMMAND UPIU
     ucd[1] = toHost ? 0x40 : 0x00;  // flags: read
     ucd[2] = lun;
@@ -543,18 +548,18 @@ void NativeUfs::adoptAndRead (unsigned level)
     for (unsigned index = 0; index < cdbLength; index++) {
       ucd[16 + index] = cdb[index];
     }
-    uint64_t ucdPhys = phys + ucdOffset;
+    uint64_t ucdPhys = phys + kUcdOffset;
     uint32_t direction = length ? (toHost ? 2U : 1U) : 0U;
     *reinterpret_cast<uint32_t *> (utrd + 0) = 0x10000000U | (direction << 25);
     *reinterpret_cast<uint32_t *> (utrd + 8) = 0x0fU;     // OCS: not completed
     *reinterpret_cast<uint32_t *> (utrd + 16) = static_cast<uint32_t> (ucdPhys);
     *reinterpret_cast<uint32_t *> (utrd + 20) = static_cast<uint32_t> (ucdPhys >> 32);
-    *reinterpret_cast<uint32_t *> (utrd + 24) = (512U >> 2) | ((rspOffset >> 2) << 16);   // response length | offset (dwords)
+    *reinterpret_cast<uint32_t *> (utrd + 24) = (512U >> 2) | ((kRspOffset >> 2) << 16);   // response length | offset (dwords)
     uint32_t prdEntries = length ? 1U : 0U;
-    *reinterpret_cast<uint32_t *> (utrd + 28) = prdEntries | ((prdtOffset >> 2) << 16);
+    *reinterpret_cast<uint32_t *> (utrd + 28) = prdEntries | ((kPrdtOffset >> 2) << 16);
     if (length) {
-      uint64_t dataPhys = phys + dataOffset;
-      uint8_t *prd = ucd + prdtOffset;
+      uint64_t dataPhys = phys + kDataOffset;
+      uint8_t *prd = ucd + kPrdtOffset;
       *reinterpret_cast<uint32_t *> (prd + 0) = static_cast<uint32_t> (dataPhys);
       *reinterpret_cast<uint32_t *> (prd + 4) = static_cast<uint32_t> (dataPhys >> 32);
       *reinterpret_cast<uint32_t *> (prd + 12) = length - 1;
@@ -576,7 +581,7 @@ void NativeUfs::adoptAndRead (unsigned level)
       return result;
     }
     result.ocs = *reinterpret_cast<volatile uint32_t *> (utrd + 8) & 0xff;
-    const uint8_t *rsp = ucd + rspOffset;
+    const uint8_t *rsp = ucd + kRspOffset;
     result.response = rsp[6];
     result.scsi = rsp[7];
     // Response UPIU: 12-byte header, residual count, 16 reserved bytes, then the data segment
@@ -592,7 +597,7 @@ void NativeUfs::adoptAndRead (unsigned level)
   // the 32-bit value field (attributes) or flag byte via *value; ocs 0xf means no completion.
   auto query = [&] (unsigned kind, uint8_t opcode, uint8_t idn, uint32_t *value, uint32_t *respByte) -> uint32_t {
     uint8_t *utrd = virt;
-    uint8_t *ucd = virt + ucdOffset;
+    uint8_t *ucd = virt + kUcdOffset;
     zero32 (utrd, 32);
     zero32 (ucd, 1024 + 16);
     if (kind == 0) {
@@ -604,13 +609,13 @@ void NativeUfs::adoptAndRead (unsigned level)
       ucd[13] = idn;
     }
     ucd[3] = 1;                     // task tag
-    uint64_t ucdPhys = phys + ucdOffset;
+    uint64_t ucdPhys = phys + kUcdOffset;
     *reinterpret_cast<uint32_t *> (utrd + 0) = 0x10000000U;
     *reinterpret_cast<uint32_t *> (utrd + 8) = 0x0fU;
     *reinterpret_cast<uint32_t *> (utrd + 16) = static_cast<uint32_t> (ucdPhys);
     *reinterpret_cast<uint32_t *> (utrd + 20) = static_cast<uint32_t> (ucdPhys >> 32);
-    *reinterpret_cast<uint32_t *> (utrd + 24) = (512U >> 2) | ((rspOffset >> 2) << 16);
-    *reinterpret_cast<uint32_t *> (utrd + 28) = (prdtOffset >> 2) << 16;
+    *reinterpret_cast<uint32_t *> (utrd + 24) = (512U >> 2) | ((kRspOffset >> 2) << 16);
+    *reinterpret_cast<uint32_t *> (utrd + 28) = (kPrdtOffset >> 2) << 16;
     cacheClean (virt, 16384);
     write32 (hc, 0x20, 0xffffffffU);
     write32 (hc, 0x58, 1);
@@ -626,7 +631,7 @@ void NativeUfs::adoptAndRead (unsigned level)
     if (!done) {
       return 0xf;
     }
-    const uint8_t *rsp = ucd + rspOffset;
+    const uint8_t *rsp = ucd + kRspOffset;
     *respByte = (uint32_t (rsp[0]) << 8) | rsp[6];     // response type << 8 | query/NOP response
     *value = getBe32 (rsp + 20);
     return *reinterpret_cast<volatile uint32_t *> (utrd + 8) & 0xff;
@@ -651,7 +656,7 @@ void NativeUfs::adoptAndRead (unsigned level)
   if (level == 4) {
     uint8_t tur0[6] = { 0, 0, 0, 0, 0, 0 };
     UfsResult t = command (0, tur0, 6, false, 0);
-    const uint8_t *rsp0 = virt + ucdOffset + rspOffset;
+    const uint8_t *rsp0 = virt + kUcdOffset + kRspOffset;
     panic ("NATIVE_UFS adopt: TEST UNIT READY lun0\n"
            "ocs=%x resp=%02x scsi=%02x\n"
            "phys=%llx hcs=%08x->%08x smmu idx/bank=%08x cbar=%08x\n"
@@ -671,7 +676,7 @@ void NativeUfs::adoptAndRead (unsigned level)
       r = command (static_cast<uint8_t> (lun), tur, 6, false, 0);
       if (lun == 0 && attempt == 0 && r.ocs == 0xf) {
         // Never completed: stop here and report instead of waiting out every command.
-        const uint8_t *rsp = virt + ucdOffset + rspOffset;
+        const uint8_t *rsp = virt + kUcdOffset + kRspOffset;
         panic ("NATIVE_UFS adopt: first command did not complete\n"
                "phys=%llx hcs=%08x->%08x\n"
                "is=%08x db=%08x rsr=%08x ba=%08x\n"
@@ -689,8 +694,8 @@ void NativeUfs::adoptAndRead (unsigned level)
     status[lun] = (r.ocs << 16) | (r.response << 8) | r.scsi;
     senseOf[lun] = r.sense;
     if (r.ocs == 0 && r.scsi == 0) {
-      last[lun] = getBe32 (virt + dataOffset);
-      blockSize[lun] = getBe32 (virt + dataOffset + 4);
+      last[lun] = getBe32 (virt + kDataOffset);
+      blockSize[lun] = getBe32 (virt + kDataOffset + 4);
     }
   }
   if (level == 9) {
@@ -704,7 +709,7 @@ void NativeUfs::adoptAndRead (unsigned level)
     if (h.ocs != 0 || h.scsi != 0) {
       panic ("NATIVE_UFS gpt: header read failed ocs=%x resp=%x scsi=%x", h.ocs, h.response, h.scsi);
     }
-    const uint8_t *hdr = virt + dataOffset;
+    const uint8_t *hdr = virt + kDataOffset;
     auto le32 = [] (const uint8_t *at) -> uint32_t {
       return uint32_t (at[0]) | (uint32_t (at[1]) << 8) | (uint32_t (at[2]) << 16) | (uint32_t (at[3]) << 24);
     };
@@ -726,7 +731,7 @@ void NativeUfs::adoptAndRead (unsigned level)
     if (e.ocs != 0 || e.scsi != 0) {
       panic ("NATIVE_UFS gpt: entries read failed ocs=%x scsi=%x", e.ocs, e.scsi);
     }
-    const uint8_t *ents = virt + dataOffset;
+    const uint8_t *ents = virt + kDataOffset;
     static char text[3400];
     int used = snprintf (text, sizeof (text),
                          "NATIVE_UFS gpt LUN0 hdr crc=%08x ents crc=%08x cnt=%u\n"
@@ -763,7 +768,7 @@ void NativeUfs::adoptAndRead (unsigned level)
   UfsResult inq = command (0, inquiry, 6, true, 36);
   uint32_t inqWord[4] = { 0, 0, 0, 0 };
   for (unsigned index = 0; index < 4; index++) {
-    inqWord[index] = getBe32 (virt + dataOffset + 8 + index * 4);
+    inqWord[index] = getBe32 (virt + kDataOffset + 8 + index * 4);
   }
   // LBA 1 of LUN 0 holds the GPT header when the block size is 4096 (or 512).
   uint32_t gptStatus = 0xee, sig0 = 0, sig1 = 0;
@@ -772,8 +777,8 @@ void NativeUfs::adoptAndRead (unsigned level)
     UfsResult g = command (0, read10, 10, true, blockSize[0]);
     gptStatus = (g.ocs << 16) | (g.response << 8) | g.scsi;
     if (g.ocs == 0 && g.scsi == 0) {
-      sig0 = *reinterpret_cast<uint32_t *> (virt + dataOffset);
-      sig1 = *reinterpret_cast<uint32_t *> (virt + dataOffset + 4);
+      sig0 = *reinterpret_cast<uint32_t *> (virt + kDataOffset);
+      sig1 = *reinterpret_cast<uint32_t *> (virt + kDataOffset + 4);
     }
   }
   hcsAfter = read32 (hc, 0x30);
@@ -796,10 +801,10 @@ void NativeUfs::adoptAndRead (unsigned level)
          status[4], last[4], blockSize[4], senseOf[4], status[5], last[5], blockSize[5], senseOf[5],
          (inq.ocs << 16) | (inq.response << 8) | inq.scsi, inqWord[0], inqWord[1], inqWord[2], inqWord[3],
          inq.sense, inq.senseLen, inq.seg,
-         getBe32 (virt + ucdOffset + rspOffset), getBe32 (virt + ucdOffset + rspOffset + 4),
-         getBe32 (virt + ucdOffset + rspOffset + 8), getBe32 (virt + ucdOffset + rspOffset + 12),
-         getBe32 (virt + ucdOffset + rspOffset + 32), getBe32 (virt + ucdOffset + rspOffset + 36),
-         getBe32 (virt + ucdOffset + rspOffset + 40), getBe32 (virt + ucdOffset + rspOffset + 44),
+         getBe32 (virt + kUcdOffset + kRspOffset), getBe32 (virt + kUcdOffset + kRspOffset + 4),
+         getBe32 (virt + kUcdOffset + kRspOffset + 8), getBe32 (virt + kUcdOffset + kRspOffset + 12),
+         getBe32 (virt + kUcdOffset + kRspOffset + 32), getBe32 (virt + kUcdOffset + kRspOffset + 36),
+         getBe32 (virt + kUcdOffset + kRspOffset + 40), getBe32 (virt + kUcdOffset + kRspOffset + 44),
          gptStatus, sig0, sig1);
 }
 
@@ -1012,7 +1017,6 @@ void NativeUfs::inspectContextBanks (void)
 // the single START STOP UNIT that wakes the device from the power-down the firmware left.
 // ======================================================================================
 namespace {
-#include "RootTransportLayout.h"
 
 struct UfsHost {
   OSSharedPtr<IOMemoryMap> hcMap, smmuMap;
