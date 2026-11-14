@@ -54,6 +54,11 @@ unsigned cs35_power_up_program(Cs35Step *out)
     u(&p, CS35_ASP_ENABLES1, 1u << 16, 1u << 16);
     w(&p, CS35_TEST_KEY, 0x55u);
     w(&p, CS35_TEST_KEY, 0xaau);
+    /* 0x2084 is the "global enable / power-up request" word of this part's own register file: it is written behind
+     * the test key (0x55, 0xaa) and only there, because the datasheet keeps it out of the normal map. 0x000f1aa0
+     * arms the four amplifiers and 0x000f1aa3 disarms them (see the power-down program below). No register-name
+     * header is carried in this repository for it, so the value is written out with this note; the audio limits
+     * record that the name and the datasheet page are owed. */
     w(&p, 0x2084u, 0x000f1aa0u);
     w(&p, CS35_TEST_KEY, 0xccu);
     w(&p, CS35_TEST_KEY, 0x33u);
@@ -68,6 +73,7 @@ unsigned cs35_power_down_program(Cs35Step *out)
     u(&p, CS35_BLOCK_ENABLES, 1u, 0);
     w(&p, CS35_TEST_KEY, 0x55u);
     w(&p, CS35_TEST_KEY, 0xaau);
+    /* same key-guarded word as the power-up program: 0x000f1aa3 is its disarmed form. */
     w(&p, 0x2084u, 0x000f1aa3u);
     w(&p, CS35_TEST_KEY, 0xccu);
     w(&p, CS35_TEST_KEY, 0x33u);

@@ -20,6 +20,11 @@ enum {kLocalNode = 1, kLocatorPort = 1};
 
 static const char *const kAudio[] = {"avs/audio", NULL};
 static const char *const kGps[] = {"gps/gps_service", NULL};
+/* The protection-domain instance numbers are the ones this firmware image answers to: 74 for every msm/adsp/...
+ * domain, 76 for msm/cdsp/root_pd and 180 for msm/modem/root_pd. They are not the PD *names* in the vendor's
+ * pd-mapper tables - those name domains, these are the instance ids the locator service is asked about - and the
+ * table that lists them for this SoC is not carried in this repository, so there is no file:line to cite; the
+ * audio limits record that gap and how each number was confirmed (the domain answered on this unit). */
 static const QcomPdDomain kDomains[] = {
     {"msm/adsp/audio_pd", 74, kAudio},   {"msm/adsp/root_pd", 74, NULL}, {"msm/adsp/charger_pd", 74, NULL},
     {"msm/adsp/sensor_pd", 74, NULL},    {"msm/cdsp/root_pd", 76, NULL}, {"msm/modem/root_pd", 180, kGps},
