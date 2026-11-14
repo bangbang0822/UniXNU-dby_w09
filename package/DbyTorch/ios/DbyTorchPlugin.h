@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent */
 /* Copyright (c) 2026, UniXNU contributors. All rights reserved. */
-/* What ios/DbyTorchPlugin.m shares with its host test. The names are DbyTorchIos.h's (scripts/build-dby-torch-plugin.py checks they match). */
+/* What ios/DbyTorchPlugin.m shares with its host test. The names are DbyTorchIos.h's (scripts/build-dby-torch.py checks they match). */
 #ifndef DBY_TORCH_PLUGIN_H
 #define DBY_TORCH_PLUGIN_H
 #include <stdint.h>
