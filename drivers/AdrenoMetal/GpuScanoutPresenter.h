@@ -47,7 +47,10 @@ public:
         if (!frame.base || ((uintptr_t)frame.base & (page - 1)) || !frame.bytes || (frame.bytes & (page - 1)) ||
             frame.width != scanout_.width || frame.height != scanout_.height || frame.stride < row ||
             (size_t)frame.height > frame.bytes / frame.stride || frame.stride * (frame.height - 1) + row > frame.bytes) return kBadFrame;
-        const uint32_t rows = gHalfRows.load(std::memory_order_relaxed) ? frame.height / 2 : frame.height;
+        /* A single-row frame cannot be halved: an empty `rows` turns the copy length below into
+         * `frame.stride * (rows - 1) + row`, which wraps instead of naming a length. */
+        const uint32_t half = frame.height / 2;
+        const uint32_t rows = gHalfRows.load(std::memory_order_relaxed) ? (half ? half : 1) : frame.height;
         id<MTLBuffer> source = sourceFor(frame);
         if (!source) return kNoResource;
         id<MTLCommandBuffer> commands = [queue_ commandBuffer];

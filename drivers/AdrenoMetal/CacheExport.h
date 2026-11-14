@@ -129,6 +129,9 @@ static bool build(const std::string &root, const std::vector<File> &files, std::
     unsigned long zbytes = bound(raw.size());
     std::vector<uint8_t> zdata(zbytes);
     if (compress(zdata.data(), &zbytes, raw.data(), raw.size(), 6) != 0) return false;
+    /* The header carries both sizes as 32 bits and the reader bounds the inflated stream by the announced one, so a
+     * stream at or above 4 GiB would be written with a truncated size and claimed as a success. Refuse instead. */
+    if (raw.size() > UINT32_MAX || zbytes > UINT32_MAX) return false;
     out.clear();
     {static const char magic[] = "SHEXP001"; out.insert(out.end(), magic, magic + 8);}
     put<uint32_t>(out, (uint32_t)raw.size());
