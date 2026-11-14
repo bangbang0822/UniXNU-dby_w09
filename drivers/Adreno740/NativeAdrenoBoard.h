@@ -23,7 +23,14 @@ public:
     /* Parse a device's `iommus` property. Each entry is one phandle cell
      * followed by #iommu-cells specifier cells; the first specifier cell is the
      * stream ID on this platform. Output keeps property order and never writes
-     * on failure. Only the SID is extracted, never a guessed context bank. */
+     * on failure. Only the SID is extracted, never a guessed context bank.
+     *
+     * "Never writes on failure" is enforced by construction: both parsers run a
+     * validation pass over every entry before the pass that stores them, so a
+     * malformed entry later in the property returns with the caller's array and
+     * *count untouched (a zero count). Both carry that note next to the loop.
+     * The same holds for parseReg below, whose comment promises the count is the
+     * exact number of complete windows. */
     static IOReturn parseIommus(const uint8_t *cells,size_t length,
         uint32_t cells_per_entry,uint16_t *stream_ids,size_t capacity,size_t *count);
     static IOReturn parseReg(const uint8_t *cells,size_t length,uint32_t address_cells,
