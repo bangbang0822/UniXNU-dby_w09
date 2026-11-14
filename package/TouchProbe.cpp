@@ -6,6 +6,12 @@
 //   4  host-download the firmware, start scanning and process THP frames (needs the generated firmware object)
 // Every stage reports on the diagnostic page; the first failure stops the sequence. Nothing here is validated on the
 // device until a boot has shown it. Board constants and their sources are in TouchBoard.h.
+//
+// REFERENCE ONLY: no script in this repository compiles this file. The board's touch archive is
+// package/DbyTouch/DbyTouch.cpp (scripts/build-dby-touch.py), which cites this probe as the upstream producer's
+// shape (work/refs/sheng/TouchProbe.cpp) in the comments that mirror its stages. It is kept because those
+// citations point at a document rather than at running code, so a change here does not reach a build - which is
+// why the null guard below is stated as a correctness fix to a reference and not as a fix to this board.
 #include <IOKit/IOService.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOMemoryDescriptor.h>
