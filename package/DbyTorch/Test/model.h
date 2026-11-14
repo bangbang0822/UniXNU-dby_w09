@@ -297,7 +297,11 @@ static inline void m_trace(void *ctx, const char *line)
     Model *m = ctx;
     CHECK(strlen(line) < M_LINE);
     if (m->line_n < M_LINES) {
-        strncpy(m->lines[m->line_n], line, M_LINE - 1u);
+        /* Copy the terminator with the text: strncpy(..., M_LINE - 1u) copied M_LINE-1 bytes and
+         * appended nothing, so a line that hit the guard's own limit (M_LINE-1 characters) left the
+         * row unterminated and m_logged()'s strstr() reading past it. The guard above already proves
+         * strlen+1 fits. */
+        memcpy(m->lines[m->line_n], line, strlen(line) + 1u);
         m->line_n++;
     }
 }
