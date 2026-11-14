@@ -131,6 +131,11 @@ int main(int argc,char **argv) {
   }
   if(argc==2) {
     fixture();std::ifstream f(argv[1],std::ios::binary);f.read(reinterpret_cast<char *>(manifest),4096);assert(f.gcount()==4096);
+    // These endpoints are the example geometry from UniXNU-src/docs/guide/userdata.md:13-14, not this
+    // board's table: board.toml:46-47 records userdata first_lba 0x29B600 .. last_lba 0x1D455FF for the
+    // tested 128 GiB unit. The branch only rebuilds a consistent synthetic GPT around the manifest read
+    // from --root-image so the existing-image path can be exercised, so the numbers have to be
+    // self-consistent rather than this unit's; the citation is what makes that deliberate.
     userdata=0x2f3840;put64(entries+32,userdata);put64(entries+40,0x3d0abfa);
     put64(header+32,0x3d0abff);put64(header+48,0x3d0abfa);
     // Only the synthetic GPT is rechecksummed. Preserve the actual on-host manifest hash.
