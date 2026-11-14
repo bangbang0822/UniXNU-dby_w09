@@ -220,7 +220,13 @@ cmd+=['-Wall','-Wextra','-Werror','-Wno-unused-parameter','-Wno-unnecessary-virt
 run(cmd,cwd=r['directory'])
 probe=OUT/'LegacyDisplayProbe.o'
 TOUCH=OUT/'touch';TOUCH.mkdir(exist_ok=True)
-touch_include=['-I',str(ROOT/'kits/dby_w09')]
+# The five files that became components on 2026-11-14 are compiled from drivers/<id>/ now; every TU that
+# includes one of their headers needs the directory, and the two layouts (kit + component) are different.
+component_include=['-I',str(ROOT/'drivers/ShengGpr'),
+                   '-I',str(ROOT/'drivers/ShengAudioReach'),
+                   '-I',str(ROOT/'drivers/ShengCs35l43'),
+                   '-I',str(ROOT/'drivers/QcomGeniI2c')]
+touch_include=['-I',str(ROOT/'kits/dby_w09')]+component_include
 # HidInputProbe.cpp is the only place the owned IOHIDDevice is created and started: allocate the IOHIDDevice
 # subclass, attach it to IOHIDResource, then start it, which is what brings up the 8 ms touch timer that turns
 # native_touch_seq into HID reports. LinkStubs.c keeps a weak no-op native_hid_input_probe() for boards that do
@@ -247,8 +253,12 @@ adsp_cpp=ROOT/'kits/dby_w09/AdspProbe.cpp';adsp_obj=TOUCH/'AdspProbe.o'
 # TUs for AdspFirmware.c, and both archives are force-loaded, so a second copy in this one is a
 # duplicate symbol (_fat_mount/_fat_open/_fat_read and the qcom_mdt_* set). The ABI
 # they provide is identical - it is the same package/ source - so boot-progress supplies it.
+# ShengGpr, ShengAudioReach and ShengCs35l43 are component repositories since 2026-11-14: the assembled tree
+# materialises them under drivers/<id>/, so this list reads them there and the include path below adds their
+# directories. The rest stay in the board package.
+COMPONENT_IDS=('ShengGpr','ShengAudioReach','ShengCs35l43')
 adsp_c=[ROOT/'kits/dby_w09'/(n+'.c') for n in ('QcomQrtr','ShengQrtr','QcomSmem','QcomSmp2p',
-        'QcomGlink','QcomQmp','QcomRpmh','ShengGpr','ShengAudioReach','ShengCs35l43','ShengApr')]
+        'QcomGlink','QcomQmp','QcomRpmh','ShengApr')]+[ROOT/'drivers'/n/(n+'.c') for n in COMPONENT_IDS]
 # The speaker half of the SM8550 kit is deliberately not compiled or linked for this board. Its hardware
 # layer is another machine's silicon: AudioProbe.cpp votes the SM8550 GCC register set, muxes SM8550 TLMM
 # pins, addresses six CS35L43 amplifiers and calls the SM8550 button injector -- while this unit's own
@@ -278,6 +288,10 @@ while j<len(pa):
     elif not value.startswith('-W'):core_cmd.append(value)
     j+=1
 core_cmd+=['-Wall','-Wextra','-Werror','-mgeneral-regs-only','-I',str(ROOT/'.cache/xnu-work/osfmk')]
+# The protocol cores include each other across the components that were split out on 2026-11-14
+# (ShengAudioReach.c includes ShengGpr.h), and these compiles do not take touch_include, so the
+# component directories go on core_cmd itself.
+core_cmd+=component_include
 adsp_objs=[]
 for src in adsp_c:
     o=TOUCH/(src.stem+'.o');adsp_objs.append(o)
@@ -353,24 +367,25 @@ run([str(cpufreq_source) if str(arg)==str(source) else str(cpufreq_obj) if str(a
 bl_source=ROOT/'kits/dby_w09/AppleARMBacklight.cpp'
 bl_obj=OUT/'AppleARMBacklight.o'
 run([str(bl_source) if str(arg)==str(source) else str(bl_obj) if str(arg)==str(probe) else arg for arg in cmd]
-    +['-Wno-missing-designated-field-initializers'],cwd=r['directory'])
+    +['-Wno-missing-designated-field-initializers']+component_include,cwd=r['directory'])
 bl_probe_source=ROOT/'kits/dby_w09/BacklightProbe.cpp'
 bl_probe_obj=OUT/'BacklightProbe.o'
 run([str(bl_probe_source) if str(arg)==str(source) else str(bl_probe_obj) if str(arg)==str(probe) else arg for arg in cmd]
-    +['-Wno-missing-designated-field-initializers'],cwd=r['directory'])
+    +['-Wno-missing-designated-field-initializers']+component_include,cwd=r['directory'])
 # GeniI2c.c is C; the same record carries -xc++, which this source accepts unchanged (no designated initialisers, no implicit
 # void* conversions, and its own header wraps every declaration in extern "C", so the symbols stay unmangled for the service).
-bl_geni_source=ROOT/'kits/dby_w09/GeniI2c.c'
+# GeniI2c is a component repository since 2026-11-14; the tree materialises it under drivers/QcomGeniI2c/.
+bl_geni_source=ROOT/'drivers/QcomGeniI2c/GeniI2c.c'
 bl_geni_obj=OUT/'GeniI2c.o'
 run([str(bl_geni_source) if str(arg)==str(source) else str(bl_geni_obj) if str(arg)==str(probe) else arg for arg in cmd]
-    +['-Wno-missing-designated-field-initializers'],cwd=r['directory'])
+    +['-Wno-missing-designated-field-initializers']+component_include,cwd=r['directory'])
 # The service's static initialiser registers its classes with the kernel module; BacklightProbe.cpp calls it by name between
 # preModLoad and postModLoad, so it leaves __mod_init_func and is globalised, the same staging the presenter and the key store use.
 # 四颗 smartpa：两张 BOM 表 + 探测 + 主备回退。没有静态初始化，也不需要 late staging。
 pa_source=ROOT/'kits/dby_w09/DbySmartPA.cpp'
 pa_obj=OUT/'DbySmartPA.o'
 run([str(pa_source) if str(arg)==str(source) else str(pa_obj) if str(arg)==str(probe) else arg for arg in cmd]
-    +['-Wno-missing-designated-field-initializers'],cwd=r['directory'])
+    +['-Wno-missing-designated-field-initializers']+component_include,cwd=r['directory'])
 # 电池（package/DbyBattery.cpp 这个服务 + package/BatteryProbe.cpp 它的入口）。入口导出
 # sheng_battery_probe：LegacyDisplayProbe.cpp:521 已经在调它，LinkStubs.c:116-117 今天把这个调用
 # 答案成弱空桩——llvm-nm 在已建好的 kernel.macho 上，_sheng_cpufreq_probe 和 _sheng_backlight_probe

@@ -83,8 +83,11 @@ for i in range(177, 340):
 header += '};\nstatic_assert(sizeof(ApplePMGR)==0x4b8a8,"Original provider storage");\n'
 (OUT / 'OriginalPMGRABI.h').write_text(header)
 (OUT / 'GuardedPMGRSlots.inc').write_text(guards)
-sources = sorted(ROOT.glob('kits/*/ShengPlatformPower.cpp'))
-require(len(sources) == 1, 'Expected one board kit with ShengPlatformPower.cpp')
+# ShengPlatformPower is a component repository since 2026-11-14; the tree materialises it under
+# drivers/ShengPlatformPower/. The kit glob is kept as a fallback for a tree assembled before that move.
+sources = sorted(ROOT.glob('drivers/ShengPlatformPower/ShengPlatformPower.cpp')) or \
+          sorted(ROOT.glob('kits/*/ShengPlatformPower.cpp'))
+require(len(sources) == 1, 'Expected one ShengPlatformPower.cpp under drivers/ or kits/')
 source = sources[0]
 obj = OUT / 'ShengPlatformPower.o'
 record = json.loads((ROOT / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/iokit/DEVELOPMENT/IOPlatformExpert.cpo.json').read_text().strip().rstrip(','))

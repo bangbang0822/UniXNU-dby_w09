@@ -39,7 +39,10 @@ kit = "dby_w09"                # 本仓 package/ 在构建树里出现为 kits/d
 # 从组件里引用（os/patches/xnu/series 第 6-7 行），选中与不选中决定它们 apply 还是跳过；设备仓
 # 不再保存补丁副本，也不再有一条 device:...series-usb。
 [components]
-include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K", "ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi", "QcomXnuUsbDebug"]
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K", "ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi", "QcomXnuUsbDebug",
+           # the five the board package used to carry: board-independent code that now comes from its own
+           # component repository (the package keeps copies only where a host harness compiles them)
+           "QcomGeniI2c", "ShengGpr", "ShengAudioReach", "ShengCs35l43", "ShengPlatformPower"]
 
 # ---------------------------------------------------------------------------
 # userdata：已取证（9008 完整备份 gpt_main0.bin，LUN 0）。

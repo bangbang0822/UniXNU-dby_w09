@@ -1,4 +1,8 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent */
+/* PINNED COPY, kept only for the host harnesses (scripts/check-gpr-host.py,
+ * scripts/check-audioreach-host.py) which compile it by path. The kernel build compiles the
+ * component from tree/drivers/ShengAudioReach/, and the catalogue entry pins the revision: this file
+ * has to match it, which scripts/check-component-copies.py checks when a tree is present. */
 #include "ShengAudioReach.h"
 #include "ShengGpr.h"
 

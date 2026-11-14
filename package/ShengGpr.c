@@ -1,4 +1,8 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent */
+/* PINNED COPY, kept only for the host harnesses (scripts/check-gpr-host.py,
+ * scripts/check-audioreach-host.py) which compile it by path. The kernel build compiles the
+ * component from tree/drivers/ShengGpr/, and the catalogue entry pins the revision: this file
+ * has to match it, which scripts/check-component-copies.py checks when a tree is present. */
 #include "ShengGpr.h"
 
 static void put32(uint8_t *p, uint32_t v) {p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24);}
