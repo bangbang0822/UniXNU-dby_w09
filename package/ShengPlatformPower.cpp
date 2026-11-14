@@ -98,8 +98,14 @@ extern "C" void sheng_pmgr_run(void)
     nub = sheng_original_pmgr_nub_create(description, provider);
     sheng_pmgr_observation[5] = reinterpret_cast<uintptr_t>(nub);
     if (!nub || nub->getMetaClass() != nubMeta || !provider->metaCast("ApplePMGR")) break;
+    /* 0x88 is IOService's _provider ivar in the XNU this file qualifies, read raw on purpose: the probe
+     * exists to check that layout, and the accessor's answer is compared against it a few lines below
+     * (observation[13]). Nothing can assert the offset at compile time - the class is Apple's and opaque -
+     * so the run-time compare is the check, and a build whose ivar moved reports a mismatch instead of a
+     * qualification that means nothing. */
+    static constexpr uintptr_t kProviderIvar = 0x88;
     uintptr_t bound = 0;
-    memcpy(&bound, reinterpret_cast<const char *>(nub) + 0x88, sizeof(bound));
+    memcpy(&bound, reinterpret_cast<const char *>(nub) + kProviderIvar, sizeof(bound));
     sheng_pmgr_observation[6] = bound;
     if (bound != reinterpret_cast<uintptr_t>(provider)) break;
     sheng_pmgr_observation[0] = 3;
