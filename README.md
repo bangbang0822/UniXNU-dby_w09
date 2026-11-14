@@ -143,8 +143,12 @@ and `scripts/check-commit-messages.py` (does every subject follow the convention
    `CONFIG_XNU_OWNER_DATA_VOLUME_UUID` in the defconfig, otherwise the kernel refuses the mount
    (`offline scratch Data mount failed: 2`). Growing an existing seed keeps the UUID; a fresh
    fixture does not and therefore needs a kernel rebuild.
-5. **Trust cache**: the unmodified original static + System bundle, built by
-   `scripts/build-original-system-trust.py` and passed with `--trust-cache`.
+5. **Trust cache**: the unmodified original static + System bundle, passed with `--trust-cache`. It is
+   derived from the two `ipsw fetch` members, so no local restore image is needed:
+   `scripts/prepare-trust-inputs.py --ipsw-dir <core>/out/ipsw/21H461 --write-cache` writes
+   `build/original-static-system-trust/original-static-system.bundle` and checks it against
+   `board.toml`'s `original_trust_cache_sha256`. (`scripts/build-original-system-trust.py` still builds the
+   same bundle from a complete IPSW, for a host that has one.)
 
 ## Build
 
