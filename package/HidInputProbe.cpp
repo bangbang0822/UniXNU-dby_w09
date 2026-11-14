@@ -82,8 +82,12 @@ static IORegistryEntry *findEventDriver(IORegistryEntry *parent,unsigned depth) 
 }
 static void appendProperty(IORegistryEntry *driver,const char *key,const char *label,size_t &used) {
     OSObject *value=driver->copyProperty(key);
-    int n=snprintf(native_hid_input_props+used,sizeof(native_hid_input_props)-used,"%s:",label);
-    if(n>0)used+=n;
+    /* snprintf answers the length it would have written, not the length it did write, so advancing `used` by
+     * its return value after a truncation walked past the array and the terminator at the end of this function
+     * then stored past it. Both writes clamp to what fits and leave one byte for the NUL. */
+    {const size_t room=sizeof(native_hid_input_props)-used;
+     const int n=snprintf(native_hid_input_props+used,room,"%s:",label);
+     if(n>0)used+=(size_t)n<room?(size_t)n:room-1;}
     if(value) {
         OSSerialize *text=OSSerialize::withCapacity(4096);
         if(text && value->serialize(text)) {
@@ -97,7 +101,9 @@ static void appendProperty(IORegistryEntry *driver,const char *key,const char *l
                         if(!strcmp(name,"/key"))native_hid_input_props[used++]='=';
                         else if(name[0]=='/')native_hid_input_props[used++]=' ';
                         else if(!strcmp(name,"true/")||!strcmp(name,"false/")){
-                            used+=snprintf(native_hid_input_props+used,sizeof(native_hid_input_props)-used,"%s ",name[0]=='t'?"T":"F");
+                            const size_t room=sizeof(native_hid_input_props)-used;
+                            const int wrote=snprintf(native_hid_input_props+used,room,"%s ",name[0]=='t'?"T":"F");
+                            if(wrote>0)used+=(size_t)wrote<room?(size_t)wrote:room-1;
                         }
                     } else if(nameLen<sizeof(name)-1)name[nameLen++]=c;
                     continue;
@@ -108,7 +114,7 @@ static void appendProperty(IORegistryEntry *driver,const char *key,const char *l
         }
         OSSafeReleaseNULL(text);OSSafeReleaseNULL(value);
     } else if(used<sizeof(native_hid_input_props)-6) {memcpy(native_hid_input_props+used,"none ",5);used+=5;}
-    native_hid_input_props[used]=0;
+    native_hid_input_props[used<sizeof(native_hid_input_props)?used:sizeof(native_hid_input_props)-1]=0;
 }
 __attribute__((noinline)) void native_hid_live_checkpoint(IOService *device) {
     size_t used=0;native_hid_input_registry[0]=0;describeInput(device,0,used);
