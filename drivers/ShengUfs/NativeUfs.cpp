@@ -1208,7 +1208,12 @@ static uint32_t be32w (const uint8_t *at)
 // The only part of this driver that ever writes. The consumer (NativeRamBlock's overlay) asks for a window of the given
 // size at the END of the userdata partition. Mode 1 (boot argument sheng-data-persist=1) only reads: it proves the window and
 // lets the consumer inspect its header. Mode 2 additionally opens the write window. A window is refused unless it lies inside
-// the partition, clear of the flashed root image plus a 4 MiB guard, and is at most a quarter of the partition.
+// the partition and clear of the flashed root image plus a 4 MiB guard.
+// There is no quarter-of-the-partition rule here, although this comment used to claim one: the check below is
+// `!blocks || reserve >= partition || blocks > partition - reserve` and then `partition - blocks - reserve <
+// imageBlocks + 1024`, so a consumer may take everything below the reserve except the image and its guard. Adding
+// the quarter limit would change what the device-verified overlay is allowed to ask for, so the bound is stated as
+// the code enforces it instead.
 namespace {
 struct StoreGeometry {
   bool valid;
