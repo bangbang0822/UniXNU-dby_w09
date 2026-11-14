@@ -14,8 +14,8 @@ is - the note says which.
 |---|---|---|---|---|
 | blocker | 11 | 9 | 1 | 1 |
 | major | 65 | 46 | 6 | 13 |
-| minor | 270 | 176 | 52 | 42 |
-| nit | 248 | 177 | 23 | 48 |
+| minor | 270 | 175 | 47 | 48 |
+| nit | 248 | 177 | 22 | 49 |
 
 ## The findings whose audited text is still in the file
 
@@ -227,7 +227,7 @@ Last change this session: 2935171 docs(audio): describe the row field the way it
 
 ### `package/DbySmartPA.cpp` - fixed/documented: partition bounds, cancel driven to completion, pins recorded
 
-Last change this session: 3657e88 chore(audio): use the GENI registers the shared header defines
+Last change this session: 6e8fe6e fix(audio): bound the pin scan by the window it reads
 
 - [minor] lines 529-536: The SMEM partition table's own offset/size cells are used to build a pointer into the 2 MiB mapping without any check against that mapping: surveyPart is handed s + peerAt/4 with p
 - [minor] lines 248-258: The timeout path calls geni_i2c_timeout() exactly once. Per GeniI2c.h:93-95 that call only sends CANCEL and leaves the engine in GeniCancelling; it must be re-entered (poll/timeout
@@ -273,13 +273,6 @@ Last change this session: 0eedab6 docs(input): state the log cadence in the unit
 - [minor] lines 178-196: The two chip registers and the two boot/idle bytes are bare literals with no source next to them, although this repository already carries the sourced form of all of them: DbyTouch
 - [nit] lines 213-225: The comment claims the placeholder has been replaced ('the earlier "UNPROBED" placeholder was written before the vendor source settled what the chip is'), but the function body sti
 
-### `package/GeniI2c.h` - documented: [LINUX] citation level; shared-file move recorded
-
-Last change this session: bbfb91d docs: pin two upstream citations and record what upstream does not carry
-
-- [minor] lines 14-56: The whole serial-engine register map, the M_IRQ bit set, GENI_PROTO_I2C 3 and the opcode/packing values are hardcoded with no source tag anywhere in the header or in GeniI2c.c, and
-- [minor] lines 2-6: This is a board-independent Qualcomm GENI serial-engine I2C master: no address, clock, pin or partition of the DBY-W09 appears anywhere in GeniI2c.h/.c (the slave address is a call
-
 ### `package/LegacyDisplayProbe.cpp` - fixed/documented: report guards, offset map
 
 Last change this session: 39fa8a8 docs(display): repoint two citations at the lines they mean
@@ -301,34 +294,15 @@ Last change this session: 787fbe8 fix(audio): pin the control page-s three block
 
 ### `package/ShengAudioReach.h` - documented: PRM ids and the shared-file move
 
-Last change this session: 16961b3 docs(audio): state the provenance level of the GENI map and the PRM ids
+Last change this session: f81ff47 build(audio): compare the pinned headers too, not just the sources
 
 - [minor] lines 2-6: This is the sheng board's audio graph, not this board's: the header says it is 'for the sheng speaker and microphone paths' and the topology it encodes (secondary MI2S speakers on 
 
-### `package/ShengCs35l43.c` - documented: the key-guarded word
-
-Last change this session: 7153366 docs(audio): say where the QRTR domain ids and the 0x2084 word come from
-
-- [minor] lines 57, 71: The power-up and power-down sequences write the raw register 0x2084 with the magic values 0x000f1aa0 and 0x000f1aa3 inside the CS35 test-key sequence, but 0x2084 is not one of the 
-
-### `package/ShengCs35l43.h` - documented: the file describes another sheng unit (audio limits)
-
-Last change this session: 06df6ca docs(audio): say in the two headers what they are and are not
-
-- [minor] lines 2-5: This is the sheng board's amplifier driver, not this unit's: the header describes six CS35L43s on QUP1 SE5 and QUP2 SE0 at I2C addresses 0x40-0x42, while the repository's own audio
-
 ### `package/ShengGpr.h` - documented: shared codec, move recorded
 
-Last change this session: 06df6ca docs(audio): say in the two headers what they are and are not
+Last change this session: f81ff47 build(audio): compare the pinned headers too, not just the sources
 
 - [minor] lines 2-5: A generic GPR packet codec: it names no dby_w09 resource, and every constant in it is the protocol's (24-byte header, GPR_VERSION 0, APM port 1, 512-byte packet limit). It is not o
-
-### `package/ShengPlatformPower.cpp` - documented: provider offset named, reindented, component move recorded
-
-Last change this session: 3372c58 chore(power): reindent the PMGR bridge with four-space steps
-
-- [minor] lines 1-2: This file is byte-for-byte identical (sha256 cf9abdff...) to UniXNU-alioth/package/ShengPlatformPower.cpp, the Xiaomi Redmi K40, another SM8250 board; it contains no board-specific
-- [nit] lines 36-44: The file indents with two spaces throughout, while the repository style requires four; the other package C++ files (for example ShengAudioService.cpp) use four. This is a style dev
 
 ### `package/ShengQrtr.c` - documented: domain ids and their provenance
 
