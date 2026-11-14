@@ -1402,46 +1402,98 @@ static uint32_t copy_msgbuf(uint8_t *out) {
 }
 
 
-/* Replay the previous run's message buffer through the console this boot does have.
+/* Replay the previous run's window through the console this boot does have.
  *
- * A run that dies before it can be read leaves its text in the window (the header and the message blocks), and the console
- * is only alive for part of a boot: the interesting rows are the ones printed after the USB stack came up, which is also
- * when a late panic prints. So this waits for that window, then reads the *previous* header, and prints its message area
- * with a "prev" tag. It writes nothing to the medium. */
+ * A run that dies before its console is readable leaves its text in the window: the header, the message buffer, and the text
+ * slot compose() writes every round - and "[panic]" plus the caught panic text is one of the rows in that slot. The console
+ * only comes up part-way through a boot, so the replay has to wait for it, but by then this boot's own writer has already
+ * overwritten the header and the message area (its first round is immediate, and the next one follows every LogPeriodMs).
+ * So the snapshot is taken in the writer's start-up, after the window is open and before its first write, and the thread
+ * below only waits for the console and prints what that snapshot holds. It never opens the window (the open refuses one that
+ * is already open, which is why the old version printed nothing) and it writes nothing to the medium. */
 #define kReplayDelayMs 6000
-#define kReplayBytes   (96u * 1024u)
+
+static struct {
+  int requested;      // the argument was on when the window opened
+  int valid;          // the header, the message area or the newest slot was taken out of it
+  struct boot_log_header h;
+  uint32_t msg_bytes;
+  uint8_t *msg;
+  uint8_t *slot;
+} previous;
+
+// Take the last run's header, message area and newest text slot out of the window while the medium still holds them.
+static void capture_previous(uint64_t first, uint32_t blocks) {
+  uint32_t want = 0;
+  if (!PE_parse_boot_argn("sheng-log-replay", &want, sizeof want) || want != 1) return;
+  previous.requested = 1;
+  if (!&native_ufs_log_read) return;
+  uint8_t *block = (uint8_t *)IOMalloc(LogBlock);
+  if (!block) return;
+  if (!native_ufs_log_read(0, 1, block)) { IOFree(block, LogBlock); return; }
+  const struct boot_log_header *h = (const struct boot_log_header *)block;
+  if (memcmp(h->magic, "SHLOG001", 8) == 0 && h->version == 4 && h->header_bytes == sizeof *h && h->first_lba == first) {
+    previous.h = *h;
+    if (h->msg_blocks && h->msg_blocks <= LogMsgBlocks && h->msg_first < blocks && h->msg_blocks <= blocks - h->msg_first) {
+      const size_t bytes = (size_t)h->msg_blocks * LogBlock;
+      previous.msg = (uint8_t *)IOMalloc(bytes);
+      if (!previous.msg || !native_ufs_log_read(h->msg_first, h->msg_blocks, previous.msg)) {
+        if (previous.msg) IOFree(previous.msg, bytes);
+        previous.msg = 0;
+      } else {
+        previous.msg_bytes = h->msg_bytes < bytes ? h->msg_bytes : (uint32_t)bytes;
+      }
+    }
+    // slots_written counts rounds that landed, and round N writes slot N % slot_count, so the newest slot is the one before it.
+    if (h->slots_written && h->slot_blocks == LogSlotBlocks && h->slot_count) {
+      const uint64_t rel = (uint64_t)h->slot_first + (uint64_t)((h->slots_written - 1) % h->slot_count) * h->slot_blocks;
+      const size_t bytes = (size_t)h->slot_blocks * LogBlock;
+      if (rel + h->slot_blocks <= blocks) {
+        previous.slot = (uint8_t *)IOMalloc(bytes);
+        if (!previous.slot || !native_ufs_log_read(rel, h->slot_blocks, previous.slot)) {
+          if (previous.slot) IOFree(previous.slot, bytes);
+          previous.slot = 0;
+        }
+      }
+    }
+    previous.valid = previous.msg || previous.slot;
+  }
+  IOFree(block, LogBlock);
+}
+
+// Print one snapshot buffer as lines: the slot and the message ring are NUL-padded text, and their gaps are not rows.
+static void replay_lines(const char *what, const uint8_t *text, uint32_t used) {
+  for (uint32_t at = 0; at < used; ) {
+    const uint32_t room = used - at;
+    const uint32_t take = strnlen((const char *)text + at, room < 900 ? room : 900);
+    if (take == 0) { ++at; continue; }
+    kprintf("[prev] %s %.*s\n", what, (int)take, (const char *)text + at);
+    at += take + 1;
+  }
+}
 
 static void replay_previous(void *arg, wait_result_t result) {
   (void)arg; (void)result;
   thread_set_thread_name(current_thread(), "boot_log_r");
-  if (!&native_ufs_log_read) return;
+  // The snapshot is taken by the writer, which started just before this thread: look only after the wait.
   IOSleep(kReplayDelayMs);
-  uint64_t first = 0, blocks = 0;
-  const char *why = "";
-  if (!native_ufs_log_open(&first, &blocks, &why) || blocks < 34) return;
-  uint8_t *block = (uint8_t *)IOMalloc(LogBlock);
-  uint8_t *text = (uint8_t *)IOMalloc(kReplayBytes);
-  if (!block || !text) { if (block) IOFree(block, LogBlock); if (text) IOFree(text, kReplayBytes); return; }
-  if (native_ufs_log_read(0, 1, block) && memcmp(block, "SHLOG001", 8) == 0) {
-    const struct boot_log_header *h = (const struct boot_log_header *)block;
-    kprintf("[prev] boot_id=%llu tag=%s rounds=%u err=%u state=%u slots=%u msg_blocks=%u\n",
-            h->boot_id, h->tag, h->rounds, h->write_errors, h->state, h->slots_written, h->msg_blocks);
-    if (h->msg_blocks && h->msg_blocks <= (kReplayBytes / LogBlock)) {
-      if (native_ufs_log_read(h->msg_first, h->msg_blocks, text)) {
-        uint32_t used = h->msg_bytes < kReplayBytes ? h->msg_bytes : kReplayBytes;
-        kprintf("[prev] --- message buffer, %u of %u bytes ---\n", used, h->msg_bytes);
-        for (uint32_t at = 0; at < used; ) {
-          uint32_t room = kReplayBytes - at;
-          uint32_t take = strnlen((const char *)text + at, room < 900 ? room : 900);
-          if (take == 0) { ++at; continue; }        // the ring leaves gaps where nothing was written
-          kprintf("[prev] %.*s\n", (int)take, (const char *)text + at);
-          at += take + 1;
-        }
-        kprintf("[prev] --- end ---\n");
-      }
-    }
+  if (!previous.requested) { kprintf("[prev] no capture: the log window never opened this boot\n"); return; }
+  if (!previous.valid) { kprintf("[prev] no capture: block 0 holds no previous run's header\n"); return; }
+  const struct boot_log_header *h = &previous.h;
+  kprintf("[prev] boot_id=%llu tag=%s rounds=%u uptime=%us err=%u state=%u slots=%u msg_blocks=%u\n",
+          h->boot_id, h->tag, h->rounds, h->uptime_s, h->write_errors, h->state, h->slots_written, h->msg_blocks);
+  if (previous.slot) {
+    kprintf("[prev] --- text slot of round %u ---\n", h->slots_written);
+    replay_lines("slot", previous.slot, LogSlotBlocks * LogBlock);
   }
-  IOFree(block, LogBlock); IOFree(text, kReplayBytes);
+  if (previous.msg) {
+    kprintf("[prev] --- message buffer, %u of %u bytes ---\n", previous.msg_bytes, h->msg_bytes);
+    replay_lines("msg", previous.msg, previous.msg_bytes);
+  }
+  kprintf("[prev] --- end ---\n");
+  if (previous.msg) IOFree(previous.msg, (size_t)h->msg_blocks * LogBlock);
+  if (previous.slot) IOFree(previous.slot, (size_t)h->slot_blocks * LogBlock);
+  previous.msg = previous.slot = 0; previous.valid = 0;
 }
 
 static void writer(void *arg, wait_result_t result) {
@@ -1456,6 +1508,8 @@ static void writer(void *arg, wait_result_t result) {
     IOSleep(1000);
   }
   boot_log_first_lba = first;
+  // The window still holds the previous run's text here, and the first round below overwrites it: snapshot before writing.
+  capture_previous(first, (uint32_t)blocks);
   const uint32_t slot_count = (uint32_t)((blocks - LogSlotFirst) / LogSlotBlocks);
   if (&native_ufs_export_blocks && &native_ufs_export_write) {
     IOLockLock(export_lock);
