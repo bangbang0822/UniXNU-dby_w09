@@ -83,7 +83,7 @@ dbyGpuSmmuMap(uint64_t phys, uint64_t length, OSSharedPtr<IOMemoryMap> *keep, ui
 }
 
 /* Minimal bounded decimal/hex append; this file does not use snprintf (the board's other drivers
- * record that no prototype is reachable from here - DbyTouch.cpp:521-524). */
+ * record that no prototype is reachable from here - DbyTouch.cpp:568-570). */
 static char *
 putStr(char *o, const char *end, const char *s)
 {

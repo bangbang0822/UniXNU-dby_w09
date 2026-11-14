@@ -11,7 +11,7 @@
 // service like the board's other published services; the node is made the way IODeviceTreeAlloc
 // makes the others, in the IODeviceTree plane only. The user client takes one call, the level, and
 // switches the LED off when its process goes away. Every line here is a "[torch]" row on kprintf -
-// this board's COM4 mirrors kprintf rows and no IOLog row (DbyTorch.cpp:77) - so unlike PaganiTorch
+// this board's COM4 mirrors kprintf rows and no IOLog row (DbyBattery.cpp:77-86) - so unlike PaganiTorch
 // nothing is logged twice. Without dby-ti nothing here runs and nothing is logged; a refusal
 // or failure is logged and leaves the tree as it was. Never panics.
 #include <IOKit/IOLib.h>
