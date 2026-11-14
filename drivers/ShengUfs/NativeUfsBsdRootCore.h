@@ -4,9 +4,12 @@
 // Host-testable policy and state machine for the NativeUfs BSD root ABI.
 //
 // The transport is injected as a small set of C++ callbacks. This file has no
-// IOKit, Mach, allocation or logging dependency. The production translation
-// unit binds these callbacks to the existing NativeUfs command path; tests bind
-// them to an in-memory GPT/HFSX fixture.
+// IOKit, Mach, allocation or logging dependency. Nothing in the kernel build
+// compiles it: drivers/ShengUfs/tests/run-native-ufs-bsd-root-core.sh is the only
+// thing that builds NativeUfsBsdRootCore.cpp, against an in-memory GPT/HFSX
+// fixture, so this is host-tested policy and the kernel's root path remains the
+// one in NativeUfs.cpp. Binding these callbacks to that path is a decision, not a
+// description of what exists - porting.toml's storage limits record it as such.
 
 #include <stddef.h>
 #include <stdint.h>
