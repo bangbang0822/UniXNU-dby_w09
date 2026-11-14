@@ -442,7 +442,8 @@ extern "C" void native_touch_set_sink(void (*sink)(void *), void *context) {
 //   x = transformCoordinate(xs[i], 30480), y = transformCoordinate(ys[i], 20320)
 //   where transformCoordinate(v, m) = clamp(v, 0, m-1) * 32767 / (m-1)
 // - because those are its own board's touch-core axis maxima. It is a shared kit and is not edited per board, so every
-// board converts on its publish side; pipa does exactly this (TouchProbe.cpp:318, p[i].x * 30480u / xmax). Publishing
+// board converts on its publish side; pipa does exactly this with tb_to_ruler below (the 30480/20320 ruler, its
+// own span as the argument). Publishing
 // panel px instead makes a 2560-wide panel reach 2560/30480 = 8.4% of the HID range, which is what put every contact of
 // every k66 finger into the top-left corner of the screen. The ruler is the unit the consumer reads; the span argument
 // is the unit the source emits, and each source states its own.
@@ -539,8 +540,9 @@ static void pointPass(Session &s) {
     int start = 0, wdt = 0;
     const int n = nvt_n9z_points(s.frame, NVT_THP_FRAME_LEN + 8, s.spanX, s.spanY, pts, 10, &start, &wdt);
     if (wdt) {
-        // nvt_wdt_fw_recovery(): the pattern repeated past recovery_cnt_max(10) means the image reset itself and the
-        // vendor re-downloads it. Counted here, and the re-download is the same stage-9 branch the bring-up uses.
+        // nvt_wdt_fw_recovery(): the vendor counts these and treats the pattern past recovery_cnt_max(10) as an image
+        // that reset itself, re-downloading it. This reference copy only counts - the counter is published in the
+        // session row and the re-download is not wired here; the board's own path is DbyTouch.cpp.
         ++s.wdt;
         s.lastPointN = 0;
         if (s.wdt > 10) s.wdt = 0;
@@ -588,16 +590,16 @@ static void pointPass(Session &s) {
 // the ones that answer are counted - no guess about which layout this die has. Same belief rule as the burst branch:
 // an id has to have been present in the previous believed report, so a random SRAM window cannot become a finger.
 static const uint32_t kPointBases[4] = {0x11E00u, 0x11A00u, 0x21C00u, 0x22D00u};
-#define NVT_POINT_DATA_LEN 153
+static constexpr unsigned kNvtPointDataLen = 153;   // one point record, as the vendor packs it
 
 static void pointBlockPass(Session &s) {
-    if (!s.pref) s.pref = static_cast<uint8_t *>(IOMalloc(NVT_POINT_DATA_LEN));
+    if (!s.pref) s.pref = static_cast<uint8_t *>(IOMalloc(kNvtPointDataLen));
     if (!s.pref) return;
     struct nvt_point pts[10];
     for (unsigned b = 0; b < 4; ++b) {
-        if (nvt_read(&s.chip, kPointBases[b], s.pref, NVT_POINT_DATA_LEN)) {++s.prefBusErr; continue;}
+        if (nvt_read(&s.chip, kPointBases[b], s.pref, kNvtPointDataLen)) {++s.prefBusErr; continue;}
         int start = 0, wdt = 0;
-        const int n = nvt_n9z_points(s.pref, NVT_POINT_DATA_LEN, s.spanX, s.spanY, pts, 10, &start, &wdt);
+        const int n = nvt_n9z_points(s.pref, kNvtPointDataLen, s.spanX, s.spanY, pts, 10, &start, &wdt);
         if (wdt) {++s.prefWdt; continue;}
         if (n <= 0) continue;
         ++s.prefSeen[b];

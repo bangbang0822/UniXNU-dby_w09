@@ -129,7 +129,7 @@
 // Those two maxima are hard-coded to that board's touch-core axis maxima (3048 px long, 2032 px short, in 0.1 px), so
 // a publisher whose own span is 2560x1600 px has to scale into this ruler or every contact lands in a fraction of the
 // screen: at 25600/16000 published raw, a finger at the far corner only reached 84% of x; divided down to panel px it
-// reaches 8.4%. pipa does exactly this conversion on its publish side (TouchProbe.cpp:318, p[i].x * 30480u / xmax with
+// reaches 8.4%. pipa does exactly this conversion on its publish side (tb_to_ruler in TouchProbe.cpp, p[i].x scaled to the 30480 ruler with
 // xmax from the firmware info block), because the consumer is a shared kit and is not edited per board.
 // Axis 0 of this ruler is the long axis of the panel (the touch core's x, and the point report's y).
 #define TB_HID_RULER_LONG 30480
