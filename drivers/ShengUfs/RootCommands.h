@@ -288,8 +288,18 @@ static IOReturn hostRead4k (uint8_t lun, uint64_t lba, uint32_t blocks, void *ds
 
 // ---- Persistent store, log and whole-userdata windows ---------------------------------------------------------------
 // The only places this driver writes. The store and log windows are mutually exclusive with the whole-userdata root
-// route. Every write is checked again here, so a caller cannot escape the window it selected even if its own range logic
-// is wrong.
+// route. Every write is checked against the open window here, so a caller whose own range logic is wrong cannot reach
+// outside the window it selected.
+//
+// What that check does NOT cover: the window variables below are written by hostLogOpen/hostStoreOpen/hostRootOpen/
+// hostRootClose without gHost.lock, while hostWrite4k/hostRead4k test them before taking the lock and then do the copy
+// and the SCSI command inside it. A close that lands between the test and the lock is therefore not observed by that
+// write - the admission and the I/O are not one atomic step. The open/close helpers are called from the IOKit thread
+// (start/stop and the store/log claim paths) and the I/O from the block-device thread, so the window is a snapshot,
+// not a lease: it decides whether a write is in the region the driver selected, not whether that region is still open a
+// microsecond later. Making it a lease means taking gHost.lock in the four helpers and checking inside the same critical
+// section as the copy; that changes the order the block-device thread and the IOKit thread take the lock and is owed
+// with a test that drives both, so it is recorded in porting.toml rather than done here.
 static bool gStoreOpen = false, gLogOpen = false;
 static bool gRootOpen = false, gRootWritable = false;
 static uint64_t gStoreFirst = 0, gStoreBlocks = 0, gLogFirst = 0, gLogBlocks = 0;
