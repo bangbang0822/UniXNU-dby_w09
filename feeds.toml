@@ -49,3 +49,19 @@ commit = "a9c4585dbb1b75b8594dd0ae54962cc59969d98f"
 # 作者本机 core 里的目录补丁才能被选中：components.toml 只从 core 软链，上游从来没有这条 id，干净 core 会
 # 报 “unknown component: Sm8250Platform”。2026-11-13 起这些源码归板级所有，在 package/Sm8250Platform/，
 # 由 [kernel] archives 的脚本位编译，所以这里不再需要这条源。
+
+# QcomXnuUsbDebug：OS profile 的补丁序列直接引用了这个组件 ——
+#   profiles/os/ipados-17.7.11-21H461/patches/xnu/series:23-24
+#   component:QcomXnuUsbDebug/patches/darwin23/000{1,2}-qcom-usb-debug-*.patch
+# 而目录里没有它的 id，于是 plan() 在解析补丁时停下（"component source unavailable:
+# QcomXnuUsbDebug"，2026-11-14 用诊断打印确认）。这条源是本仓 package/QcomXnuUsbDebug/ 的独立发布
+# 形态（组织下同名仓，内容由 subtree 拆出），目的是让下载得到的内容有出处。
+# 但 2026-11-14 实测它**不能**单独解决那两行引用：fetch 之后 unixnu.lock 里没有这条记录，模块仍然
+# 没有 path（catalogue 里没有这个 id，而 tree 只保留被 [components] include 选中的组件）。真正要拆掉
+# 这条依赖，要么让这个 id 进 catalogue，要么让 OS profile 不再按 component: 引用这些补丁——两者都在
+# core 侧，已记进 porting.toml 的 limits。
+[[source]]
+name = "QcomXnuUsbDebug"
+kind = "driver"
+git = "https://gitee.com/uni-xnu-dby-w09/QcomXnuUsbDebug"
+commit = "62b2888c5fe57c35ebb8427802c78ac5c7fe4f7b"

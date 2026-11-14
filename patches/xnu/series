@@ -26,5 +26,9 @@
 # prepare), and the OS series' zzz-boot-progress.patch hunk only applies once the
 # block above already exists, so the canonical arch/soc/os/device order cannot be
 # satisfied while sheng-platform-power has no series of its own.
-arch:../../../patches/xnu/sheng-platform-power.patch
+# sheng-platform-power is NOT named here any more: the OS profile series that this board selects
+# (profiles/os/ipados-17.7.11-21H461/patches/xnu/series:5) carries the same line, so naming it here made
+# plan() stop with 'patch appears twice in the selected series' (2026-11-14, measured). On a core without
+# that line the port would need its own copy, which is the upstream-main case already recorded in
+# porting.toml's limits.
 restore-omitted-public-headers.patch
