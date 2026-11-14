@@ -28,7 +28,9 @@ extern "C" {volatile uint32_t native_adreno_wc_audit[6];}
  * [5] the newest completed, [6] waits for a fence no job holds (observeFence path), [7] the last fence refused as never submitted. */
 extern "C" {volatile uint32_t native_adreno_fence_wait[8];}
 /* The CP's state once a fence stopped advancing (NativeAdrenoRing::stallState): [0] the fence, [1] the timed-out waits of it so far, then
- * the ring's words. Taken at the 10th and again at the 1000th timed-out wait of the fence that is the next to complete. native_adreno_stall_mem
+ * the ring's words. Taken twice per stalled fence, gated on time rather than on a count: snapshot_due() below returns
+ * true after 50 ms and again after 1 s of the fence that is the next to complete having made no progress.
+ * native_adreno_stall_mem
  * holds, from the same moment, the SMMU context's FSR, FAR (lo, hi) and FSYNR0, then four 17-word windows at indices 4, 21, 38 and 55: the
  * BR IB1, the BV IB1, the packet CP_SQE_STAT says the SQE holds (a generation-6 core has no BV thread, so that slot used to read deadbeef
  * only), and the word that packet polls when it is a CP_WAIT_REG_MEM on memory (marker = its IOVA, then that word and its three
@@ -1059,12 +1061,13 @@ IOReturn NativeAdrenoSubmit::recover(NativeAdrenoRestart restart,void *cookie,co
         /* A restart that failed leaves the GPU where it was, which is what the board had before any hook
          * existed: the queue stays stopped but every other client keeps running. Poisoning here would be
          * worse - submit() and hangCheck() then answer kIOReturnNotReady for the rest of the boot
-         * (:272, :852) and recover() is never reached again, so a hook that cannot bring this part back
+         * (submit() and hangCheck(), the two kIOReturnNotReady returns above) and recover() is never reached
+         * again, so a hook that cannot bring this part back
          * would turn "the GPU is stuck" into "the GPU is permanently refused". Three failures in a row is
          * the point at which that is the honest answer instead.
          * The retry is not free and usually does not happen: a hook that fails after its ring->restart()
          * succeeded has already moved the fence to the hung value (NativeAdrenoRing.cpp:423), so the next
-         * hangCheck sees nothing outstanding (:852) and returns before recover() - one attempt, no poison,
+         * hangCheck sees nothing outstanding and returns before recover() - one attempt, no poison,
          * and the row freezes at hangs=1. Only a hook that fails before that point is retried.
          * Left as it is, that shape also means a client's WaitFence(hung) reads "complete" for work the
          * GPU never ran. Nothing is reclaimed wrongly while the CP stays stopped, which is why this is
