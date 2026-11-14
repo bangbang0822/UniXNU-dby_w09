@@ -2772,6 +2772,7 @@ dbyTouchPickFirmwareFromDevice(void)
 	static const uint64_t kChunkBlocks = 32;        /* 128 KiB: large enough to be fast, small enough to always allocate */
 	const size_t bufBytes = (size_t)kChunkBlocks * 4096;
 	uint64_t oemFirst = 0, oemLast = 0;
+	bool haveOem = false;
 	char found[8] = { 0 };
 	const char *src = "default";
 	uint8_t *buf = nullptr;
@@ -2834,12 +2835,17 @@ dbyTouchPickFirmwareFromDevice(void)
 			if (strcmp(name, "oeminfo") == 0) {
 				oemFirst = dbyTouchLe64(e + 32);
 				oemLast = dbyTouchLe64(e + 40);
+				haveOem = true;
 				break;
 			}
 		}
 	}
 
-	if (oemLast < oemFirst) {
+	/* An explicit flag, because 0/0 is also what "not found" leaves behind: `oemLast < oemFirst` was
+	 * false for the initial pair, so a table with no oeminfo entry fell into the scan branch and read
+	 * LBA 0 as if it were the partition, reporting "0x0..0x0 has no project id" instead of saying the
+	 * partition does not exist. */
+	if (!haveOem) {
 		IOLog("DbyTouch(fwsel): no oeminfo partition, keeping %s\n", gDbyTouchFw->project);
 	} else if (dbyTouchScanPartition(oemFirst, oemLast, buf, kChunkBlocks, found, sizeof found)) {
 		IOLog("DbyTouch(fwsel): oeminfo 0x%llx..0x%llx reports %s\n", oemFirst, oemLast, found);
