@@ -15,6 +15,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / 'kits/sheng' if (ROOT / 'kits/sheng').is_dir() else ROOT / 'package'
 
+# The trim table exists twice (this pinned copy and the touch path's own); the comparison below is the only
+# thing that keeps the two agreeing, so the gate runs it before the model tests.
+trim = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'check-nvt-trim-tables.py')], text=True,
+                      capture_output=True)
+sys.stderr.write(trim.stderr)
+print(trim.stdout.strip())
+if trim.returncode:
+    sys.exit(trim.returncode)
+
 with tempfile.TemporaryDirectory() as tmp:
     exe = Path(tmp) / 'nvt-host'
     subprocess.run(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-O1', '-g', '-fsanitize=address,undefined',
