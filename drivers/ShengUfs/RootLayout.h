@@ -11,7 +11,9 @@ struct RootWindow {
 
 struct RootLayout {
   uint64_t userdataFirst, userdataLast;   // 4096-byte LBAs on LUN 0
-  uint32_t lbaBytes;                      // Logical block size reported by the device
+  uint32_t lbaBytes;                      // this driver's fixed media unit (kMediaBlockBytes, 4096), NOT what READ
+                                          // CAPACITY answers: hostReadCapacity is the only reader of that, and it is
+                                          // recorded rather than compared (porting.toml, storage limits)
   uint8_t typeGuid[16];                   // GPT partition type GUID, on-disk byte order
   uint8_t uniqueGuid[16];                 // GPT partition unique GUID, on-disk byte order
   uint64_t imageBytes;                    // size of the flashed root image from the manifest (0 when none)
@@ -167,7 +169,7 @@ static bool findRootLayout (RootLayout *layout, const char **why)
       }
       layout->userdataFirst = le64 (entry + 32);
       layout->userdataLast = le64 (entry + 40);
-      layout->lbaBytes = 4096;
+      layout->lbaBytes = 4096;   // the unit the GPT offsets above are parsed in, not a device report
       memcpy (layout->typeGuid, entry, 16);
       memcpy (layout->uniqueGuid, entry + 16, 16);
       found = true;
