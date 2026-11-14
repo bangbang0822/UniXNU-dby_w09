@@ -319,8 +319,7 @@ static void test_glink(void)
         for (unsigned k = 0; k < QCOM_GLINK_MAX_REMOTE_INTENTS; ++k) cb->remote[k].valid = 0;
     }
     /* The remote closes: both sides go down, A answers with CLOSE_ACK and its own CLOSE, then waits for a new OPEN. */
-    QcomGlinkChannel saved = *cb;
-    (void)saved;
+    /* The channel state was copied into a local and discarded here; the assertions below read cb directly. */
     {
         uint8_t m[8] = {QCOM_GLINK_CLOSE, 0, (uint8_t)cb->lcid, 0, 0, 0, 0, 0};
         uint32_t head = desc[3];
