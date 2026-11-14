@@ -233,20 +233,10 @@ dby_touch_identify_n9z(struct dby_touch_bus *bus, struct dby_touch_identify *out
 	return DBY_TOUCH_ERR_PROTO;
 }
 
-int
-dby_touch_identify(struct dby_touch_bus *bus, const char **family_out)
-{
-	if (family_out != NULL) {
-		*family_out = DBY_TOUCH_IC_FAMILY;
-	}
-	if (bus == NULL || bus->xfer == NULL) {
-		return DBY_TOUCH_ERR_PARAM;
-	}
-	/* This board's panel is a Novatek N9Z (support_vendor_ic_type = 5 in the vendor DT), so the
-	 * identify is the N9Z one; the earlier "UNPROBED" placeholder was written before the vendor
-	 * source settled what the chip is. */
-	return DBY_TOUCH_ERR_UNPROBED;
-}
+/* dby_touch_identify() used to stand here: it reported the family from a macro and then always
+ * returned DBY_TOUCH_ERR_UNPROBED, and nothing in the tree called it - the path that reads the trim
+ * table is dby_touch_identify_n9z() above. Removed rather than left as a function whose comment
+ * claimed the placeholder had been replaced while its body still returned the placeholder. */
 
 /* A full-duplex transfer of zeroes.  No register is assumed, so this is safe to
  * run against an unknown IC and it is the first thing that proves the GENI SPI

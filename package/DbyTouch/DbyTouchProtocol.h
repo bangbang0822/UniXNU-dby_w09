@@ -103,7 +103,6 @@ struct dby_touch_snapshot {
 /* Read-only identify.  Returns DBY_TOUCH_ERR_UNPROBED until the product-id read
  * is implemented; *family_out is set to DBY_TOUCH_IC_FAMILY when non-NULL so the
  * caller can log the expected family. */
-int dby_touch_identify(struct dby_touch_bus *bus, const char **family_out);
 
 /* The N9Z pass itself: resets the chip out of bootloader into idle, reads the eight version
  * bytes and matches them against the trim table.  Returns DBY_TOUCH_OK when a row matched. */
