@@ -5,11 +5,16 @@ commit the audit disposition record names; the batch files the audit came from a
 
 ## Kernel
 
-`./unixnu build kernel -j 20 -D <device tree>` against the core branch `dby-w09`, after every code change of
-this pass, most recently: `RC=0`, `kernel.macho` sha256
-`7f3e9d95a192f8160bf72a02d6eceaccd10c66aac277e2fdf1348fa059981df7` (53,231,616 bytes). Changes to comments,
-`static_assert`s and whitespace were checked by rebuilding and comparing the hash: it is unchanged, which is
-the evidence that they changed nothing at run time.
+`./unixnu build kernel -j 20 -D <device tree>` against the core branch `dby-w09`: `RC=0`, `kernel.macho` sha256
+`a5a05b076d08ee03352bdd81b7d27df3b62f366164b9046de93337d6c7738405` (53,284,864 bytes) - the build after the five
+shared files were split into components.
+
+**A correction to what earlier rounds of this pass reported.** The link step is cached: a build after a change that
+only touches an archive still prints a hash, but it can print the hash of the file from the previous link. That is how
+this pass first claimed that several comment-only changes left the kernel identical - the observation was real, the
+inference was not, because the link had not run. Deleting `kernel.macho` and rebuilding produced a different file, so
+the earlier "hash unchanged, therefore no runtime change" claims are withdrawn; what this record can state is the
+hash of a build that ran, and a per-change comparison needs a forced link per change.
 
 ## Host gates
 
@@ -52,6 +57,25 @@ individually here; what a fresh clone would have to do is fetch the component an
 The core branch published at `uni-xnu-dby-w09/UniXNU` is `dby-w09` = `113070122ab4`, which is what this tree
 built against (the WSL clone's `origin/dby-w09` ref was stale and made it look one commit behind; `git
 ls-remote` against the remote answers `1130701...`).
+
+## Components
+
+Six component repositories carry code this board used to hold in its own package, all under
+`gitee.com/uni-xnu-dby-w09` and pinned from the core catalogue (`components.toml`, core `8099505`):
+
+| component | revision | what moved |
+|---|---|---|
+| `QcomGeniSpi` | `b6852b4391f8` | the GENI SPI controller, with the RX clamp this pass found |
+| `QcomGeniI2c` | `b1dd9852af5f` | `GeniI2c.[ch]` |
+| `ShengGpr` | `479e1b2d6cb5` | `ShengGpr.[ch]`, the host harnesses keep a pinned copy |
+| `ShengAudioReach` | `abb1f0323a74` | `ShengAudioReach.[ch]`, same |
+| `ShengCs35l43` | `cbb9877c0b85` | `ShengCs35l43.[ch]` |
+| `ShengPlatformPower` | `2132395588cf` | `ShengPlatformPower.cpp` |
+
+The board's build compiles them from the assembled tree - the archive objects' debug paths name
+`tree/drivers/<id>/` - and `scripts/check-component-copies.py` compares the four files that stay in `package/` for
+the host harnesses against the components when a tree is present: `PASS component copies: 4 package copies match
+their components`. Run without a tree it prints why it cannot compare rather than skipping silently.
 
 ## What is not covered
 
