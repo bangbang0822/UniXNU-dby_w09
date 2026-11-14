@@ -107,14 +107,15 @@
 // scripted swipes' percentages) then speaks one coordinate space: x across the landscape screen, y down it.
 #define TB_UI_ABS_MAX_X 2560
 #define TB_UI_ABS_MAX_Y 1600
-// The published space is the panel's own frame, in the devicetree's own units, with no rotation and no rescaling. Axis x is
-// the axis the framebuffer scans out as its width, and the two frames really are the same shape: this board's scan-out is
-// 1600 columns by 2560 rows - scripts/patch-xnu-entry-probe.py:76-79 and scripts/xnu-panic-screen.c:238-241, both written
-// against the device's own vc_info, which is also why the console has to rotate into a landscape canvas to be readable -
-// and the digitizer's axes are 1600 by 2560 (b01.dts:10101-10102 above). Those spans only pair up without a transpose, so
-// the transpose this file used to do (short axis "becomes the UI's y", long axis "becomes the UI's x", a landscape
-// convention inherited from the sheng board, whose GOP is 2560x1600) rotated every contact through 90 degrees and stretched
-// the aspect by 2560/1600 against the panel it was supposed to match.
+// Published frame: the UI's landscape 2560 x 1600, that is the long axis as x - which is what TB_X_AXIS_MAX and
+// TB_Y_AXIS_MAX below select. The digitizer's own spans are portrait (1600 across, 2560 down, b01.dts:10101-10102
+// above) and the framebuffer scans out 1600 columns by 2560 rows (scripts/patch-xnu-entry-probe.py:76-79 and
+// scripts/xnu-panic-screen.c:238-241, both against the device's own vc_info, which is why the console has to rotate
+// into a landscape canvas to be readable), so publishing the long axis as x means pairing the digitizer's 2560 span
+// with the UI's 2560 width - the pairing this file now does. What it must not do is what it used to: take the
+// sheng board's landscape convention (short axis "becomes the UI's y", long axis "becomes the UI's x", against a GOP
+// that really was 2560x1600) and apply it here, which rotated every contact through 90 degrees and stretched the
+// aspect by 2560/1600 against the panel it was supposed to match.
 #define TB_X_AXIS_MAX TB_UI_ABS_MAX_X
 #define TB_Y_AXIS_MAX TB_UI_ABS_MAX_Y
 // Which way each axis runs along its span has not been observed on this board: a photograph cannot show it, and the
