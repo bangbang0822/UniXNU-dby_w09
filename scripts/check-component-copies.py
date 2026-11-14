@@ -22,7 +22,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PAIRS = [("package/ShengGpr.c", "ShengGpr", "ShengGpr.c"),
-         ("package/ShengAudioReach.c", "ShengAudioReach", "ShengAudioReach.c")]
+         ("package/ShengGpr.h", "ShengGpr", "ShengGpr.h"),
+         ("package/ShengAudioReach.c", "ShengAudioReach", "ShengAudioReach.c"),
+         ("package/ShengAudioReach.h", "ShengAudioReach", "ShengAudioReach.h")]
 
 
 def strip_note(text):

@@ -1,4 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent */
+/* PINNED COPY, kept only for the host harnesses and the board package's own includes; the kernel build
+ * reads the component from tree/drivers/ShengAudioReach/. scripts/check-component-copies.py compares the two
+ * when an assembled tree is present. */
 /* The audio DSP's graph manager (APM) commands for the sheng speaker and microphone paths, as GPR packets. Two graphs per direction:
  * a device graph that owns the hardware endpoint and a stream graph that owns the shared memory endpoint; the stream graph's open
  * carries the connection into the device graph. Instance numbers follow the board topology (device subgraph 0x4005 for the secondary

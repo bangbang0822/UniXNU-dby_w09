@@ -1,4 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent */
+/* PINNED COPY, kept only for the host harnesses and the board package's own includes; the kernel build
+ * reads the component from tree/drivers/ShengGpr/. scripts/check-component-copies.py compares the two
+ * when an assembled tree is present. */
 /* The audio DSP's packet router (GPR) on the GLINK channel "adsp_apps": every packet starts with a 24-byte header (version and header
  * size in words, total size, destination and source domain, source and destination port, token, opcode) followed by the payload. This
  * is the codec and the first exchange an audio client makes: asking the DSP's audio framework manager (APM) whether the framework is
