@@ -445,9 +445,14 @@ if not path.exists() or path.read_text() != text:
     path.write_text(text)
 PY_DATA_UUID
 OWNER_DATA_STAMP=$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.owner-data-mount-mode
-if [ "$(cat "$OWNER_DATA_STAMP" 2>/dev/null || echo 0)" != "$OWNER_DATA_MOUNT:$NATIVE_RAM_BLOCK:${XNU_OWNER_CACHE_VOLUME_UUID:-}" ]; then
+# The stamp is the identity of what the generated header carries. The header embeds BOTH UUIDs
+# (XNU_OWNER_DATA_VOLUME_UUID and XNU_OWNER_CACHE_VOLUME_UUID) and kern_exec.o is compiled with it through
+# -include, but the stamp only compared the cache one: changing the scratch Data UUID left the old object in
+# place and the kernel kept looking for the volume it was told about first.
+OWNER_DATA_IDENTITY="$OWNER_DATA_MOUNT:$NATIVE_RAM_BLOCK:${XNU_OWNER_DATA_VOLUME_UUID:-}:${XNU_OWNER_CACHE_VOLUME_UUID:-}"
+if [ "$(cat "$OWNER_DATA_STAMP" 2>/dev/null || echo 0)" != "$OWNER_DATA_IDENTITY" ]; then
   rm -f "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/bsd/DEVELOPMENT/kern_exec.o"
-  printf '%s\n' "$OWNER_DATA_MOUNT:$NATIVE_RAM_BLOCK:${XNU_OWNER_CACHE_VOLUME_UUID:-}" > "$OWNER_DATA_STAMP"
+  printf '%s\n' "$OWNER_DATA_IDENTITY" > "$OWNER_DATA_STAMP"
 fi
 OWNER_CRYPTEX_FILES=${XNU_OWNER_CRYPTEX_FILES:-0}
 if [ "$OWNER_CRYPTEX_FILES" != 0 ] && [ "$OWNER_CRYPTEX_FILES" != 1 ]; then
