@@ -9,11 +9,17 @@ struct bp_exits {
  char reason[330];
 };
 static void bp_exit_add(struct bp_exits *e,int pid,const char *name,int status,
-                        unsigned ns,uint64_t code) {
+                        unsigned ns,uint64_t code,const char *why) {
  char *row=e->recent[e->total++%4];
  unsigned signal=(unsigned)status&127,exit_code=((unsigned)status>>8)&255;
- snprintf(row,120,"p%d %.24s status=%x sig=%u exit=%u ns=%u sub=%llx",
-          pid,name,(unsigned)status,signal,exit_code,ns,(unsigned long long)code);
+ // why is the libsystem exit reason's own text ("FD_SET overflow" and the like), which the
+ // namespace and code cannot carry: every OS_REASON_LIBSYSTEM_CODE_FAULT is ns=18 code=2.
+ if(why && *why)
+  snprintf(row,120,"p%d %.24s status=%x sig=%u exit=%u ns=%u sub=%llx why=%.40s",
+           pid,name,(unsigned)status,signal,exit_code,ns,(unsigned long long)code,why);
+ else
+  snprintf(row,120,"p%d %.24s status=%x sig=%u exit=%u ns=%u sub=%llx",
+           pid,name,(unsigned)status,signal,exit_code,ns,(unsigned long long)code);
  if(signal>=3 && signal<=12 && signal!=9)snprintf(e->crash[e->crashes++%3],400,"%s",row);
  if(status || ns) {
   char *bad=e->failures[e->failed++%3];

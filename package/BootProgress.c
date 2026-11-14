@@ -682,12 +682,12 @@ void boot_progress_process_stage(int pid,const char *name,const char *text) {
   if(!started && !state.frozen)draw(now);
   release();
 }
-void boot_progress_exit(int pid,const char *name,int status,unsigned ns,uint64_t code) {
+void boot_progress_exit(int pid,const char *name,int status,unsigned ns,uint64_t code,const char *why) {
   if(!enabled)return;
   if(__atomic_exchange_n(&exit_lock,1,__ATOMIC_ACQUIRE)) {
     __atomic_fetch_add(&exit_dropped,1,__ATOMIC_RELAXED);return;
   }
-  bp_exit_add(&exit_records,pid,name,status,ns,code);
+  bp_exit_add(&exit_records,pid,name,status,ns,code,why);
   unsigned signal=(unsigned)status&127;
   if(signal>=3 && signal<=12 && signal!=9 && boot_progress_exit_fault)
     boot_progress_exit_fault(pid,signal,exit_records.crash[(exit_records.crashes-1)%3],400);
