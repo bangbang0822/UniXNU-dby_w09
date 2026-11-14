@@ -4667,7 +4667,11 @@ extern "C" IOReturn native_adreno_publish(NativeAdrenoVm *vm, NativeAdrenoSubmit
 
 static uint32_t gDbyPubStep, gDbyPubSubmit, gDbyPubTimer, gDbyPubIrq, gDbyPubMask;
 static uint32_t gDbyPubSpi, gDbyPubSpiReadback, gDbyPubRc;
-static uint32_t gDbyPubIrqCount, gDbyPubIrqLast, gDbyPubIrqSame, gDbyPubIrqMasked;
+/* volatile, like the latch array next to them: the handler runs from the GPU SPI while the probe
+ * thread renders these rows, so a plain static lets the compiler keep a copy in a register and the
+ * row reports a count that never moved. The increments stay unlocked on purpose - this is a
+ * diagnostic counter, and the row's job is to show whether interrupts arrive at all. */
+static volatile uint32_t gDbyPubIrqCount, gDbyPubIrqLast, gDbyPubIrqSame, gDbyPubIrqMasked;
 static uint64_t gDbyPubRouter;
 /* native_adreno_publish stores this pointer (Publish.cpp:1095) and every user client
  * dereferences it later (UserClient.cpp:444, :452), so it must live for the machine's life.
