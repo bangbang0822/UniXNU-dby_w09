@@ -52,7 +52,9 @@ typedef struct {
     const DbtOps *ops;
 
     unsigned state;
-    int stage;            /* 1 bus, 2 identity, 3 dump, 4 ready; negative = where it stopped */
+    int stage;            /* 1 config, 2 arbiter, 3 the channel is ours to write, 4 light known off,
+                                5 the module bytes were read (a dry run stops here); negative = the rung it
+                                stopped at: -1 config, -2 arbiter, -3 the dry run's read, -4 open */
     unsigned level;       /* 0..DBT_LEVEL_MAX, as the OS asked for it */
     unsigned ma;          /* what that became after the vendor's current law */
     unsigned code;        /* the byte programmed into TGR_CURRENT */
