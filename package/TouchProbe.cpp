@@ -28,7 +28,12 @@ extern const uint32_t native_touch_firmware_alt_size __attribute__((weak_import)
 }
 
 extern "C" {
-char native_touch_rows[5][120];
+// Eight rows, because that is the contract every other side of this symbol uses: BootProgress.c:110
+// declares [8][120] weak_import, BootProgressStubs.c:260 defines a weak [8][120], and DbyTouch.cpp:113
+// defines [8][120] and writes rows 4, 5 and 6 while it is the linked producer (DbyTouch.cpp:4802-4815).
+// This producer only fills rows 0-3 plus its HID verdict in row 4, but it is the *strong* definition
+// when this archive wins, and a five-row definition would then put DbyTouch's row 6 past the object.
+char native_touch_rows[8][120];
 char native_touch_trace[8][120];
 volatile uint32_t native_touch_loop_step;
 volatile uint32_t native_touch_stage_req, native_touch_stage_done, native_touch_step, native_touch_frames,
