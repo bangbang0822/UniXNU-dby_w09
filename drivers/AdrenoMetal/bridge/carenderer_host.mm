@@ -112,7 +112,7 @@ int main(int argc, char **argv) {
             [CATransaction flush];
             for (int frame = 0; frame < 3; ++frame) {
                 const uint64_t t0 = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
-                [renderer beginFrameAtTime:CACurrentMediaTime() timeStamp:NULL];
+                [renderer beginFrameAtTime:CACurrentMediaTime() timeStamp:nullptr];
                 [renderer addUpdateRect:renderer.bounds];
                 [renderer render];
                 [renderer endFrame];
@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
             [blurred removeFromSuperlayer];
             [CATransaction flush];
         }
-        [renderer beginFrameAtTime:CACurrentMediaTime() timeStamp:NULL];
+        [renderer beginFrameAtTime:CACurrentMediaTime() timeStamp:nullptr];
         [renderer addUpdateRect:renderer.bounds];
         [renderer render];
         [renderer endFrame];

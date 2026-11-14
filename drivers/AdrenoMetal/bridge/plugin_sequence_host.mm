@@ -10,7 +10,8 @@
 static void mark(uint32_t v) {std::printf("mark %x\n", v);
     std::fflush(stdout);}
 static void missing(const char *c, const char *s) {std::printf("missing %s %s\n", c, s);}
-int main(int, char **argv) {
+int main(int argc, char **argv) {
+    if (argc < 3) {std::printf("usage: loader cache\n"); return 2;}
     NmbSelftest r{};
     uint32_t code = nmb_selftest(argv[1], argv[2], nullptr, 0, mark, &r);
     std::printf("selftest code %x stage %x msg %s\n", code, r.stage, r.message);

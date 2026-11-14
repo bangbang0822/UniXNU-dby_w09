@@ -22,7 +22,7 @@ static double nowMs() {return clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / 1e6;}
 static void missing(const char *c, const char *s) {std::fprintf(stderr, "missing %s %s\n", c, s);}
 
 int main(int argc, char **argv) {
-    if (argc < 4) {std::fprintf(stderr, "usage: loader cache metallib [limit]\n"); return 2;}
+    if (argc < 4) {std::fprintf(stderr, "usage: loader cache metallib [limit] [draw]\n"); return 2;}
     @autoreleasepool {
         const unsigned limit = argc > 4 ? (unsigned)std::atoi(argv[4]) : 0;
         const bool draw = argc > 5 && std::atoi(argv[5]) == 1;
