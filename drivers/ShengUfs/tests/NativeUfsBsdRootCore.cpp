@@ -318,8 +318,10 @@ void TestGptFailures() {
 
   Fixture(device);
   SetUserdataEntry(device.Block(kEntriesLba), kUserdataFirst, kUserdataLast);
+  /* 507..510: inside the last usable LBA the header below declares (kBackupLba - 1). A duplicate that sat
+   * past it would be an invalid GPT in its own right, so the case would not be testing the duplicate. */
   SetUserdataEntry(device.Block(kEntriesLba) + abi::kGptEntryBytes,
-                   kUserdataLast + 1, kUserdataLast + 10, "userdata");
+                   kUserdataLast + 1, kUserdataLast + 4, "userdata");
   Put64(device.Block(kGptHeaderLba) + 48, kBackupLba - 1);
   SealGpt(device);
   ExpectOpen(device, abi::Status::DuplicateUserdata);
