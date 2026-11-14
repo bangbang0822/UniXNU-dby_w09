@@ -303,7 +303,13 @@ Status RootState::Open(const Media &media, bool writable, Geometry *geometry) {
     return Status::BadGptGeometry;
   }
   const uint32_t entry_blocks = static_cast<uint32_t>(entry_blocks64);
-  alignas(8) uint8_t entries[kMaxBlocks * kMediaBlockBytes] = {};
+  /* The entry table is capped at kMaxGptEntries * kGptEntryBytes - four media blocks - by the
+   * check above, so this buffer only has to hold that. Sizing it from kMaxBlocks made a 128 KiB
+   * frame, eight times the largest read that can fill it, on a core the production NativeUfs
+   * path reaches. */
+  static_assert((kMaxGptEntries * kGptEntryBytes) % kMediaBlockBytes == 0,
+                "the entry buffer below is whole media blocks");
+  alignas(8) uint8_t entries[kMaxGptEntries * kGptEntryBytes] = {};
   status = media.read(header.entries_lba, entry_blocks, entries,
                       media.context);
   if (status != Status::Ok) {
