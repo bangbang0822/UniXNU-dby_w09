@@ -67,15 +67,23 @@
 //
 // WHERE THE RESULT IS VISIBLE
 //   native_battery_stats[16], the official ABI, is what powerd and the IORegistry consumers read.
-//   The array itself has no printer in this tree, and the comment that said it did was pointing at a
-//   file that is not in the kernel: upstream's would-be reader package/BootLog.c:108 - :837-843
-//   renders the `[battery]` row - is in no archive this board builds. Measured 2026-11-06: llvm-ar t
-//   on build/xnu/.../libBootProgress.a lists five objects, none of them BootLog.o, and
-//   scripts/build-boot-progress.py never names BootLog.c at all.
-//   What is visible is this file's own rows, through kprintf. The index meanings are upstream's
-//   (ShengBattery.cpp:34-37), re-pointed at this transport and listed where they are written.
-//   Why kprintf and not IOLog is a measurement, not a preference: the 2026-11-06 USB capture carried
-//   418 lines, every [touch] and [pa] kprintf row in it, and not one IOLog-family row anywhere - this
+//   The array does have the official printer in this image, and that was re-measured on 2026-11-14:
+//   llvm-ar t on build/boot-progress/libBootProgress.a lists AdspFirmware.o, BootFaultProbe.o,
+//   BootLog.o, BootProcessProbe.o, BootProgress.o, BootUiTraceProbe.o, BootWatchdogPolicy.o,
+//   FatVolume.o and QcomMdt.o, and scripts/build-boot-progress.py:115 compiles BootLog.c into it, so
+//   BootLog.c:1083 reads this array and renders the `[battery]` row. The 2026-11-06 reading (five
+//   objects, no BootLog.o, and a script that never names BootLog.c) was taken against the working
+//   branch this port grew up on, before feat(repo) eada6c5 carried that tree into the repository; it
+//   is kept in the record as history, not as the shape of this image.
+//   Two slots do not carry upstream's meaning and the row says so: [14] holds the stacked
+//   shadow|range refusal counts and [15] holds noApid|noMap, both 16 bits per half (written where the
+//   sample loop fills the array), where upstream's labels for those two slots are the dropped|ignored
+//   pair and the send-refusal count this transport does not have. BootLog.c's row names them why/why2
+//   for that reason. Everything else is upstream's index meaning (ShengBattery.cpp:34-37), re-pointed
+//   at this transport and listed where it is written.
+//   This file's own rows go out through kprintf as well. Why kprintf and not IOLog is a measurement,
+//   not a preference: the 2026-11-06 USB capture carried 418 lines, every [touch] and [pa] kprintf row
+//   in it, and not one IOLog-family row anywhere - this
 //   board's COM4 mirrors kprintf only. Census and per-sample detail therefore goes to kprintf, on the
 //   console this board has carried since the 2026-11-05 round (board.toml:221 `serial=3`; the host
 //   reader must set DtrEnable/RtsEnable).
@@ -1401,6 +1409,10 @@ class DbyBattery : public IOPMPowerSource {
         native_battery_stats[11] = -1;
         native_battery_stats[12] = -1;
         native_battery_stats[13] = -1;
+        // These two slots are board-local, not upstream's: [14] is shadow|range and [15] is
+        // noApid|noMap, 16 bits per half, because what this transport refuses is more useful than the
+        // dropped|ignored pair and the send-refusal count upstream puts here. BootLog.c's `[battery]`
+        // row prints them as why/why2 so the labels say what the numbers are.
         native_battery_stats[14] = static_cast<int32_t>(countWhy(s, kWhyShadow) |
                                                         (countWhy(s, kWhyRange) << 16));
         native_battery_stats[15] = static_cast<int32_t>(countWhy(s, kWhyNoApid) |
