@@ -995,6 +995,14 @@ extern "C" IOReturn native_adreno_new_user_client(IOService *provider,task_t own
         record.type=type;record.macf=macf;record.res=resolver;record.attach=attach_state;record.foreign=type!=NativeAdrenoPluginOpenType;
         native_adreno_open_log_count=native_adreno_open_log_count+1;
     }
+    /* A client whose attach() or start() failed is not a client: it used to be recorded in the diagnostics and
+     * handed back anyway, so userspace got an object with no provider chain - the same condition the comment above
+     * says the sandbox treats as a reason to refuse. Nothing is served for it, whichever open type asked. */
+    if(attach_state==2 || attach_state==3) {
+        connection->release();
+        native_adreno_metal_diag.bad=native_adreno_metal_diag.bad+1;
+        return attach_state==2?kIOReturnNoResources:kIOReturnIOError;
+    }
     if(type==NativeAdrenoHandoffOpenType) {
         connection->setHandoffOnly();
         *handler=connection;
