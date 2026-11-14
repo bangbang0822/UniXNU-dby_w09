@@ -463,7 +463,12 @@ void dumpSmp2p(const char *tag, uint32_t id, volatile uint32_t *base, uint32_t a
     if (valid > 16) valid = 16;
     for (uint32_t i = 0; i < valid; ++i) {
         const uint32_t entry = at + 20 + i * 20;
-        if (entry + 20 > size) break;
+        /* `at` is this item's offset inside the mapping and `size` is its data length, so the bound is
+         * the item's end and not its length: the old `entry + 20 > size` compared an absolute offset
+         * with a length and therefore never broke out, so a short item still read past its end. Written
+         * without adding the two cells, so a wrapped length cannot pass (same rule as
+         * package/QcomSmem.c:fits). */
+        if (size < 40u + i * 20u) break;
         char name[17];
         textAt(name, sizeof name, base, entry, 16);
         kprintf("[pa-adsp] %s/%u entry=%u name=%s value=0x%08x\n", tag, id, i, name, rd(base, entry + 16));
@@ -526,6 +531,15 @@ void surveyAdsp() {
         kprintf("[pa-adsp] entry=%u hosts=%u/%u offset=0x%x size=0x%x cline=0x%x\n", i, host0, host1, offset,
                 size, cline);
         if (!offset || !size) continue;
+        /* These two cells become a pointer into the window this probe mapped (`s + offset / 4` below),
+         * so they are checked against that window before anyone dereferences them: a partition is at
+         * least its own header, and the whole of it has to lie inside the mapping. Both cells are
+         * 32-bit and can wrap, hence the comparison is written as a subtraction (QcomSmem.c:fits). */
+        if (offset > kSmemSize || size < kPartHdr || size > kSmemSize - offset) {
+            kprintf("[pa-adsp] entry=%u outside the mapping: offset=0x%x size=0x%x window=0x%x\n", i, offset,
+                    size, static_cast<uint32_t>(kSmemSize));
+            continue;
+        }
         if ((host0 == kLocalApps && host1 == kRemoteAdsp) || (host0 == kRemoteAdsp && host1 == kLocalApps)) {
             peerAt = offset; peerSize = size; peerCline = cline;
         }
@@ -540,9 +554,13 @@ void surveyAdsp() {
     const uint32_t toc = kHdrToc + kItemRestart * kTocStride;
     kprintf("[pa-adsp] toc[423] alloc=0x%08x off=0x%x size=0x%x aux=0x%08x\n", rd(s, toc), rd(s, toc + 4),
             rd(s, toc + 8), rd(s, toc + 12));
-    if (rd(s, toc) && rd(s, toc + 4) + rd(s, toc + 8) <= kSmemSize) {
+    /* The two cells are read once and compared without adding them: 0xFFFFF000 + 0x2000 wraps to 0x10
+     * and satisfied the old `off + size <= kSmemSize`, which put textAt() outside the mapping. Same rule
+     * as package/QcomSmem.c:fits. */
+    const uint32_t tocOff = rd(s, toc + 4), tocLen = rd(s, toc + 8);
+    if (rd(s, toc) && tocOff <= kSmemSize && tocLen <= kSmemSize - tocOff) {
         char reason[73];
-        textAt(reason, sizeof reason, s, rd(s, toc + 4), rd(s, toc + 8));
+        textAt(reason, sizeof reason, s, tocOff, tocLen);
         kprintf("[pa-adsp] toc[423] reason=[%s]\n", reason);
     }
 
