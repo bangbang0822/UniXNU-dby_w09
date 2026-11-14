@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 // Root queue takeover; shared with the host fault-injection harness.
+
+#ifndef UFS_ROOT_QUEUE_H
+#define UFS_ROOT_QUEUE_H
+// Included inside a namespace by its consumers; the guard only keeps a second include from repeating it.
 static bool hostWaitRegister (unsigned offset, uint32_t mask, uint32_t value)
 {
   uint64_t deadline;
@@ -60,3 +64,5 @@ static bool hostStartQueue (const char **why)
   }
   return true;
 }
+
+#endif   /* UFS_ROOT_QUEUE_H */

@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 // Passive snapshot formatter; caller supplies integer types and snprintf.
 // No hardware access or decision about trust, transport or publication here.
+
+#ifndef UFS_ROOT_DIAGNOSTICS_H
+#define UFS_ROOT_DIAGNOSTICS_H
+// Included inside a namespace by its consumers; the guard only keeps a second include from repeating it.
 struct UfsRootDiagnostics {
   const char *stage = "not started";
   uint64_t dma = 0, list = 0, lba = 0, first = 0, last = 0;
@@ -48,3 +52,5 @@ static inline int formatUfsRootDiagnostics(char *buffer, size_t capacity,
     (unsigned long long)d.windowBytes, (unsigned long long)d.policyCount, d.verify,
     (unsigned long long)d.reads, (unsigned long long)d.failures, d.publicationPhase, d.publicationWindow);
 }
+
+#endif   /* UFS_ROOT_DIAGNOSTICS_H */

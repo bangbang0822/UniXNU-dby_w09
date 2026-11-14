@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 // Shared production command path. Included inside the root transport namespace.
 // The host harness replaces only MMIO, DMA synchronization, clock and lock primitives.
+
+#ifndef UFS_ROOT_COMMANDS_H
+#define UFS_ROOT_COMMANDS_H
+// Included inside a namespace by its consumers; the guard only keeps a second include from repeating it.
 struct HardwareTransferPort {
   uint64_t deadline;
   uint32_t doorbell () { return read32 (gHost.hc, 0x58); }
@@ -413,3 +417,4 @@ static bool hostInRoot (uint64_t lba, uint32_t blocks)
   return hostSyncCache ();
 }
 
+#endif   /* UFS_ROOT_COMMANDS_H */

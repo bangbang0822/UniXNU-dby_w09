@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 // Plan before any SMMU write. Interface register facts: ARM SMMUv2.
+
+#ifndef UFS_SMMU_TAKEOVER_H
+#define UFS_SMMU_TAKEOVER_H
+// Included inside a namespace by its consumers; the guard only keeps a second include from repeating it.
 struct UfsSmmuPlan {
   unsigned slot = 0xffffffffU, bank = 0, pages = 0;
   uint32_t smr = 0, s2cr = 0;
@@ -294,3 +298,5 @@ static const char *configureUfsSmmu(const UfsSmmuPlan &p, uint16_t stream, Read 
   }
   return nullptr;
 }
+
+#endif   /* UFS_SMMU_TAKEOVER_H */
