@@ -5,7 +5,7 @@
  * 可移植的阶梯在 DbyCamBringup.c，本文件只做映射、ARC 投票和日志。
  *
  * 启动参数：**不新增任何一条**。命令行已经 50 条 998 字节，payload.py:35 的门是 1000，
- * 所以本模块默认就走满阶（4：cam_vio/开关轨、MCLK0 24 MHz、放开复位、CCI 初始化，再对
+ * 所以本模块默认就走满阶（4：cam_vio/开关轨、MCLK0 19.2 MHz（XO，PLL 未开：DbyCamBringup.c:393-400 只写 DBCAM_RCG_CFG_XO）、放开复位、CCI 初始化，再对
  * 0x10 / 0x20 / 0x34 各发一笔读 ID 的交易）。dby-cam 只是留给「往下调」的旁门：
  *   dby-cam=1 勘察；2 开 GCC 再只读 CAMCC；3 投 ARC、开 CAMCC 域、读 CCI_HW_VERSION；
  *   4 及以上按 4 走；显式传 0 则整段不动（不映射、不投、不写一个寄存器、不起线程）。

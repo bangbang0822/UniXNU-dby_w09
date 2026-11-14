@@ -229,7 +229,7 @@ extern "C" void dby_camera_start(void)
     static uint32_t started;
     if (__atomic_exchange_n(&started, 1u, __ATOMIC_ACQ_REL)) return;
     // 不新增启动参数：命令行是 50 条 998 字节、离 payload.py:35 的 1000 只剩 2，
-    // 而这台板子要跑的本来就是满阶（MCLK 24 MHz、放开复位、CCI 读 0x10/0x20/0x34 找 sensor）。
+    // 而这台板子要跑的本来就是满阶（MCLK 19.2 MHz 走 XO、放开复位、CCI 读 0x10/0x20/0x34 找 sensor）。
     // 所以默认值就是 DbcamLevelMax，参数缺席 = 全跑。dby-cam 只保留「往下调」这一个用途：
     // 某次刷写想看第 3 级停在哪儿时才传，传 0 则整段不动（映射、投票、写寄存器都不发生）。
     const unsigned want = argument("dby-cam", DbcamLevelMax);
