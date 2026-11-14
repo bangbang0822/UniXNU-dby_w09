@@ -46,7 +46,7 @@
  *
  * Vote bits in DBY_TOUCH_GCC_VOTE: core=0, s_ahb=1, m_ahb=2, core_2x=3, wrap2_s0=4.
  * A branch whose CBCR has the hardware-clock-gating bit (bit 1) may legitimately show CLK_OFF while
- * idle; a branch without it must have CLK_OFF clear once voted (the same rule TouchProbe.cpp:399-406
+ * idle; a branch without it must have CLK_OFF clear once voted (the same rule TouchProbe.cpp:749-751
  * applies on sheng). */
 #define DBY_TOUCH_GCC_BASE           0x00100000ULL
 #define DBY_TOUCH_GCC_SIZE           0x00054000ULL   /* covers 0x1e00c, 0x23278 and 0x52018 */
@@ -423,11 +423,7 @@
  * this value; see README §1 for the four independent pieces of evidence.
  *
  * Provenance, stated precisely (README §11 re-checked this on 2026-10-29):
- * IC family: Novatek NT36xxx "9Z" (ic_type 5), not Goodix.  Evidence: all eight
- * Huawei dtbo overlays carry only a `novatech` child under huawei_thp@10, the THP core
- * looks the child up by ic_name (goodix's enum stops at 4), and support_vendor_ic_type=5
- * equals N9Z_SERIES.  See work/tracks/touchprot/out/PROTOCOL-SPEC.md.
- *     core is present together with exactly one IC driver, and that driver is
+ * the THP core is present together with exactly one IC driver, and that driver is
  * IC family: Novatek NT36xxx "9Z" (ic_type 5), not Goodix.  Evidence: all eight
  * Huawei dtbo overlays carry only a `novatech` child under huawei_thp@10, the THP core
  * looks the child up by ic_name (goodix's enum stops at 4), and support_vendor_ic_type=5
