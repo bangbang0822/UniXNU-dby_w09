@@ -83,7 +83,9 @@ windows = [
 # build-gop-legacy-display 由本仓 scripts/ 提供是官方分层，不是自制入口。
 # ---------------------------------------------------------------------------
 [package]
-unixnu = "../UniXNU"           # UniXNU 检出相对本仓的路径，与 README 的构建命令一致
+unixnu = "../UniXNU"           # UniXNU 检出相对本仓的路径，与 README 的构建命令一致；
+                               # 需要 gitee.com/uni-xnu-dby-w09/UniXNU 的 dby-w09 分支（0c29766）：
+                               # 上游 main（2366e33）的 components.toml 没有 QcomXnuUsbDebug 条目
 
 [package.defconfig]
 # 本仓只有 iPadOS 17.7.11 / 21H461 一个目标；新增目标时在这里加一行，不改脚本。
