@@ -23,9 +23,11 @@ extern "C" {
 #define APR_HEADER_BYTES 20u
 #define APR_MAX_PACKET 512u            /* the intent size this channel is granted, and the reference API's message limit */
 
-/* Header fields: message type 15:8, header size in words 7:4, packet version 3:0 (apr.h:37-56). */
+/* Header fields (apr.h:37-56): message type 15:8, header size in words 7:4, packet version 3:0. The type is
+ * masked to its two documented bits, so a caller passing one of the four AprMsg* enumerators keeps the field
+ * intact and an out-of-range value is truncated the way the wire format requires. */
 #define APR_HDR_FIELD(msg_type, header_bytes, version) \
-    (uint16_t)((((msg_type) & 3u) << 8) | ((((header_bytes) / 4u) & 0xfu) << 4) | ((version) & 0xfu))
+    (uint16_t)((((msg_type) & 0x3u) << 8) | ((((header_bytes) / 4u) & 0xfu) << 4) | ((version) & 0xfu))
 
 enum {AprMsgEvent = 0, AprMsgCmdRsp = 1, AprMsgSeqCmd = 2, AprMsgNSeqCmd = 3};
 #define APR_PKT_VER 0u
