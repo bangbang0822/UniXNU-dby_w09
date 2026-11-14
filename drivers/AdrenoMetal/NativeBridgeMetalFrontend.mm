@@ -1822,7 +1822,7 @@ static uint64_t askAnswer(SEL cmd,NSUInteger arg) {
 static NSUInteger countArgAnswer(id,SEL cmd,NSUInteger arg) {return (NSUInteger)askAnswer(cmd,arg);}
 static BOOL flagArgAnswer(id,SEL cmd,NSUInteger arg) {return askAnswer(cmd,arg)!=0;}
 static void installAnswers(Class cls) {
- uint32_t kind=0;
+ uint32_t kind=0;unsigned refused=0;
  for(size_t i=0;const char *name=nmb_device_answer_selector(i,&kind);i++) {
   SEL sel=sel_registerName(name);uint64_t value=0;
   switch(kind) {
@@ -1833,12 +1833,15 @@ static void installAnswers(Class cls) {
    // swap's surface was '&w4a', 8 bytes per pixel, and every swap was refused).
    if(!strcmp(name,"supportsExtendedXR10Formats"))value=0;
    gAnswers[sel]=value;
-   class_addMethod(cls,sel,kind==NMB_ANSWER_COUNT?(IMP)countAnswer:(IMP)flagAnswer,kind==NMB_ANSWER_COUNT?"Q16@0:8":"B16@0:8");
+   if(!class_addMethod(cls,sel,kind==NMB_ANSWER_COUNT?(IMP)countAnswer:(IMP)flagAnswer,kind==NMB_ANSWER_COUNT?"Q16@0:8":"B16@0:8"))++refused;
    break;
-  case NMB_ANSWER_COUNT_ARG: class_addMethod(cls,sel,(IMP)countArgAnswer,"Q24@0:8Q16");break;
-  case NMB_ANSWER_FLAG_ARG: class_addMethod(cls,sel,(IMP)flagArgAnswer,"B24@0:8Q16");break;
+  case NMB_ANSWER_COUNT_ARG: if(!class_addMethod(cls,sel,(IMP)countArgAnswer,"Q24@0:8Q16"))++refused;break;
+  case NMB_ANSWER_FLAG_ARG: if(!class_addMethod(cls,sel,(IMP)flagArgAnswer,"B24@0:8Q16"))++refused;break;
   }
  }
+ /* class_addMethod returns NO when the class already implements the selector: the table entry was stored and never
+  * consulted, the runtime's own answer stood in its place, and nothing said so. Reported once, after the walk. */
+ if(refused)NBLOG(@"native-metal: %u answer(s) already implemented; this table does not answer them",refused);
 }
 
 extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint64_t registryID,void (*missing)(const char *,const char *)) {

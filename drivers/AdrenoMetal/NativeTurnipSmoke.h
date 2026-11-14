@@ -551,14 +551,17 @@ struct Watched {
     const char *libraryPath;
     void (*mark)(void *, uint32_t);
     void *markContext;
-    volatile uint32_t lastMark;
-    volatile int done;
+    /* Written by the worker on every mark and read by sample() from the calling thread while the worker is still
+     * running: `volatile` is not a synchronisation primitive here, so these two are atomic (the same shape the
+     * driver's own counters use). Both are relaxed -- neither orders anything else, they are progress reports. */
+    uint32_t lastMark;
+    int done;
     Result result;
 };
 
 static void *watchedWorker(void *argument) {
     Watched *w = static_cast<Watched *>(argument);
-    w->result = run([w](uint32_t value) { w->lastMark = value; w->mark(w->markContext, value); }, w->libraryPath);
+    w->result = run([w](uint32_t value) { __atomic_store_n(&w->lastMark, value, __ATOMIC_RELAXED); w->mark(w->markContext, value); }, w->libraryPath);
     __atomic_store_n(&w->done, 1, __ATOMIC_RELEASE);
     return nullptr;
 }
@@ -583,7 +586,7 @@ static void sample(Watched &w, pthread_t worker, char *text, size_t size) {
     thread_info(thread, THREAD_BASIC_INFO, reinterpret_cast<thread_info_t>(&b), &count);
     auto us = [](time_value_t t) { return int64_t(t.seconds) * 1000000 + t.microseconds; };
     const int64_t du = us(b.user_time) - us(a.user_time), dk = us(b.system_time) - us(a.system_time);
-    size_t at = (size_t)snprintf(text, size, "W %x s%d u%lld/k%lld", unsigned(w.lastMark), b.run_state, (long long)du, (long long)dk);
+    size_t at = (size_t)snprintf(text, size, "W %x s%d u%lld/k%lld", unsigned(__atomic_load_n(&w.lastMark, __ATOMIC_RELAXED)), b.run_state, (long long)du, (long long)dk);
     if (b.run_state == TH_STATE_RUNNING && du <= 0) {
         snprintf(text + at, size - at, " kern");
         return;
