@@ -8,6 +8,10 @@ namespace wur = alioth::whole_userdata_root;
 
 namespace {
 
+// The alioth unit's userdata geometry, not this board's: UniXNU-alioth/board.toml:71-72 records these first/last
+// LBAs and :1048 the capacity, and this board's own table is elsewhere (board.toml:46-47, first_lba 0x29B600 ..
+// last_lba 0x1D455FF). The fixture is named after that board and only checks the arithmetic the root path does
+// over a partition of that shape, so the values are quoted from the record that states them.
 constexpr uint64_t kFirstMediaLba = 0x2a8000ULL;
 constexpr uint64_t kLastMediaLba = 0x3b037faULL;
 constexpr uint64_t kCapacityBytes = 242053263360ULL;
