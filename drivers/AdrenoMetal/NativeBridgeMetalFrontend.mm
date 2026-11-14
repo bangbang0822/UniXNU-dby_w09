@@ -1866,10 +1866,18 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
 #endif
 #if TARGET_OS_IPHONE
  // The target's base class ABI (iPadOS 17.7.11): the dynamic subclass adds no instance variables.
- if(!base || class_getInstanceSize(base)!=536){NBLOG(@"native-metal: unexpected _MTLDevice ABI");return nil;}
+ if(!base || class_getInstanceSize(base)!=536) {
+     /* gDevice was opened above and nothing undid that: the next open() found no gDeviceObject and ran this path
+      * again, forever, over a device the frontend no longer had an object for. Clear the per-open state; the handle
+      * itself cannot be released here because the vendored runtime exports no close (noted, not hidden). */
+     NBLOG(@"native-metal: unexpected _MTLDevice ABI");
+     gDevice=nullptr;gName=nil;
+     return nil;
+ }
 #endif
  if(!base)base=[NSObject class];
- Class cls=objc_allocateClassPair(base,"NativeBridgeMetalDevice",0);if(!cls)return nil;
+ Class cls=objc_allocateClassPair(base,"NativeBridgeMetalDevice",0);
+ if(!cls) {gDevice=nullptr;gName=nil;return nil;}
  unsigned count=0;Method *methods=class_copyMethodList([NBDeviceMethods class],&count);
  for(unsigned i=0;i<count;i++)class_addMethod(cls,method_getName(methods[i]),method_getImplementation(methods[i]),method_getTypeEncoding(methods[i]));
  free(methods);installAnswers(cls);class_addProtocol(cls,@protocol(MTLDevice));
