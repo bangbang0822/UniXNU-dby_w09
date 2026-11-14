@@ -5066,6 +5066,8 @@ dbyClientBoRound(IOUserClient *uc)
 {
 	NativeAdrenoAbiBoAlloc alloc;
 	NativeAdrenoAbiBoAllocReply ib, tgt;
+	memset(&ib, 0, sizeof ib);
+	memset(&tgt, 0, sizeof tgt);
 	NativeAdrenoAbiBoMap mapIb, mapTgt;
 	NativeAdrenoAbiBoMapReply mapReply;
 	NativeAdrenoAbiBoCpuMap cmIb, cmTgt;
@@ -5087,6 +5089,40 @@ dbyClientBoRound(IOUserClient *uc)
 		return;
 	}
 
+	/* Every step below can fail after it has taken something, and only the old tail unwound.
+	 * This lambda is that tail, run from each exit: views first (a mapping that outlives its BO
+	 * is the panic Publish.cpp:260-263 documents), then the descriptors, then the client's two
+	 * BO handles. `ib`/`tgt` start zeroed, so the handle tests are only true for BOs actually
+	 * allocated. */
+	auto unwind = [&]() {
+		for (i = 0u; i < 2u; ++i) {
+			if (maps[i] != nullptr) {
+				maps[i]->release();
+				maps[i] = nullptr;
+			}
+		}
+		if (descIb != nullptr) {
+			descIb->release();
+			descIb = nullptr;
+		}
+		if (descTgt != nullptr) {
+			descTgt->release();
+			descTgt = nullptr;
+		}
+		NativeAdrenoAbiBoFree freeIb, freeTgt;
+
+		memset(&freeIb, 0, sizeof freeIb);
+		freeIb.handle = ib.handle;
+		memset(&freeTgt, 0, sizeof freeTgt);
+		freeTgt.handle = tgt.handle;
+		if (freeIb.handle != 0u) {
+			(void)dbyUcCall(uc, NativeAdrenoMethodBoFree, &freeIb, nullptr, sizeof freeIb, 0u);
+		}
+		if (freeTgt.handle != 0u) {
+			(void)dbyUcCall(uc, NativeAdrenoMethodBoFree, &freeTgt, nullptr, sizeof freeTgt, 0u);
+		}
+	};
+
 	gDbyBoStep = 1u;
 	memset(&alloc, 0, sizeof alloc);
 	alloc.bytes = 4096u;
@@ -5096,12 +5132,14 @@ dbyClientBoRound(IOUserClient *uc)
 	                                  sizeof ib);
 	gDbyBoStep = 2u;
 	if (gDbyBoAlloc != 0u) {
+		unwind();
 		return;
 	}
 	gDbyBoAlloc = (uint32_t)dbyUcCall(uc, NativeAdrenoMethodBoAlloc, &alloc, &tgt, sizeof alloc,
 	                                  sizeof tgt);
 	gDbyBoStep = 3u;
 	if (gDbyBoAlloc != 0u) {
+		unwind();
 		return;
 	}
 
@@ -5126,12 +5164,14 @@ dbyClientBoRound(IOUserClient *uc)
 	                                sizeof mapReply);
 	gDbyBoStep = 4u;
 	if (gDbyBoMap != 0u) {
+		unwind();
 		return;
 	}
 	gDbyBoMap = (uint32_t)dbyUcCall(uc, NativeAdrenoMethodBoMap, &mapTgt, &mapReply, sizeof mapTgt,
 	                                sizeof mapReply);
 	gDbyBoStep = 5u;
 	if (gDbyBoMap != 0u) {
+		unwind();
 		return;
 	}
 
@@ -5145,12 +5185,14 @@ dbyClientBoRound(IOUserClient *uc)
 	                                sizeof crIb);
 	gDbyBoStep = 6u;
 	if (gDbyBoCpu != 0u) {
+		unwind();
 		return;
 	}
 	gDbyBoCpu = (uint32_t)dbyUcCall(uc, NativeAdrenoMethodBoCpuMap, &cmTgt, &crTgt, sizeof cmTgt,
 	                                sizeof crTgt);
 	gDbyBoStep = 7u;
 	if (gDbyBoCpu != 0u) {
+		unwind();
 		return;
 	}
 
@@ -5165,6 +5207,7 @@ dbyClientBoRound(IOUserClient *uc)
 			if (gDbyBoMem == 0u) {
 				gDbyBoMem = 0xFFFFFFB1u;   /* null descriptor */
 			}
+			unwind();
 			return;
 		}
 		if (i == 0u) {
@@ -5175,6 +5218,7 @@ dbyClientBoRound(IOUserClient *uc)
 		maps[i] = descriptor->createMappingInTask(kernel_task, 0, opts[i]);
 		if (maps[i] == nullptr) {
 			gDbyBoMem = 0xFFFFFFB2u;
+			unwind();
 			return;
 		}
 	}
@@ -5183,6 +5227,7 @@ dbyClientBoRound(IOUserClient *uc)
 	target = reinterpret_cast<volatile uint32_t *>(maps[1]->getVirtualAddress());
 	if (target == nullptr) {
 		gDbyBoMem = 0xFFFFFFB3u;
+		unwind();
 		return;
 	}
 	for (i = 0u; i < 1024u; ++i) {
@@ -5190,6 +5235,7 @@ dbyClientBoRound(IOUserClient *uc)
 	}
 	if (!dbyBoBuildIb((uint32_t *)maps[0]->getVirtualAddress(), 1024u, gDbyBoTgtIova)) {
 		gDbyBoMem = 0xFFFFFFB4u;
+		unwind();
 		return;
 	}
 
@@ -5203,6 +5249,7 @@ dbyClientBoRound(IOUserClient *uc)
 	gDbyBoSub = (uint32_t)dbyUcCall(uc, NativeAdrenoMethodSubmit, &submit, &submitReply,
 	                                sizeof submit, sizeof submitReply);
 	if (gDbyBoSub != 0u) {
+		unwind();
 		return;
 	}
 	gDbyBoFence = (uint32_t)submitReply.fence;
@@ -5217,6 +5264,7 @@ dbyClientBoRound(IOUserClient *uc)
 	status = dbyUcCall(uc, NativeAdrenoMethodWaitFence, &wait, nullptr, sizeof wait, 0u);
 	gDbyBoWait = (uint32_t)status;
 	if (gDbyBoWait != 0u) {
+		unwind();
 		return;
 	}
 
@@ -5229,30 +5277,9 @@ dbyClientBoRound(IOUserClient *uc)
 	              target[2] == 0x600d0003u) ? 0u : 1u;
 
 	/* Give the two views back before the client is closed: the descriptor is retained for the
-	 * caller and the map is the caller's, so nothing else frees them, and a mapping that outlives
-	 * its BO is the panic Publish.cpp:260-263 documents. */
-	for (i = 0u; i < 2u; ++i) {
-		if (maps[i] != nullptr) {
-			maps[i]->release();
-			maps[i] = nullptr;
-		}
-	}
-	if (descIb != nullptr) {
-		descIb->release();
-	}
-	if (descTgt != nullptr) {
-		descTgt->release();
-	}
-	{
-		NativeAdrenoAbiBoFree freeIb, freeTgt;
-
-		memset(&freeIb, 0, sizeof freeIb);
-		freeIb.handle = ib.handle;
-		memset(&freeTgt, 0, sizeof freeTgt);
-		freeTgt.handle = tgt.handle;
-		(void)dbyUcCall(uc, NativeAdrenoMethodBoFree, &freeIb, nullptr, sizeof freeIb, 0u);
-		(void)dbyUcCall(uc, NativeAdrenoMethodBoFree, &freeTgt, nullptr, sizeof freeTgt, 0u);
-	}
+	 * caller and the map is the caller's, so nothing else frees them. Same unwind every failure
+	 * above runs, so the success and failure paths cannot drift. */
+	unwind();
 }
 
 static void
