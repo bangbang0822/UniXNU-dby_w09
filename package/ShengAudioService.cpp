@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
-// The audio service iOS's audio server plug-in opens (hal/ShengAudioPlugIn.c, interface in ShengAudioAbi.h). The service maps the
-// control page and the two sample rings that AudioProbe.cpp owns and passes start and stop requests to its thread; the samples
-// themselves never pass through here. AudioProbe.cpp registers this file's classes (static initializer taken out of __mod_init_func
-// by the build) and starts the service once the speaker path is ready.
+// The audio service iOS's audio server plug-in opens (hal/ShengAudioPlugIn.c, interface in ShengAudioAbi.h). AudioProbe.cpp
+// owns the two buffers behind the mapping - the control page and the two sample rings - and this file answers
+// IOConnectMapMemory64 for them (AudioProbe.cpp:1123 is the lookup it hands out); the samples themselves never pass
+// through here, only start and stop requests reach the service thread. AudioProbe.cpp registers this file's classes
+// (static initializer taken out of __mod_init_func by the build) and starts the service once the speaker path is ready.
 #include <IOKit/IOService.h>
 #include <IOKit/IOUserClient.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
