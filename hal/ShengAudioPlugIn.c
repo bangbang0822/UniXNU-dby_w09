@@ -36,6 +36,13 @@ static atomic_uint gRefs = 1;
 static io_connect_t gConnect;
 static ShengAudioControl *gControl;
 static int16_t *gOut, *gIn;
+/* gIoUsers is read and written under gLock (StartIO/StopIO), except for the two property reads below, which run on
+ * the property thread - a plain UInt32 those readers can see stale, never torn.
+ * gVolume is different: SetPropertyData assigns it on the property thread while gain() reads it on the IO thread
+ * (and DoIOOperation reads it once per cycle), with no lock and no atomic. A float store is atomic on this target and
+ * 0..1 are all valid values, so the worst case is one buffer at the previous volume rather than a corrupt one; the
+ * file uses gLock for the state it does care about. Recorded in porting.toml's audio limits: making it _Atomic Float32
+ * reaches into a HAL that only builds on the iOS host, so it is not changed blind. */
 static UInt32 gIoUsers;
 static Float32 gVolume = 1.0f;   // the volume control's scalar (slider position)
 static Float64 gHostTicksPerFrame;
@@ -564,6 +571,15 @@ static OSStatus GetZeroTimeStamp(AudioServerPlugInDriverRef d, AudioObjectID o, 
     if (!gControl) return kAudioHardwareNotRunningError;
     uint32_t seq;
     uint64_t anchor;
+    /* A seqlock whose three accesses are plain volatile loads. On arm64 that is not enough to make a matching
+     * sequence number prove the anchor was observed after the update: the loads may be reordered with each
+     * other, so a torn pair can carry an even, unchanged sequence number. The service publishes with the same
+     * plain stores, so neither side has a barrier. Making this a real seqlock means atomic_load on out_seq and
+     * out_anchor_host plus an acquire fence after the final sequence read, and a release fence on the publish
+     * side in the kernel service; that changes both sides of a running audio path and needs a boot with the
+     * server holding the page, so it is recorded in porting.toml's audio limits rather than half-done here.
+     * What holds today: the anchor is written once when the service starts, so in practice this loop observes
+     * either no update or a complete one. */
     do {seq = gControl->out_seq; anchor = gControl->out_anchor_host;} while ((seq & 1) || seq != gControl->out_seq);
     const uint64_t now = mach_absolute_time();
     const Float64 period = gHostTicksPerFrame * kZeroPeriod;
