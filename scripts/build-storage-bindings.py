@@ -17,7 +17,7 @@ it and puts it into the driver archive, because IOKit is prelinked and exports n
 these symbols.
 
 The kernel link re-reads the recorded object through the archive stem
-(core/scripts/build-xnu-4k-baseline.sh:709) while the component recipe names the object
+(scripts/build-xnu-4k-baseline.sh:712-726) while the component recipe names the object
 after the runtime class, so this recipe also publishes those bytes under the archive stem.
 The gate compares sha256, so an alias is the same compiled object, never a second build.
 """
