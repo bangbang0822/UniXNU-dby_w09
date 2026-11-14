@@ -175,8 +175,13 @@ dby_touch_n9z_write_block(struct dby_touch_bus *bus, uint32_t addr, const uint8_
 
 int
 dby_touch_identify_n9z(struct dby_touch_bus *bus, struct dby_touch_identify *out)
-{	static const uint32_t kAddrId  = 0x3F004u;
-	static const uint32_t kAddrBoot = 0x3F0FEu;
+{
+	/* The boot register and the two magic bytes are the board header's, not copies: DbyTouchBoard.h:257-259
+	 * names all three (novatek_thp.c:310-333) and this file includes that header through
+	 * DbyTouchProtocol.h:32. The id register is the one value with no macro to reuse - the other copy
+	 * lives in a .c (NVT_N9Z_VER_TRIM, package/NvtProtocol.c:50) - so it is written out here with the
+	 * source that names it for this part's series profile, rather than left as a bare literal. */
+	static const uint32_t kAddrId = 0x3F004u;   /* novatek_thp.c: ver_trim of the N9Z_SERIES profile */
 
 	if (bus == NULL || bus->xfer == NULL || out == NULL) {
 		return DBY_TOUCH_ERR_PARAM;
@@ -185,14 +190,14 @@ dby_touch_identify_n9z(struct dby_touch_bus *bus, struct dby_touch_identify *out
 		/* The pair matters and the order is not interchangeable: 0x69 puts the chip *into* its
 		 * bootloader, 0xAA brings it back to idle.  Sending 0x69 alone parks the chip in the
 		 * bootloader and no frame ever arrives. */
-		if (dby_n9z_write(bus, kAddrBoot, 0x69) != DBY_TOUCH_OK) {
+		if (dby_n9z_write(bus, DBY_TOUCH_N9Z_BOOT_ADDR, DBY_TOUCH_N9Z_BOOT_BYTE) != DBY_TOUCH_OK) {
 			return DBY_TOUCH_ERR_IO;
 		}
 		bus->delay_ms(bus->ctx, 10);
-		if (dby_n9z_write(bus, kAddrBoot, 0xAA) != DBY_TOUCH_OK) {
+		if (dby_n9z_write(bus, DBY_TOUCH_N9Z_BOOT_ADDR, DBY_TOUCH_N9Z_IDLE_BYTE) != DBY_TOUCH_OK) {
 			/* 0x69 landed, so the chip is in its bootloader.  One best-effort retry keeps a single
 			 * failed write from costing the panel until the next power cycle. */
-			(void)dby_n9z_write(bus, kAddrBoot, 0xAA);
+			(void)dby_n9z_write(bus, DBY_TOUCH_N9Z_BOOT_ADDR, DBY_TOUCH_N9Z_IDLE_BYTE);
 			return DBY_TOUCH_ERR_IO;
 		}
 		bus->delay_ms(bus->ctx, 10);
