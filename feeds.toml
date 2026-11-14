@@ -50,16 +50,17 @@ commit = "a9c4585dbb1b75b8594dd0ae54962cc59969d98f"
 # 报 “unknown component: Sm8250Platform”。2026-11-13 起这些源码归板级所有，在 package/Sm8250Platform/，
 # 由 [kernel] archives 的脚本位编译，所以这里不再需要这条源。
 
-# QcomXnuUsbDebug：OS profile 的补丁序列直接引用了这个组件 ——
+# QcomXnuUsbDebug：本仓选中了这个目录组件，源钉在这里而不是只靠 catalogue 的 revision ——
+#   同一条记录在 core 的 components.toml（id/revision/path/recipe），这里只重复它的出处，
+#   所以 fetch 与 status 报的是本仓钉的 62b2888，换了源要两边一起改。
+# 为什么这条源是必要的：OS profile 的补丁序列按 component: 引用它 ——
 #   profiles/os/ipados-17.7.11-21H461/patches/xnu/series:23-24
 #   component:QcomXnuUsbDebug/patches/darwin23/000{1,2}-qcom-usb-debug-*.patch
-# 而目录里没有它的 id，于是 plan() 在解析补丁时停下（"component source unavailable:
-# QcomXnuUsbDebug"，2026-11-14 用诊断打印确认）。这条源是本仓 package/QcomXnuUsbDebug/ 的独立发布
-# 形态（组织下同名仓，内容由 subtree 拆出），目的是让下载得到的内容有出处。
-# 但 2026-11-14 实测它**不能**单独解决那两行引用：fetch 之后 unixnu.lock 里没有这条记录，模块仍然
-# 没有 path（catalogue 里没有这个 id，而 tree 只保留被 [components] include 选中的组件）。真正要拆掉
-# 这条依赖，要么让这个 id 进 catalogue，要么让 OS profile 不再按 component: 引用这些补丁——两者都在
-# core 侧，已记进 porting.toml 的 limits。
+# 而 profiles.py:resolve_path 取的是模块检出路径，模块只有被 [components] include 选中才会被
+# 物化。2026-11-14 之前 core 的目录里没有这个 id，plan() 停在 "component source unavailable:
+# QcomXnuUsbDebug"；同一天 core 补上了条目（本板钉的 core 分支，见 porting.toml 的 limits），
+# 这条源与那条记录指向同一个提交。仓库内容是本仓原 package/QcomXnuUsbDebug/ 的独立发布形态
+# （组织下同名仓，由 subtree 拆出），所以下载得到的内容有出处可查。
 [[source]]
 name = "QcomXnuUsbDebug"
 kind = "driver"
