@@ -8,11 +8,6 @@ changing that code, and one whose file is gone moved out with its component. A f
 still present was fixed *around*, with the audited text kept as the explanation of why the code is what it
 is - the note says which.
 
-One limit of the matcher: it compares sentences with whitespace collapsed, so an evidence snippet that is
-only indentation or a tab still matches the file after a reindent. A handful of the entries below persist for
-that reason alone - `package/LinkStubs.c` is the clearest, its seventeen tab-indented lines now use four spaces -
-and the note beside each still says what was done.
-
 ## Counts
 
 | severity | findings | audited text gone | addressed with the text kept | moved out |
@@ -65,7 +60,7 @@ Last change this session: 050aba6 docs(gpu): name the snapshot gate instead of a
 
 ### `drivers/Adreno740/NativeAdrenoTimer.cpp` - fixed: k-prefixed constants with their sources
 
-Last change this session: 98bb8da chore(gpu): k-prefix the timer constants and tag their two sources
+Last change this session: bbfb91d docs: pin two upstream citations and record what upstream does not carry
 
 - [nit] lines 13-19: The file-scope constants are not k-prefixed as the style requires (TimerGmuLow, TimerGmuHigh, TimerCpLow, TimerCpHigh, TimerRetries), and NativeAdrenoSubmit.cpp:9-11 does the same 
 
@@ -280,7 +275,7 @@ Last change this session: 0eedab6 docs(input): state the log cadence in the unit
 
 ### `package/GeniI2c.h` - documented: [LINUX] citation level; shared-file move recorded
 
-Last change this session: 16961b3 docs(audio): state the provenance level of the GENI map and the PRM ids
+Last change this session: bbfb91d docs: pin two upstream citations and record what upstream does not carry
 
 - [minor] lines 14-56: The whole serial-engine register map, the M_IRQ bit set, GENI_PROTO_I2C 3 and the opcode/packing values are hardcoded with no source tag anywhere in the header or in GeniI2c.c, and
 - [minor] lines 2-6: This is a board-independent Qualcomm GENI serial-engine I2C master: no address, clock, pin or partition of the DBY-W09 appears anywhere in GeniI2c.h/.c (the slave address is a call
