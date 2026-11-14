@@ -252,6 +252,13 @@ int xfer(const uint8_t *write, uint32_t writeLen, uint32_t readLen) {
         IODelay(kPollUs);
     }
     geni_i2c_timeout(&gBus);
+    /* GeniI2c.h:93-95：geni_i2c_timeout() 只发 CANCEL，引擎停在 GeniCancelling，要靠后续 poll 走完。
+     * 旧代码发完就返回 -3，下一笔传输在 selectAddress 里看到引擎仍忙，于是这一笔之后的每次调用都返回 -1，
+     * 总线在整个启动里再没通过。这里把取消驱动到结束（仍有上限，走不完就照旧返回 -3）。 */
+    for (uint32_t i = 0; i < kPollTries && geni_i2c_busy(&gBus); ++i) {
+        if (geni_i2c_poll(&gBus) == GeniFailed) break;
+        IODelay(kPollUs);
+    }
     gErrClass = GeniErrTimeout;
     gErrStatus = gBus.error_status;
     ++gErrors;
@@ -616,8 +623,10 @@ extern "C" void dby_smartpa_probe(void) {
         return;
     }
     if (!clocksOn()) {kprintf("[pa] qupv3 wrap0 clocks did not come up\n"); return;}
-    /* 分路放开不等于时钟存在：先量 SE3 根时钟，再复引脚、配时序。 */
-    startSe3Root();
+    /* 分路放开不等于时钟存在：先量 SE3 根时钟，再复引脚、配时序。根时钟没起来就别往下走——后面的
+     * configurePins/programSe3Timing/geni_i2c_prepare 都是对着一台没有时钟的 SE 编程，读回来的是假的，
+     * 而 startSe3Root() 的返回值就是这件事的唯一证据。 */
+    if (!startSe3Root()) {kprintf("[pa] se3 root clock did not start\n"); return;}
     if (!configurePins()) {kprintf("[pa] tlmm unavailable\n"); return;}
     programSe3Timing();
 
