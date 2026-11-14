@@ -225,8 +225,9 @@ def assemble_c(source, va, workdir, symbols):
     font_dir = Path(os.environ.get('UNIXNU_UEFI') or ROOT / 'uefi-sheng') / 'Silicon/Silicium/SiliciumPkg/Library/FrameBufferSerialPortLib'
     obj, elf, binary = (workdir / name for name in ('panic.o', 'panic.elf', 'panic.bin'))
     definitions = []
-    for macro, name, width in (('MAX_MEM', '_max_mem', 8),
-                               ('PAGE_TOTAL', '_vm_page_pages', 4),
+    # MAX_MEM used to be required for a (void)MAX_MEM in the panic screen that did nothing; the screen no
+    # longer names it, so the patcher no longer refuses a kernel that lacks _max_mem.
+    for macro, name, width in (('PAGE_TOTAL', '_vm_page_pages', 4),
                                ('PAGE_FREE', '_vm_page_free_count', 4)):
         address = symbols.get(name)
         if address is None or address % width or not any(

@@ -301,7 +301,6 @@ __attribute__((noreturn, used, section(".text.b_main"))) void panic_screen_main 
   __asm__ volatile ("dsb sy");
   /* Resolved from this candidate's symbols by the patcher, never fixed addresses.
    * Values are sampled at panic time and need not form an atomic VM snapshot. */
-  (void)MAX_MEM;
   hex (&g, "\npages=", *(volatile const u32 *)PAGE_TOTAL);
   hex (&g, "\nfree=", *(volatile const u32 *)PAGE_FREE);
   /* The raw argument slots are not dumped: the formatted message above already carries them (room for the PANIC_TEXT copy). */
