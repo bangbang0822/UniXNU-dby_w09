@@ -40,9 +40,9 @@ __attribute__((weak)) void boot_progress_poll(void)
 __attribute__((weak)) int native_ram_block_gpu_addon(const unsigned char **, unsigned long long *);
 __attribute__((weak)) int native_ram_block_gpu_addon(const unsigned char **addon, unsigned long long *bytes)
 {
-	(void)addon;
-	(void)bytes;
-	return 0;
+    (void)addon;
+    (void)bytes;
+    return 0;
 }
 
 // GopFramebuffer's compositor-scanout path imports the UFS DPU window as weak_import, and a
@@ -57,17 +57,19 @@ __attribute__((weak)) uint32_t native_ufs_dpu_map(unsigned slot, const uint64_t 
 __attribute__((weak)) uint32_t native_ufs_dpu_map(unsigned slot, const uint64_t *pages,
     unsigned count)
 {
-	(void)slot;
-	(void)pages;
-	(void)count;
-	return 0;
+    (void)slot;
+    (void)pages;
+    (void)count;
+    return 0;
 }
 
-// BootProgress.c:1070 calls boot_log_tick() as a weak_import, and the official provider of that
-// counter is package/BootLog.c (sheng 38,585 B / alioth 81,678 B), which our device repo does not ship.
+// BootProgress.c:1280 calls boot_log_tick() as a weak_import (declared at :91), and the official
+// provider of that counter is package/BootLog.c (sheng 38,585 B / alioth 81,678 B). This repository
+// ships it - BootLog.c is in package/ - but the board's build does not select it, so nothing in this
+// kernel defines the symbol and the stub below is what the link gets.
 // Same rule as the boot_progress_poll stub above: a static kernel link refuses an undefined weak_import,
 // so the hook gets a no-op here; weak, so linking the real BootLog.c later wins without editing this file.
-__attribute__((weak)) void boot_log_tick(unsigned now); 
+__attribute__((weak)) void boot_log_tick(unsigned now);
 __attribute__((weak)) void boot_log_tick(unsigned now) { (void)now; }
 
 // libNativeLegacyDisplay.late.a: native_legacy_display_late_probe() starts by running the
@@ -154,8 +156,9 @@ __attribute__((weak)) void native_buttons_set_sink(void (*sink)(void *), void *c
     (void)context;
 }
 
-// QcomXnuUsbDebug declares this weak_import at kernel/QcomXnuUsbDebug.c:128 and only asks
-// whether the address is non-null before calling it. alioth and sheng implement it in
+// The patched kernel's QcomXnuUsbDebug weak-imports this (its component's kernel/QcomXnuUsbDebug.c
+// has no declaration of its own: line 128 there is the __atomic_exchange_n of usb_diag_resetting) and
+// only asks whether the address is non-null before calling it. alioth and sheng implement it in
 // package/BootReset.c, which maps the devicetree reboot-reason window and writes the
 // bootloader cell before PSCI. This port has no BootReset.c, so this weak stub is the
 // honest answer for the board: the reset path declines, qcom_usb_debug_control_reset_now
@@ -164,9 +167,9 @@ __attribute__((weak)) void native_buttons_set_sink(void (*sink)(void *), void *c
 __attribute__((weak)) int boot_reset_bootloader(char *text, unsigned cap);
 __attribute__((weak)) int boot_reset_bootloader(char *text, unsigned cap)
 {
-	(void)text;
-	(void)cap;
-	return 1;
+    (void)text;
+    (void)cap;
+    return 1;
 }
 
 // ---- optional weak_import symbols that this host's clang cannot leave undefined ----
@@ -183,22 +186,22 @@ __attribute__((weak)) int boot_reset_bootloader(char *text, unsigned cap)
 // so non-zero is success there. These stubs therefore return 0 for both: the call fails, which is what
 // the pointer test above cannot say. Returning a non-zero error code here made find() look like it had
 // found a partition and handed an uninitialised block count to fat_mount(). The storage layer this board
-// ships (FFT-infra/NativeUfs-alioth) exports native_ufs_store_*/native_ufs_export_*, not these partition
+// ships (FFT-infra/NativeUfs-alioth) exports native_ufs_store_ and native_ufs_export_ families, not these partition
 // helpers, and the audio DSP stack that would supply qcom_mdt_* is compiled only by upstream's
 // build-gop-legacy-display.py, which this board's -linux display recipe does not run.
 
 __attribute__((weak)) int native_ufs_part_find(const char *, uint32_t *, uint64_t *, uint64_t *);
 __attribute__((weak)) int native_ufs_part_find(const char *name, uint32_t *lun, uint64_t *first, uint64_t *blocks)
 {
-	(void)name; (void)lun; (void)first; (void)blocks;
-	return 0;			/* not found: this board's storage layer has no such partition helper */
+    (void)name; (void)lun; (void)first; (void)blocks;
+    return 0;           /* not found: this board's storage layer has no such partition helper */
 }
 
 __attribute__((weak)) int native_ufs_part_read(uint32_t, uint64_t, uint32_t, void *);
 __attribute__((weak)) int native_ufs_part_read(uint32_t lun, uint64_t lba, uint32_t blocks, void *dst)
 {
-	(void)lun; (void)lba; (void)blocks; (void)dst;
-	return 0;			/* read failed */
+    (void)lun; (void)lba; (void)blocks; (void)dst;
+    return 0;           /* read failed */
 }
 
 // DbyTouch.cpp:2759 tests `if (!native_ufs_abs_read(lba, chunk, buf))`, so 0 is the failure it already
@@ -206,8 +209,8 @@ __attribute__((weak)) int native_ufs_part_read(uint32_t lun, uint64_t lba, uint3
 __attribute__((weak)) int native_ufs_abs_read(uint64_t, uint32_t, void *);
 __attribute__((weak)) int native_ufs_abs_read(uint64_t lba, uint32_t blocks, void *dst)
 {
-	(void)lba; (void)blocks; (void)dst;
-	return 0;
+    (void)lba; (void)blocks; (void)dst;
+    return 0;
 }
 
 // BootLog.c:1114 prints these and never divides by them, and its row is already gated on a captured
