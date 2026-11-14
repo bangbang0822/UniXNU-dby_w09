@@ -3,7 +3,7 @@
 // transcription of ilitek_thp.c's SPI ops and chip detect plus ilitek_touch.c's AP-mode report; it holds no state of
 // its own and performs no hardware access, so the same code runs against a fake part on the build host.
 #include "IliTddi.h"
-// No <string.h> here on purpose, for the same reason NvtProtocol.c:5 states it: this file is built with -mkernel and
+// No <string.h> here on purpose, for the same reason NvtProtocol.c:7 states it: this file is built with -mkernel and
 // no Darwin sysroot, so the angle include resolves to the host glibc header, whose __THROW/__nonnull machinery does
 // not parse under that target. The routines used below are declared directly instead; on arm64 size_t is unsigned long.
 extern void *memcpy(void *dst, const void *src, unsigned long n);

@@ -54,7 +54,7 @@ volatile uint32_t native_legacy_stage;
 /* The stage-3 gate at :557-567: [0] the sheng-fb-gpu argument as parsed, [1] how far the presenter got - 0 gate not
  * reached, 1 creating, 2 native_gop_presenter_create returned null, 3 no resource service, 4 init refused, 5 attach
  * refused, 6 start refused, 7 presenter live. The SWAP row's "gpu offers=0" cannot tell "no presenter" from "every
- * offer refused", because that counter only moves on an accepted offer (NativeGOPPresenter.cpp:138). */
+ * offer refused", because that counter only moves on an accepted offer (drivers/GopFramebuffer/NativeGOPPresenter.cpp:150, the counter bumped only on an accepted offer). */
 volatile uint32_t native_legacy_gop_gate[2];
 volatile int native_legacy_meta_status=-1;
 volatile uint32_t native_legacy_init_result,native_legacy_start_result,native_legacy_probe_match;
