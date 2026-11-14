@@ -195,6 +195,12 @@ int dbt_spmi_emergency_stop(DbtSpmi *s)
 int dbt_spmi_discover(DbtSpmi *s, const DbtSpmiIo *io, unsigned ee)
 {
     if (!s || !io || !io->core || !io->obs || !io->obs_put) return DBT_PERM;
+    /* A discovery is a fresh session on this object, so the whole state starts over rather than the
+     * five fields it used to touch. A second discover() on an already-used bus kept silent=1 and
+     * closed=1 (every read answering DBT_TIMEOUT and every write refused for the rest of the boot),
+     * kept rw_mapped=1 under a new io vtable, and kept counters and slots that only ever grew. The
+     * fields set below are the ones this call then decides. */
+    *s = (DbtSpmi){0};
     s->io = io;
     s->ee = ee;
     s->apid = -1;
