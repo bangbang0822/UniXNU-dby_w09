@@ -66,7 +66,9 @@ def main():
             target = mount / 'ngpu/audio/ShengAudio.driver'
             if target.exists():
                 shutil.rmtree(target)
-            target.parent.mkdir(parents=True)
+            # exist_ok: on a re-stage the bundle directory is gone but ngpu/audio is not, and mkdir without it
+            # raised FileExistsError before anything was copied.
+            target.parent.mkdir(parents=True, exist_ok=True)
             for directory in (mount / 'ngpu', mount / 'ngpu/audio'):
                 os.chmod(directory, 0o755)
             shutil.copytree(BUNDLE, target, symlinks=False)
