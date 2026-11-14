@@ -77,8 +77,12 @@ def main():
     if INSTALL_NAME not in load or 'minos 17.0' not in load:
         fail('wrong install name or minimum OS')
     initializers = subprocess.run(['xcrun', 'otool', '-s', '__DATA_CONST', '__mod_init_func', str(target)], capture_output=True, text=True).stdout
-    if '__mod_init_func' not in initializers and 'dbc_plugin_load' not in subprocess.run(['xcrun', 'nm', str(target)], capture_output=True, text=True).stdout:
-        fail('no constructor')
+    symbols = subprocess.run(['xcrun', 'nm', str(target)], capture_output=True, text=True).stdout
+    # Both constructors the plug-in ships, checked by name: the old test passed when either signal was present,
+    # so losing one of the two could not fail it.
+    missing = [name for name in ('dbt_plugin_load', 'dbc_plugin_load') if name not in symbols]
+    if missing or '__mod_init_func' not in initializers:
+        fail('missing constructor: ' + (', '.join(missing) if missing else '__mod_init_func'))
     linked = subprocess.run(['xcrun', 'otool', '-L', str(target)], check=True, capture_output=True, text=True).stdout
     outside = [line.split()[0] for line in linked.splitlines()[1:] if not line.split()[0].startswith(('/System/', '/usr/lib/'))]
     if outside:
