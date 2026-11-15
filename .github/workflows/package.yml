@@ -141,3 +141,21 @@ jobs:
             UniXNU/out/dby-w09/*/*/payload/payload.img
             UniXNU/out/dby-w09/*/*/kernel/kernel.macho
             UniXNU/out/dby-w09/*/*/package.manifest.json
+      # The GPU addon is the one image input a Linux host cannot make: Turnip and the Metal
+      # plugin need Xcode's clang and the iOS SDK, and the tablet cannot build them either.
+      # board.toml's [payload.runtime] is what asks for it; this step keeps the pair the runtime
+      # step produced - the addon and the owner trust bundle that carries its CDHash - so a
+      # payload built elsewhere can take them with --gpu-addon and --owner-trust-cache. They must
+      # come from the same run: the trust module carries the plugin's hash, and pairing one run's
+      # addon with another run's trust bundle is what AMFI refuses.
+      - name: gpu addon
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-addon-${{ inputs.os }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            UniXNU/out/dby-w09/*/*/runtime/gpuaddon.bin
+            UniXNU/out/dby-w09/*/*/runtime/owner-trust.bundle
+            UniXNU/out/dby-w09/*/*/runtime/generated.json

@@ -160,9 +160,17 @@ cd UniXNU
 ./unixnu build kernel  -D ../UniXNU-dby_w09 --jobs 4
 ./unixnu build payload -D ../UniXNU-dby_w09 --jobs 4 \
   --unique-chip-id <platform seed for the device tree> \
-  --trust-cache build/original-static-system-trust/original-static-system.bundle \
+  --owner-trust-cache <owner-trust.bundle from the macOS run> \
+  --gpu-addon <gpuaddon.bin from the same macOS run> \
   --data-ramdisk <data-final.dbr>
 ```
+
+`board.toml`'s `[payload.runtime]` makes the payload step prepare its runtime inputs first. On
+macOS that step builds them - the Data seed checks, the owner trust bundle and the GPU addon - and
+the `package.yml` workflow is what runs it. On any other host it cannot, so the two files it would
+have produced have to be passed in, as a pair: the trust bundle carries the plugin's CDHash, so an
+addon from one run with a bundle from another is refused. Until a macOS run has produced them, a
+payload built here needs that section commented out; `unixnu build kernel` is unaffected either way.
 
 Two things about that sequence are load-bearing:
 

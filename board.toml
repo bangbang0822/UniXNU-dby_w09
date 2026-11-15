@@ -9,6 +9,12 @@
 # the owner bundle carries the plugin/daemon CDHashes, the original one is the donor's
 # unchanged static+System pair. payload.py skips this allow-list when --owner-trust-cache
 # is used, so the pin lives here and is checked by work/verify/pack-gates.py.
+# 2026-11-16: the owner pin is superseded for the CI path. [payload.runtime] below has the
+# macOS runner rebuild the owner bundle (it carries the freshly built plugin's CDHash), so
+# that run's hash cannot be the one pinned here; the original pin still holds, because the
+# runtime appends to the same donor bundle. Keep the owner line for the local path, where
+# an addon and its bundle are supplied together, and re-pin it if a CI build becomes the
+# reference installation.
 owner_trust_cache_sha256 = "54dd82de82c5ac099f731a71c359eacccb2fc42818f29de6665ee08103217381"
 original_trust_cache_sha256 = "7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7"
 # 以及 ADT 的 iPad7,1/J120 身份、/chosen 安全状态、/defaults kern.maxvnodes。
@@ -700,6 +706,33 @@ kernel_args = [
   #   armcpu-diagnostics=1, boot-diag-resume=3600, -no_slto_panic  upstream removed these with the
   #   diagnostics notes they left in their place.
 ]
+
+# ---------------------------------------------------------------------------
+# 运行时输入在 macOS 上准备：Data seed 的校验、owner trust bundle，以及**从源码构建的 GPU
+# addon**。这一段是这台机器一直没有 addon 的原因——没有 [payload.runtime] 时
+# `unixnu build payload` 不会去要 addon，于是本树打出来的 payload.json 里
+# gpu_addon_sha256 一直是 null（门禁的基线还记着 2026-11-08 那次验收启动的 a267725c…，
+# 那是另一棵树带 addon 打出来的，两边不要混）。addon 只能在 macOS 上产出：Turnip 和 Metal
+# 插件要 Xcode 的 clang 与 iOS SDK。仓库的 .github/workflows/package.yml 已经跑在 macos-26 上
+# 并调用 scripts/package.sh，打开这一段那条流水线就会把 addon 一起做出来，产物落在
+# out/<device>/<profile>/<config>/runtime/{gpuaddon.bin,owner-trust.bundle}。
+#
+# 代价（2026-11-16 审核指出）：只要这张表存在，任何 `unixnu build payload` 都会先跑运行时
+# 步骤，而在 Linux 上它只能拿到现成的两份输入——所以本机构建 payload 必须成对传
+# `--gpu-addon <gpuaddon.bin> --owner-trust-cache <owner-trust.bundle>`（来自同一次 macOS 运行），
+# 否则运行时会停在 "Pass both --gpu-addon and its --owner-trust-cache"。只 `unixnu build kernel`
+# 不受影响。还没有那对文件时，按 README 的说明把这一段临时注释掉再构建。
+# ---------------------------------------------------------------------------
+[payload.runtime]
+tool = "scripts/build-boot-runtime.py"
+target = "ios"                 # iPadOS 17；ios27 是 arm64e 的 27 代目标
+build = "21H461"               # 本 profile 的 OS build
+# data_gib 和 skip_setup 只在新种子（--init-data）时生效；本板用保留的 8 GiB seed，
+# 容量与 Setup-done 状态见 docs/build-2026-11-15-first-boot-image.md 的输入表。
+data_gib = 8
+skip_setup = true
+trust_components = ["StaticTrustCache", "Cryptex1,SystemTrustCache"]
+# gpu_addon 缺省为 true：不写就是构建 addon。
 
 # ---------------------------------------------------------------------------
 # DarwinBoot 交接开关（devicetree.py 的 options = config['payload']['adt']）：
