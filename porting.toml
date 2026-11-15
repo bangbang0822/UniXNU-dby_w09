@@ -407,6 +407,11 @@ command = "grep -n reserved=0 drivers/GopFramebuffer/NativeGOPresenter.cpp"
 revision = "b3ad5eebd2a4acf778e0fadf4661bdeafc0fb1d6"
 result = "2026-11-14: both returns in NativeGOPresenter.cpp end with out->reserved=0, so Frame.mapping is 0 on every frame this board produces and the presenter cache never activates. Not repairable without a GOP ABI change plus a measurement; the header records it."
 
+[[area.evidence]]
+kind = "source"
+reference = ".github/workflows/package.yml"
+result = "The GPU addon has never been in this board's payload, and the reason is a missing table rather than a missing capability: `unixnu build payload` only asks for an addon when board.toml carries [payload.runtime], and this board never had one, so every payload.json this tree produced records gpu_addon_sha256 as null. The table now exists (tool scripts/build-boot-runtime.py, target ios, build 21H461, the two trust components this profile fetches) and the macOS workflow that already builds the images gains a step that keeps the runtime outputs - runtime/gpuaddon.bin, runtime/owner-trust.bundle and runtime/generated.json - as an artifact, because the addon is the one image input a Linux host cannot make (Turnip and the Metal plugin need Xcode's clang and the iOS SDK). Two consequences are recorded with it: a payload built on any non-macOS host now has to pass --gpu-addon and --owner-trust-cache as a pair from the same macOS run, or the runtime step stops with 'Pass both --gpu-addon and its --owner-trust-cache'; and the owner_trust_cache_sha256 pin at the top of board.toml cannot match a CI-built bundle, because that bundle carries the freshly built plugin's CDHash. One prerequisite is unconfirmed: the reviewer could not establish whether build-adreno-metal-plugin.py needs cargo/rustc (RustPacBoundary.o) and whether the workflow's tools step provides it. Nothing here has run on the runner yet."
+
 [[area]]
 id = "network"
 status = "planned"
