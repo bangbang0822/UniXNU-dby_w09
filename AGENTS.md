@@ -87,6 +87,30 @@ rather than hidden, and the record says what each one still owes.
 Preserve upstream names: source file names, runtime classes, bundle identifiers, symbols and
 protocol GUIDs. Do not rename an official component to a board-local name.
 
+## Code review
+
+Every change to code in this repository is reviewed before it is built into an image that runs on
+the tablet, and the review is written down in the commit or in the document the commit points at.
+Two changes on 2026-11-15 are the reason this is a rule rather than a habit: a display diagnostic
+that read a register block before its clocks were up aborted the kernel on the first frame, and a
+boot-argument reader added the same night was handed an integer because XNU's `PE_parse_boot_argn`
+only forces a string copy for names beginning with an underscore. Each was one line, each cost a
+flash cycle, and each was visible to a reader who had the change and its evidence side by side.
+
+A review answers four questions:
+
+1. **What changes?** The mechanism, not the file list.
+2. **What can it break?** The other paths that share the state it touches - a register block's
+   clock or power owner, a mapping's cache mode, a boot argument another component parses too.
+3. **How was it checked without the tablet?** The build result and hash, `check-repository.py`,
+   the pre-flash gate, and any host-side check that covers it.
+4. **What has to be seen on the tablet, and what does each outcome mean?** The console row or the
+   panel state that decides whether the change worked, written before the flash.
+
+Two rules follow and are not optional: one variable per flash, and the last payload that booted is
+kept with its hash so the tablet can go back to it. A change the owner has not approved is not
+flashed, however small it looks.
+
 Run from the UniXNU checkout:
 
 ```sh
