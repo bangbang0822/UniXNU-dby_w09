@@ -427,6 +427,15 @@ kernel_args = [
   # LinkStubs.c, Adreno740, GopFramebuffer); renaming those is a coordinated change across those files
   # and is not part of a payload unblock.
   "pmgr=2",
+  # 2026-11-15 补回 sheng-pmgr=2（含分隔符 13 字节，927 + 13 = 940/1000）。上面那条注释说"没有读者"
+  # 是错的：component:ShengPlatformPower 的 sheng_pmgr_run() 第一行就是
+  # `if (!PE_parse_boot_argn("sheng-pmgr", &mode, sizeof mode) || !mode) return;`
+  # （drivers/ShengPlatformPower/ShengPlatformPower.cpp:71），2026-11-14 把它改名成 pmgr=2 之后替身
+  # 一次都没跑过，AMFI 在 ConfigurationSettings.cpp:235 找不到 ApplePMGR 就 panic "AMFI: No PMGR?"
+  # ——2026-11-15 13:20 那次 boot 的 panic 文本正是这一条（由内核里新加的 panic 落盘路径读回）。
+  # 两条同时传：payload.py 只要求命令行里恰好一个 pmgr=2（这条继续满足），组件要的是 sheng-pmgr。
+  # 组件的正确修法是让它改读 pmgr（组件仓 + feeds.toml 的 pin），在那之前这条是让它工作的最小改动。
+  "sheng-pmgr=2",
   "panic_on_crash_disabled=1",
   "kt_fixed_zones=120",
   # offline-legacy-unit-scale=1 发布 /chosen display-scale，SpringBoard 的
