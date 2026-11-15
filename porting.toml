@@ -491,6 +491,13 @@ command = "host platform-tools fastboot flash preload payload-ord209.img (sha256
 revision = "e392957e512557a4f534167dd707719a789fd52f"
 result = "PASS the built-in speakers sound and the slider follows them: the [apr] rows advance at real time (26.3 s of audio across 21.5 s of wall clock), played= and wrot= stay within 31072 frames (0.6 s) of each other, peak= holds 9787 and late= stays 0, and the 44x write-done spin the same ladder showed one round earlier is gone."
 
+[[area.evidence]]
+kind = "device"
+reference = "package/DbySmartPA.cpp"
+command = "the boot that first ran the whole userspace, read from its own UFS slot through sheng-log-replay=1 (COM20, 3000000 8N1, DTR raised at enumeration)"
+revision = "86beeae46b4b789f11f73062f02edd46dc262b10"
+result = "The pin observation the audio limits have been waiting for, and more than it asked for: `[pa] pins before: scl119=0x00000001(func0) sda120=0x00000001(func0) qup3=0` says the bootloader muxed neither pin and put nothing on qup3, so nothing upstream of the driver vouches for the pair; `[pa] pins 109 ctl=0x00000200 io=0x00000000 scl ctl=0x00000004 sda ctl=0x00000004` and `[pa] geni ready proto=3 clk=0x00000071` say the driver-s own programming brought the GENI I2C engine up, and the amplifiers answer through it: `[pa] set=aw88262 ... alive=0x0 rc=2,2,2,2` (that BOM is absent) but `[pa] set=tfa9874 ... alive=0xf id=0x00000c74,0x00000c74,0x00000c74,0x00000c74 rc=0,0,0,0`, `[pa] slot 0..3 init 42 regs`, `[pa] tfa9874 init done slots=4`, `[pa] done set=tfa9874 invert=0 transfers=180 errors=8`. Four answering TFA9874s at 0x34..0x37 is what proves pins 119/120 are the speaker bus: a wrong pair could not have read the identity register. So the constants stand on a measurement rather than on the unobtainable vendor dtsi, and what remains for this area is sound, not enumeration."
+
 
 [[area]]
 id = "power"
