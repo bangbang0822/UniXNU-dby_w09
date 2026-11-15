@@ -626,6 +626,13 @@ command = "python3 -c \"import ast,pathlib;ast.parse(pathlib.Path('scripts/build
 revision = "6988371966077bb332fd0a8418948a7f43aa6200"
 result = "2026-11-14: the .cache/firmware kernelcache link is unlinked when it is a symlink whose target moved, because exists() answers False for it and symlink_to() then fails with FileExistsError on the stale link. The parser accepts the file; the relink path itself needs the IPSW cache, which this host does not have."
 
+[[area.evidence]]
+kind = "device"
+reference = "board.toml"
+command = "board.toml kernel_args pmgr=2 -> pmgr=2 plus sheng-pmgr=2, ./unixnu build payload -j 20 -D /root/dev-qud --unique-chip-id d0b1e0a11ce0f00d --trust-cache /root/dev-qud/build/original-static-system-trust/original-static-system.bundle --data-ramdisk /root/seed/data-final.dbr, fastboot flash boot/preload, reboot"
+revision = "be6ce91d0e1e5aa2a46e2b9c3c1db8bd6c1b7a5f"
+result = "The boot after the gpu-addon fix still died at about 46 s, and the panic text - read back through the panic-to-log-window path added in this same round - is `\"AMFI: No PMGR?\\n\" @ConfigurationSettings.cpp:235`. The stand-in never ran: component:ShengPlatformPower sheng_pmgr_run() opens with `PE_parse_boot_argn(\"sheng-pmgr\", ...)` (ShengPlatformPower.cpp:71) and returns when the argument is missing, and the 2026-11-14 rename to pmgr=2 removed exactly that argument (the comment recording the rename said nothing read it; that comment was wrong). Payload.py only demands exactly one pmgr=2, so both names now travel: pmgr=2 for the payload check, sheng-pmgr=2 for the component. After that boot AMFI prints `AMFI: PMGRAON latched to: ffffffff` instead of panicking, launchd runs its boot tasks (mount-phase-1/2, fsck, finish-restore, keybag, launchd_cache_loader, workload-properties-init, init-exclavekit) and prints `Early boot complete. Continuing system boot.`, AMFI verifies cdhashes for new processes (`isCdhashInTrustCache ... Returning IOReturn 0x0 to process 102`), APFS flushes the Data volume, the audio HAL-s text fixup applies, and the kernel keeps running for minutes instead of 46 s. Still absent at the end of that capture: backboardd and SpringBoard, and IOMFB reports `default_fb_surface: No Default FB Surface found` - the display path is the next area, not the kernel."
+
 [[area]]
 id = "packaging"
 status = "device-verified"
