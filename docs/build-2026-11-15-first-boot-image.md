@@ -54,3 +54,23 @@ would answer open questions:
   `offline scratch Data mount failed: 2`.
 * the `pmgr` stand-in row, the UFS root rows and the AudioReach handshake - each is a limit with a stated
   observation.
+
+## Second build, later the same day
+
+The image above went on the tablet and booted far enough to show panic text, but the console read zero bytes
+both times, so that run produced no evidence of its own. The second build is the same chain with one kernel
+change and one argument: `package/BootLog.c` now snapshots the previous run's header, message area and newest
+text slot before its own writer overwrites them, and `sheng-log-replay=1` in `[payload] kernel_args` starts
+the replay that prints them, so the next boot can show the last run's text.
+
+| artifact | size | sha256 |
+|---|---|---|
+| `kernel/kernel.macho` | 53,284,864 | `1c8270c313e84559c6eef4e98e4a9869bf09251c7608836a061f395cadae5b28` |
+| `payload/payload.img` | 218,103,808 | `d1b18cc76c9e5086cee31bdafc49363c66b69fc7e158a6fae2564f846697bd78` |
+| boot image (unchanged) | 9,142,272 | `188852b79bfc43cf2e1ba3cbec1c66ccbd0eb5d98c8d2d901b1941a7305518b1` |
+
+Two kernel passes after deleting `kernel.macho` both returned 0, and the payload was built on that kernel with
+the same trust bundle (`7416ca4f...`) and seed (`1039dd44...`). `fastboot flash boot` and
+`fastboot flash preload` both answered OKAY. The console then enumerated 12 s after the reboot and refused
+every control-line request, which is a reader problem rather than a flash problem - the runbook now records
+how the port has to be opened. Both images are on the tablet and the next step is a power cycle.
