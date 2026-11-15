@@ -14,6 +14,7 @@ import os
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import tempfile
 import sys
@@ -28,7 +29,7 @@ CRITICAL_ARGS = {
     "dby-bl=1": "亮度控制",
     "offline-legacy-unit-scale=2": "界面大小 / display-scale",
     "boot-progress=2": "诊断页与锁屏画面",
-    "sheng-gpu-addon=1": "GPU 附加包（显示后端）",
+    "gpu-addon=1": "GPU 附加包（显示后端；native_gpu_addon_prepare() 在 kern_exec.c 读的是 gpu-addon，本板 2026-11-15 从 sheng-gpu-addon=1 改名，29d73bc）",
     "offline-mobile-graphics-load=1": "移动图形加载",
     "offline-mobile-graphics-client=1": "移动图形客户端",
     "dby-audio=2": "音频服务与共享环",
@@ -74,12 +75,18 @@ ADT_IN_ESP = "::/EFI/UniXNU/Payloads/kernel.macho.adt"
 
 def adt_from_esp(image):
     """The device tree the firmware hands XNU, read out of the ESP image with mtools: no root, no loop
-    mount. Verified by extracting payload-ord203.img's ADT and getting the digest the baseline pins."""
+    mount. Verified by extracting payload-ord203.img's ADT and getting the digest the baseline pins.
+
+    mtools is a build-host package; a host without it gets the FAIL row below, carrying this reason
+    instead of a traceback that hides which check could not run."""
+    if shutil.which("mcopy") is None:
+        return None, "mtools 不在本机（mcopy）"
     with tempfile.TemporaryDirectory() as td:
         dst = Path(td) / "kernel.macho.adt"
         p = subprocess.run(["mcopy", "-n", "-o", "-i", str(image), ADT_IN_ESP, str(dst)],
                            capture_output=True, text=True)
-        return dst.read_bytes() if p.returncode == 0 and dst.is_file() else None
+        blob = dst.read_bytes() if p.returncode == 0 and dst.is_file() else None
+        return blob, "mcopy rc=%d" % p.returncode
 
 
 def diff_runs(a, b):
@@ -137,14 +144,18 @@ def main():
     note = lambda ok, name, detail="": results.append((ok, name, detail))
 
     # ---- 1. artifact identity: the kernel in the payload is the kernel we just built ----
+    # Every file this gate reads is UTF-8, and read_text() without an encoding answers the locale
+    # code page instead - cp936 on the Windows host, which cannot decode the baseline's arrows and
+    # em dashes. The gate then died before its first check, which is why the 2026-11-15 session ran
+    # it on the build host only.
     baseline_path = Path(a.baseline)
-    base_doc = json.loads(baseline_path.read_text()) if baseline_path.is_file() and not a.write_baseline else {}
+    base_doc = json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.is_file() and not a.write_baseline else {}
 
     pj = out / "payload/payload.json"
     if not pj.is_file():
         print("FAIL  payload.json missing at", pj)
         return 1
-    rec = json.loads(pj.read_text())
+    rec = json.loads(pj.read_text(encoding="utf-8"))
     km = out / "kernel/kernel.macho"
     if not km.is_file():
         print("FAIL  kernel.macho missing at", km)
@@ -200,7 +211,7 @@ def main():
         note(pib.count(lit.encode()) > 0, "真机见过的行在此镜像里", lit)
 
     # ---- 4. args: board.toml intent == payload.json reality == accepted baseline ----
-    bt = (dev / "board.toml").read_text(errors="replace")
+    bt = (dev / "board.toml").read_text(encoding="utf-8", errors="replace")
     m = re.search(r"kernel_args = \[(.*?)\n\]", bt, re.S)
     authored = []
     if m:
@@ -239,8 +250,9 @@ def main():
             note(key in rec, f"payload 输入 {key} 已记录", str(rec.get(key, ""))[:16])
 
     # ---- 5b. the device tree in the image, field by field against the accepted boot ----
-    flash_adt = adt_from_esp(pi)
-    note(flash_adt is not None, "从将刷镜像取出 kernel.macho.adt", str(rec.get("adt_sha256"))[:16])
+    flash_adt, adt_why = adt_from_esp(pi)
+    note(flash_adt is not None, "从将刷镜像取出 kernel.macho.adt",
+         adt_why if flash_adt is None else str(rec.get("adt_sha256"))[:16])
     ref_name = str(base_doc.get("adt_reference") or "")
     if flash_adt is not None and ref_name:
         ref_path = Path(__file__).resolve().parent / ref_name
@@ -293,7 +305,7 @@ def main():
             "kernel_sha256": ksha,
             "note": "accepted by device observation on 2026-11-08 (ord203): lock screen, charging "
                     "badge, touch, brightness, interface size, audio path all working",
-        }, indent=2, ensure_ascii=False) + "\n")
+        }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print("baseline written:", a.baseline)
     print("REGRESSION_GATE=%d" % (1 if fails else 0))
     return 1 if fails else 0
