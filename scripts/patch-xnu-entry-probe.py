@@ -246,6 +246,11 @@ def assemble_c(source, va, workdir, symbols):
         if not any(base <= text and text + PANIC_TEXT_BYTES <= base + size for base, size, _, _ in SEGMENTS):
             raise SystemExit(f'Invalid _boot_progress_panic_text: needs {PANIC_TEXT_BYTES} bytes of room in its segment')
         definitions.append(f'-DPANIC_TEXT={text:#x}UL')
+    # Optional: the board's log writer, which copies the panic message into the UFS log window so the next boot can
+    # replay it (package/BootLog.c boot_log_panic_text). Kernels without that export get 0 and the screen only draws.
+    flush = symbols.get('_boot_log_panic_text')
+    if flush is not None and any(base <= flush and flush + 4 <= base + size for base, size, _, _ in SEGMENTS):
+        definitions.append(f'-DPANIC_FLUSH={flush:#x}UL')
     subprocess.run([clang, '--target=aarch64-none-elf', '-ffreestanding', '-fno-builtin', '-fno-stack-protector',
                     '-mgeneral-regs-only', '-fno-pic', '-mcmodel=tiny', '-Oz', f'-DVINFO={VINFO_VA:#x}UL',
                     *definitions, f'-I{font_dir}', '-c', source, '-o', obj], check=True)

@@ -43,6 +43,12 @@ struct ctx {
 #ifndef PANIC_TEXT
 #define PANIC_TEXT 0UL
 #endif
+/* The board's log writer entry point (package/BootLog.c, boot_log_panic_text): the panic message is copied there so the
+ * next boot can replay it, because the USB console stops answering control requests as soon as the panic parks the
+ * kernel. 0 keeps kernels that do not export it working. */
+#ifndef PANIC_FLUSH
+#define PANIC_FLUSH 0UL
+#endif
 #define PANIC_TEXT_BYTES 2048   /* boot_progress_panic_text: a data abort's message with every register, then the frames */
 
 __attribute__((noreturn)) static void park (void)
@@ -298,6 +304,11 @@ __attribute__((noreturn, used, section(".text.b_main"))) void panic_screen_main 
     }
   }
   g.log = 0;
+  /* Hand the finished message to the log window before parking: this is the only record of the panic that survives
+   * the reboot that follows it. */
+  if (PANIC_FLUSH && PANIC_TEXT) {
+    ((void (*)(const char *))PANIC_FLUSH)((const char *)PANIC_TEXT);
+  }
   __asm__ volatile ("dsb sy");
   /* Resolved from this candidate's symbols by the patcher, never fixed addresses.
    * Values are sampled at panic time and need not form an atomic VM snapshot. */

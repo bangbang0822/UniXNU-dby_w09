@@ -233,9 +233,16 @@ volatile uint32_t boot_log_state, boot_log_rounds, boot_log_errors;
  * strength of "the log is up" must wait for THIS counter (review 2026-11-03 15:30). */
 volatile uint32_t boot_log_slots_ok;
 volatile uint64_t boot_log_first_lba;
+// The window this boot opened, and the one block at its end that the panic path writes and the replay prints. The
+// slot ring stops at LogSlotFirst + 509 * LogSlotBlocks, so the last block of the window is never a slot.
+static volatile uint32_t boot_log_window_blocks;
+static uint8_t boot_log_panic_block[LogBlock];
+static volatile int boot_log_panic_written;
+void boot_log_panic_text(const char *text);   // below; the patched panic screen resolves it by this name
+// Keeps boot_log_panic_text in the kernel even though only the patched panic screen calls it.
+void (*volatile boot_log_panic_hook)(const char *) = boot_log_panic_text;
 static int boot_log_started;
 static uint8_t *boot_log_buffer;   // LogMsgBlocks blocks: the message buffer, then reused for a slot and the header
-
 // The export: boot_log_export_put takes the blob's pieces in order (any thread) and writes them through a staging buffer straight into
 // the half of the export region that does not hold the last complete blob; once the last piece is on the medium that blob becomes the
 // complete one, and the writer's next header names it. The lock serialises pieces and guards the counters.
@@ -1472,6 +1479,26 @@ static void replay_lines(const char *what, const uint8_t *text, uint32_t used) {
   }
 }
 
+/* Called from the panic screen (scripts/xnu-panic-screen.c) with the formatted panic message, in panic context.
+ *
+ * The USB console stops answering control requests as soon as the panic parks the kernel, and that text lives in RAM,
+ * so without this the message only ever reached the screen. The window's last block is outside the slot ring, so
+ * writing it here cannot make the writer's own snapshot inconsistent, and the next boot's replay prints it. One shot:
+ * the first panic's text is the one worth keeping. */
+void boot_log_panic_text(const char *text)
+{
+  if (!text || !&native_ufs_log_write) return;
+  if (!boot_log_window_blocks || boot_log_panic_written) return;
+  boot_log_panic_written = 1;
+  memset(boot_log_panic_block, 0, LogBlock);
+  memcpy(boot_log_panic_block, "SHLPANIC", 8);
+  uint32_t at = 8;
+  for (unsigned i = 0; i < LogBlock - 16 && text[i]; ++i) boot_log_panic_block[at++] = (uint8_t)text[i];
+  boot_log_panic_block[at++] = '\n';
+  native_ufs_log_write(boot_log_window_blocks - 1, 1, boot_log_panic_block);
+  if (&native_ufs_log_sync) native_ufs_log_sync();
+}
+
 static void replay_previous(void *arg, wait_result_t result) {
   (void)arg; (void)result;
   thread_set_thread_name(current_thread(), "boot_log_r");
@@ -1489,6 +1516,15 @@ static void replay_previous(void *arg, wait_result_t result) {
   if (previous.msg) {
     kprintf("[prev] --- message buffer, %u of %u bytes ---\n", previous.msg_bytes, h->msg_bytes);
     replay_lines("msg", previous.msg, previous.msg_bytes);
+  }
+  // The panic path writes one block at the end of the window that no writer round ever uses (see boot_log_panic_text).
+  {
+    uint8_t *block = (uint8_t *)IOMalloc(LogBlock);
+    if (block && native_ufs_log_read(h->window_blocks - 1, 1, block) && memcmp(block, "SHLPANIC", 8) == 0) {
+      kprintf("[prev] --- panic text, written by the run that died ---\n");
+      replay_lines("panic", block + 8, LogBlock - 8);
+    }
+    if (block) IOFree(block, LogBlock);
   }
   kprintf("[prev] --- end ---\n");
   if (previous.msg) IOFree(previous.msg, (size_t)h->msg_blocks * LogBlock);
@@ -1508,6 +1544,7 @@ static void writer(void *arg, wait_result_t result) {
     IOSleep(1000);
   }
   boot_log_first_lba = first;
+  boot_log_window_blocks = (uint32_t)blocks;
   // The window still holds the previous run's text here, and the first round below overwrites it: snapshot before writing.
   capture_previous(first, (uint32_t)blocks);
   const uint32_t slot_count = (uint32_t)((blocks - LogSlotFirst) / LogSlotBlocks);
