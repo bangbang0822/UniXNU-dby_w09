@@ -334,7 +334,12 @@ kernel_args = [
   # 触摸驱动阶段梯（package/DbyTouch/DbyTouch.cpp 读 dby-touch=）：8 = 取帧+接触点提取+发布，
   # 并且跑厂商固件下载——这颗 N9Z 是无闪存 THP，主机每次开机不上传 0x30000 镜像就永远不上报。
   # dby-touch-se=1 是单独一道门：本驱动从不做时钟投票，未上电读 SE 会挂死总线（2026-10-31 实测）。
-  "dby-touch=8",
+  # 2026-11-16 00:10 花屏分流（临时）：8 -> 1。DBY-W09-触摸包-检测与修复指南-2026-11-03.md §1/S1
+  # 与 §5 的阶段梯说得很明确：stage 6 会给 GPIO98 一个 reset 脉冲，如果这个脚在别的板上是面板复位/
+  # 电源脚，面板就被复位成未初始化态——那正是"白色横线"最像的一类（指南排名 2，S1/S11）。
+  # stage 1 在任何映射之前返回（DbyTouch.cpp 的 parseStage 早退），12 类 MMIO 写全部关掉，只留只读探针，
+  # 所以这一刀能把"触摸驱动写的"与"参数/显示栈的"分开。结论出来后改回 8 或按指南 §8 补丁 2 改成显式开关。
+  "dby-touch=2",
 
   "dby-touch-se=1",
   # CPU 频率投票（package/CpuFreqProbe.cpp 读 sheng-cpufreq=，来自官方同 SoC 板 alioth）。
