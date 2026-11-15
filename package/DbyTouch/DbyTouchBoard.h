@@ -314,8 +314,20 @@
  * roughly 15/40 of one core.  The same boot page reported LOAD idle=97 %, so that is affordable.
  * This is still polling, not a scan: sheng measured the same polling at 93/300 s of CPU on this
  * silicon (work/tracks/xiaomi-touch/REPORT.md:205-211).  If the next readback shows LOAD sys climbing
- * into double digits, raise this to 40 before touching anything else. */
-#define DBY_TOUCH_HID_PERIOD_MS       25U
+ * into double digits, raise this to 40 before touching anything else.
+ *
+ * 2026-11-16: 25 ms was a hard 40 Hz ceiling on the whole input path and the owner felt it as a laggy
+ * pointer.  The loop is gated on pin 39 before it reads anything, so the *cheap* pass - pin says
+ * nothing is waiting - can run at 3 ms for free.  The expensive pass is bounded separately by
+ * DBY_TOUCH_HID_READ_GAP_MS, because the gate fails open when the pin cannot be read and a readable
+ * pin that stays asserted would otherwise have this thread read a frame every 3 ms. */
+#define DBY_TOUCH_HID_PERIOD_MS       3U
+
+/* Added after the frame read: one frame costs ~7-10 ms of engine time at 9.6 MHz (8208 bytes plus
+ * the peek), so this is the floor that keeps the read path at ~45-50 Hz instead of one frame per
+ * loop pass.  12 ms + the read is inside the 25 ms the board used before, which is why the pointer
+ * should feel better and not worse. */
+#define DBY_TOUCH_HID_READ_GAP_MS     12U
 
 /* Firmware liveness: after a firmware upload the vendor HAL polls six bytes at chip 0x2FE60 and
  * accepts a first byte in 0xA0..0xAF as "the firmware finished resetting" (nvt_check_fw_reset_state,

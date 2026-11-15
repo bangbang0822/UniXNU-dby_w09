@@ -1990,81 +1990,70 @@ stage4Thread(void *arg, wait_result_t wait)
 }
 
 
-/* Reads a frame longer than the engine can carry in one command.
- *
- * The length ladder measured the boundary: 16, 60, 64 and 128 bytes all succeed and 512 fails with
- * the RX FIFO sitting at its ready-for-receive watermark (14 of 16 words) while TX is full and the
- * command is still active - the engine stopped because the host did not drain fast enough, not
- * because the chip refused.  Rather than change the upstream component's draining, the frame is
- * taken in 128-byte pieces with CS held between them (GENI_M_PARAM_FRAGMENTATION, which is what
- * keep_cs = 1 sets), so the chip still sees one transaction.
- */
-/* 2026-11-15: the vendor reads the whole frame in one full-duplex transfer, and the 128-byte pieces
- * this used to send put an engine programming gap between every 128 bytes of a chip transaction.
- * 1024 keeps the stack buffer small while cutting those gaps per frame from 65 to 8. */
-#define DBY_TOUCH_FRAME_CHUNK 1024
+/* 2026-11-16: the frame is read in ONE full-duplex transfer, the shape the vendor's get_frame() uses.
+ * The ladder that came before this measured a boundary nobody has re-measured since: 16, 60, 64 and
+ * 128 bytes succeeded and 512 failed with the RX FIFO at its watermark while TX was full and the
+ * command still active, which read as "the engine cannot carry the frame in one command" and is why
+ * the frame was taken in pieces from 2026-11-15 on.  That ladder predates poll_only = 2 (the top-level
+ * interrupt left enabled so the status registers stay visible) and the 1024-byte build that followed
+ * it read the same frame the 128-byte build did, so the boundary was never re-tested at the length
+ * this function now asks for.  If the first boot's failure row says the single transfer does not
+ * drain, the 1 KiB pieces are the fallback - not a new theory.  The pieces themselves each cost an
+ * engine programming gap inside one chip transaction and each was another chance to strand CS, and
+ * with the chip finally announcing a frame per scan the owner felt the cost as a laggy pointer.
+ * The transmit side is a heap buffer zeroed once and reused: the frame is 8 KiB and the touch threads
+ * run on 16 KiB kernel stacks, so it cannot live on the stack.  The per-chunk console rows went with
+ * the chunks - at 40 frames a second they were 80 lines a second over the polled USB console, which is
+ * a lag source of its own, and the failure row below still carries the engine snapshot that made them
+ * useful. */
+static uint8_t *gFrameTx;
+static size_t gFrameTxLen;
 
 static int
-stage5ReadChunked(uint8_t *buf, size_t len, size_t *done_out)
+stage5ReadFrame(uint8_t *buf, size_t len, size_t *done_out)
 {
-	size_t done = 0;
-
 	*done_out = 0;
 	gReleaseOk = 0xFFFFFFFFu;
-	while (done < len) {
-		size_t chunk = len - done;
-		uint8_t tx[DBY_TOUCH_FRAME_CHUNK];
-		int keep_cs;
-
-		if (chunk > DBY_TOUCH_FRAME_CHUNK) {
-			chunk = DBY_TOUCH_FRAME_CHUNK;
+	if (len == 0) {
+		return DBY_TOUCH_OK;
+	}
+	if (gFrameTxLen < len) {
+		if (gFrameTx != nullptr) {
+			IOFreeAligned(gFrameTx, gFrameTxLen);
+			gFrameTx = nullptr;
+			gFrameTxLen = 0;
 		}
-		for (size_t i = 0; i < chunk; i++) {
-			tx[i] = 0;
-		}
-		if (done == 0) {
-			tx[0] = 0x20;          /* the report request goes out with the first piece only */
-		}
-		/* Every piece but the last keeps CS asserted, so the chip sees one transaction.  A failure
-		 * on a middle piece therefore leaves CS held low, and nothing in the component releases it. */
-		keep_cs = (done + chunk < len) ? 1 : 0;
-		if (geni_spi_transfer(&gSpi, tx, buf + done, chunk, keep_cs) != 0) {
-			/* Snapshot first: the release transfer below overwrites these registers, and the row has
-			 * to show the state of the transfer that actually failed. */
-			gSnapIrq = gSpi.snap_irq;
-			gSnapStatus = gSpi.snap_status;
-			gSnapTxfs = gSpi.snap_txfs;
-			gSnapRxfs = gSpi.snap_rxfs;
-			kprintf("DbyTouch(s5): transfer failed at %u/%u irq=%08x status=%08x txfs=%08x rxfs=%08x\n",
-			        (unsigned)done, (unsigned)len, (unsigned)gSnapIrq, (unsigned)gSnapStatus,
-			        (unsigned)gSnapTxfs, (unsigned)gSnapRxfs);
-
-			/* A failed *middle* piece is the one that strands the chip; a failure on the last piece
-			 * already ended the frame.  The release is harmless either way and its own result is
-			 * published, because a silently failing release is exactly the "chip stuck until reboot"
-			 * case.  Four bytes is a whole number of 32-bit SPI words, which is all the engine needs. */
-			if (keep_cs) {
-				uint8_t release[4];
-
-				for (size_t i = 0; i < sizeof release; i++) {
-					release[i] = 0;
-				}
-				gReleaseOk = (geni_spi_transfer(&gSpi, release, release, sizeof release, 0) == 0) ? 1u : 0u;
-			}
-			*done_out = done;
+		gFrameTx = (uint8_t *)IOMallocAligned(len, 64);
+		if (gFrameTx == nullptr) {
 			return DBY_TOUCH_ERR_IO;
 		}
-		/* The console row that says whether the frame read is slow or stuck: s5=0xFFFFFFFE on the
-		 * panel only says the thread had not finished, and the slot is written long after. One row
-		 * per 8 chunks (1 KiB of the 8208-byte frame) makes the pace visible at the rate the transfer
-		 * engine answers, and the failure row carries the engine snapshot the panel row only prints
-		 * after the thread gives up. */
-		if ((done % (DBY_TOUCH_FRAME_CHUNK * 8u)) == 0) {
-			kprintf("DbyTouch(s5): read %u/%u\n", (unsigned)done, (unsigned)len);
+		for (size_t i = 0; i < len; i++) {
+			gFrameTx[i] = 0;
 		}
-		done += chunk;
+		gFrameTx[0] = 0x20;             /* the report request: first byte, the rest clocks the read out */
+		gFrameTxLen = len;
 	}
-	*done_out = done;
+	if (geni_spi_transfer(&gSpi, gFrameTx, buf, len, 0) != 0) {
+		/* Snapshot first: the release transfer below overwrites these registers, and the row has to
+		 * show the state of the transfer that actually failed. */
+		gSnapIrq = gSpi.snap_irq;
+		gSnapStatus = gSpi.snap_status;
+		gSnapTxfs = gSpi.snap_txfs;
+		gSnapRxfs = gSpi.snap_rxfs;
+		kprintf("DbyTouch(s5): transfer failed at 0/%u irq=%08x status=%08x txfs=%08x rxfs=%08x\n",
+		        (unsigned)len, (unsigned)gSnapIrq, (unsigned)gSnapStatus,
+		        (unsigned)gSnapTxfs, (unsigned)gSnapRxfs);
+		/* The engine may have left the command active; a short zero transfer with CS released is what
+		 * puts it back, and its own result is published because a silently failing release is exactly
+		 * the "chip stuck until reboot" case. */
+		{
+			uint8_t release[4] = { 0, 0, 0, 0 };
+
+			gReleaseOk = (geni_spi_transfer(&gSpi, release, release, sizeof release, 0) == 0) ? 1u : 0u;
+		}
+		return DBY_TOUCH_ERR_IO;
+	}
+	*done_out = len;
 	return DBY_TOUCH_OK;
 }
 
@@ -2080,7 +2069,7 @@ stage5ReadChunked(uint8_t *buf, size_t len, size_t *done_out)
  * fingerprint row then looks exactly like a chip whose page does not carry the contact.
  *
  * The transfer has the frame reader's shape: 0x20 in the first byte, then the two address-phase bytes, so
- * the header starts at rx[2] - the same reason stage5ReadChunked's caller treats buf[2] as the first frame
+ * the header starts at rx[2] - the same reason stage5ReadFrame's caller treats buf[2] as the first frame
  * byte. */
 #define DBY_TOUCH_THP_HEADER 24
 
@@ -3737,6 +3726,9 @@ dbyTouchHidWanted(void)
 	return want != 0;
 }
 
+/* The gate's readable form is not needed separately: the loop bounds the expensive path after the
+ * read (see DBY_TOUCH_HID_READ_GAP_MS), which is what a gate that fails open costs. */
+
 /* Is the chip asking to be read? Pin 39 idles high and falls when a report is ready, and the vendor's
  * only frame reader runs inside the interrupt thread. Reading the same command without that gate returns
  * the page the chip last selected rather than the report, which is what the 2026-11-15 fingerprint row
@@ -3768,7 +3760,7 @@ stage5Thread(void *arg, wait_result_t wait)
 	(void)arg; (void)wait;
 	thread_set_thread_name(current_thread(), "dby_touch_s5");
 
-	/* Publish at once: a frame is 65 chunked transfers and the sampling multiplies that, so this
+	/* Publish at once: one 8 KiB transfer per frame and the sampling multiplies that, so this
 	 * stage can run for a while.  0xFFFFFFFE means "started, not finished", which the row can show
 	 * instead of the 0xFFFFFFFF "never ran". */
 	gStage5Rc = 0xFFFFFFFEu;
@@ -3801,11 +3793,13 @@ stage5Thread(void *arg, wait_result_t wait)
 	{
 		size_t done = 0;
 
-		rc = stage5ReadChunked(buf, kFrameLen, &done);
+		rc = stage5ReadFrame(buf, kFrameLen, &done);
 		if (rc != DBY_TOUCH_OK) {
-			/* Which piece failed matters more than the total length: it says whether the frame
-			 * request itself was rejected (piece 0) or a later piece broke. */
-			gFailLen = (uint32_t)done;
+			/* One transfer now, so there is no "which piece" to name: the read either moved the whole
+			 * frame or none of it, and `done` is 0 on every failure.  gFailLen used to carry the bytes
+			 * a chunked read had completed, and the page legend reads 0 as "every length passed", so
+			 * it carries 1 here - a value that says nothing but does not claim the opposite. */
+			gFailLen = 1u;
 		}
 	}
 	if (rc != DBY_TOUCH_OK) {
@@ -3904,8 +3898,8 @@ stage5Thread(void *arg, wait_result_t wait)
 	 * finger being present at one particular instant: whatever the panel reports while it is being
 	 * touched will show up as a wide range somewhere in the payload.  Eight samples at 150 ms covers
 	 * long enough for a human to touch the panel during the window, which four samples at 40 ms did
-	 * not; the cost is roughly double the transfers, and the read loop already has a per-chunk
-	 * timeout, so a dead engine fails the same way it did before. */
+	 * not; the cost is roughly double the transfers, and the read loop already has a 200 ms engine
+	 * poll timeout, so a dead engine fails the same way it did before. */
 	{
 		const unsigned kSamples = 8;
 		uint8_t *minv = (uint8_t *)IOMallocAligned(kScanLen, 64);
@@ -3926,7 +3920,7 @@ stage5Thread(void *arg, wait_result_t wait)
 			for (unsigned s = 0; s < kSamples; s++) {
 				size_t got = 0;
 
-				if (stage5ReadChunked(sample, kFrameLen, &got) != DBY_TOUCH_OK) {
+				if (stage5ReadFrame(sample, kFrameLen, &got) != DBY_TOUCH_OK) {
 					break;
 				}
 				samples++;
@@ -3992,7 +3986,8 @@ stage5Thread(void *arg, wait_result_t wait)
 		/* 2026-11-03: skip the sweep when the live HID loop is going to run anyway.  The sweep is
 		 * 40 frames 2 s apart, i.e. it delays the first usable touch by ~82 s after boot, and it holds
 		 * this thread the whole time.  With sheng-touch-hid=1 the live loop below republishes every
-		 * 25 ms, which is what the UI actually consumes, so the sweep only buys offline frames at the
+		 * DBY_TOUCH_HID_PERIOD_MS (3 ms since 2026-11-16), which is what the UI actually consumes, so
+		 * the sweep only buys offline frames at the
 		 * cost of a minute and a half of dead touch.  Offline evidence is still available by booting
 		 * without sheng-touch-hid=1. */
 		if (want && !dbyTouchHidWanted()) {
@@ -4007,7 +4002,7 @@ stage5Thread(void *arg, wait_result_t wait)
 				size_t again = 0;
 
 				IOSleep(DBY_TOUCH_FRAME_PERIOD_MS);
-				if (stage5ReadChunked(buf, kFrameLen, &again) == DBY_TOUCH_OK) {
+				if (stage5ReadFrame(buf, kFrameLen, &again) == DBY_TOUCH_OK) {
 					dbyDumpFrame(buf, kFrameLen, i);
 					dbyTouchFindContact(buf, kFrameLen);
 				} else {
@@ -4019,7 +4014,7 @@ stage5Thread(void *arg, wait_result_t wait)
 	/* Live publication.  The bounded sweep above records evidence; a UI needs a stream, so with
 	 * `sheng-touch-hid=1` this thread keeps sampling and publishes every frame.
 	 *
-	 * The loop cannot move below the FWINFO read to let that read run: `stage5ReadChunked` sends 0x20
+	 * The loop cannot move below the FWINFO read to let that read run: `stage5ReadFrame` sends 0x20
 	 * with no page latch, so it returns whatever page the chip has selected, and FWINFO selects a
 	 * different page on purpose (see the comment on that block).  So everything this thread would
 	 * normally do afterwards is done first - the counters below - and the row is refreshed from
@@ -4027,11 +4022,15 @@ stage5Thread(void *arg, wait_result_t wait)
 	gFrameNz = nonzero;
 	gStage5Rc = 0;
 	if (dbyTouchHidWanted()) {
-		unsigned fails = 0;
-
 		for (;;) {
 			size_t again = 0;
 
+			/* Two cadences, because the two passes cost different things.  A pass that finds nothing
+			 * waiting is one TLMM read, so 3 ms keeps the latency down for free.  A pass that reads a
+			 * frame pays ~7-10 ms of engine time, and the gate fails open on a board whose pin layout
+			 * differs, so the read path is paced by DBY_TOUCH_HID_READ_GAP_MS after it completes
+			 * instead of by the top-of-loop sleep - without that floor a readable-but-always-asserted
+			 * pin (or an unmapped one) would have this thread read a frame every 3 ms, about one core. */
 			IOSleep(DBY_TOUCH_HID_PERIOD_MS);
 			if (!dbyTouchIrqPending()) {
 				/* No report is waiting: the vendor would not be in its IRQ thread either. */
@@ -4042,9 +4041,9 @@ stage5Thread(void *arg, wait_result_t wait)
 			 * all, which the frame content alone cannot (see stage5PeekHeader). A failed peek does not
 			 * block the read - the frame is still what the rest of this loop needs. */
 			(void)stage5PeekHeader();
-			if (stage5ReadChunked(buf, kFrameLen, &again) == DBY_TOUCH_OK) {
-				fails = 0;
-				/* One fingerprint row every 64 publishes (~2.5 s): the non-idle byte count of the
+			if (stage5ReadFrame(buf, kFrameLen, &again) == DBY_TOUCH_OK) {
+				/* One fingerprint row every 64 publishes (~1 s at the 3 ms period plus the frame read
+				 * and the publish step): the non-idle byte count of the
 				 * scanned payload, a rolling hash and the word at 0x1000, so a capture with a finger
 				 * held on the panel and one without can be compared without reading the medium.
 				 * This is the comparison the 0x1000 question needs; the frame itself is unchanged. */
@@ -4071,18 +4070,22 @@ stage5Thread(void *arg, wait_result_t wait)
 				}
 				dbyTouchFindContact(buf, kFrameLen);
 				dbyTouchPublishContact();
-				/* Refresh the page every 16 publishes: ~0.6 s at the 2026-11-03 sample period
-				 * (25 ms sleep + ~15 ms frame read), which is inside the log writer's 2 s cadence. */
+				/* The read path's floor: this pass cost ~7-10 ms of engine time, so the next one waits
+				 * long enough that the thread cannot own a core even when the gate always answers
+				 * "read".  The cheap pass above keeps the 3 ms cadence for latency. */
+				IOSleep(DBY_TOUCH_HID_READ_GAP_MS);
+				/* Refresh the page every 16 publishes (~0.3 s at this cadence), which is inside the
+				 * log writer's 2 s cadence. */
 				if ((gTouchPublishes & 15u) == 0u) {
 					publishPageRow();
 				}
 			} else {
-				/* A failed read is not a lift, so the last contact stands.  Back off so a dead
-				 * engine costs one attempt per period instead of a full-rate busy retry: a
-				 * failed transfer can spend up to ~200 ms in IODelay (GeniSpi.c:199-208). */
+				/* A failed read is not a lift, so the last contact stands.  One failed attempt can
+				 * already spend two full engine polls (~200 ms each, GeniSpi.c's poll_limit) before
+				 * it returns, so the back-off only has to keep the loop from starting another attempt
+				 * straight away; a period-scaled sleep would let a dead engine own the core. */
 				gTouchReadFails++;
-				fails++;
-				IOSleep(DBY_TOUCH_HID_PERIOD_MS * (fails > 8u ? 8u : fails));
+				IOSleep(200u);
 			}
 		}
 	}
