@@ -246,6 +246,13 @@ command = "kernel built from the board tree, replaced into payload_final.img, fa
 revision = "445d5a9c5755bdeeb2b2eb09638647ba704b967f"
 result = "The CPU path is alive only while offer() stays gated on gpuClient. With the gate dropped, the first board self-test frame was accepted before any client existed, NativeLegacyDisplay set transferred on it, nobody ever completed it and the ladder refused every later frame: COPY calls=0 and the panel froze on one slot. Gated as the component repository has it, that frame is refused and the CPU path keeps running: SWAP calls=656 accepted=1 reason=0 COPY calls=655 status=00000000 bytes=16384000 retired=655, i.e. 655 full 1600x2560x4 frames copied and retired on this boot."
 
+[[area.evidence]]
+kind = "device"
+reference = "package/LegacyDisplayProbe.cpp"
+command = "the boot after sheng-pmgr=2 was restored; the panel slot of that run was read back through sheng-log-replay=1 on the next boot"
+revision = "86beeae1e4e6e0f0a0c9f1a49a1b6b0b9d1f3c2a"
+result = "The first boot that ran the whole userspace: the slot the run left behind reports `time=1392s idle=4s IRQ=1857951 monitor=1388 lost=16 root=1 procs=246 published=2`, 634 writer rounds, and process rows for `backboardd p56 n15 r2 w13 b0 t1 s1/31`, `SpringBoard p27 n15 r4 w11 b0 t1 s4/47` and `runningboardd p26 n5 r0 w5`, with the stage line naming `target pid=562 fairplayd.A2 exec process signature accepted`. Display: `DISPLAY stage=10 PM=4 calls=4 callbacks=1 guard=0 owned=1`, `SWAP calls=44 accepted=1 reason=0 COPY calls=44 status=00000000 bytes=16384000 retired=44` and `GOP actual mapping virtual=fffffff206752000 physical=9c000000 bytes=16384000`, so the legacy backend owns the panel and the CPU copy presented 44 full 1600x2560x4 frames. The panel title had moved to `LIVE: DEADLINE EXCEEDED - OS and diagnostic recording continue`, which is the monitor saying the OS kept running past its observation deadline rather than dying. This is the first time this port has had SpringBoard, backboardd and a presented frame after the audit rebuild, and the first boot that outlived the 46 s wall that the missing PMGR nub had set."
+
 [[area]]
 id = "input"
 status = "device-verified"
