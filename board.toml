@@ -473,6 +473,12 @@ kernel_args = [
   # qcom-usb-debug=1 挤进 DarwinBoot.c:542 的 1024 字节命令行缓冲而删掉了本来就有的参数。
   # 现在原样加回来，字节改从我自己新加的那条还（见下面 armcpu-self-ipi 的撤销）。
   "sheng-log=1",
+  # 2026-11-15 临时：Data 的 seed 换成了 data-final.dbr（UUID 2138CDAC...），而 UFS 持久存储里还是
+  # 上一份 seed 的数据——NativeRamBlock 因此进 persist::Open::Kept（诊断页 D st=7），overlay 关掉，
+  # APFS 第一次写就报 "disk1: device is not ready"。sheng-data-reset=1 是官方 "Install and boot"
+  # 语义（NativeRamBlock.cpp:82 discardRequested，旧页丢掉不 apply），跑一次让存储按这份 seed 重开；
+  # 首位成功后要删掉这条，否则每次开机都会清掉 overlay。字节 934 + 19 = 953/1000。
+  "sheng-data-reset=1",
   # 2026-11-15 sheng-log-replay=1（含分隔符 20 字节，914 + 20 = 934/1000）：上一次运行死在
   # 控制台能读之前，这次开机把它留在日志窗里的文本从同一个窗口读回来，再走这次的控制台打出来，
   # 不写介质。读取点是 package/BootLog.c 的 boot_log_tick（PE_parse_boot_argn("sheng-log-replay")），
