@@ -1999,7 +1999,10 @@ stage4Thread(void *arg, wait_result_t wait)
  * taken in 128-byte pieces with CS held between them (GENI_M_PARAM_FRAGMENTATION, which is what
  * keep_cs = 1 sets), so the chip still sees one transaction.
  */
-#define DBY_TOUCH_FRAME_CHUNK 128
+/* 2026-11-15: the vendor reads the whole frame in one full-duplex transfer, and the 128-byte pieces
+ * this used to send put an engine programming gap between every 128 bytes of a chip transaction.
+ * 1024 keeps the stack buffer small while cutting those gaps per frame from 65 to 8. */
+#define DBY_TOUCH_FRAME_CHUNK 1024
 
 static int
 stage5ReadChunked(uint8_t *buf, size_t len, size_t *done_out)
