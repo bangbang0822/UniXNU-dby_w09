@@ -37,7 +37,7 @@
     "native-ufs-stream=0xe0",
     "native-ufs-stream2=0x4e0",
     "native-ufs-root=1",
-    "sheng-pmgr=2",
+    "pmgr=2",
     "panic_on_crash_disabled=1",
     "kt_fixed_zones=120",
     "offline-legacy-unit-scale=2",
@@ -50,13 +50,11 @@
     "offline-hid-input=1",
     "offline-key-events=1",
     "sheng-aks=1",
-    "sheng-data-reset=1",
     "sheng-log=1",
     "offline-legacy-retire=1",
     "sheng-gpu-addon=1",
     "sheng-data-persist=2",
     "sheng-disable-watchdogd=1",
-    "sheng-disable-jobs=com.apple.identityservicesd,com.apple.locationd,com.apple.CommCenter,com.apple.bluetoothd",
     "sheng-adsp=2",
     "armcpu-spi-ipi=1",
     "dby-bl=1",
@@ -71,7 +69,7 @@
     "data_ramdisk_sha256": "423d4000d4d9de1f386b811ad96aa618c303c6c328752e0255e7254761937ff5"
   },
   "kernel_sha256": "51612374a69d1227696fd6f9f201c93ab7b15e0728ba37082d2e0a11ece93e9e",
-  "note": "accepted by device observation on 2026-11-08 (ord203): lock screen, charging badge, touch, brightness, interface size, audio path all working; the three payload carriers were re-recorded on 2026-11-09 for the CI run 42504049040 delivery, whose plug-in answers kAudioDeviceTransportTypeThunderbolt (CDHash 429e404c5299306ac79128c9f27764925efab8dc), and its ADT is byte-equal to the accepted boot's except /chosen random-seed; 2026-11-09: -no_slto_panic was dropped from the line on purpose, its only reader is osfmk/kern/startup.c:473 and no accepted boot printed a spinlock timeout, and it is not a CRITICAL_ARGS row; the slot it paid for now carries dby-torch=1 plus the short-named iOS switch dby-ti=1; those two are deliberately NOT in the accepted args list, because no boot has verified them yet, and they are gated as CRITICAL_ARGS from this round on so a later trim that loses one is caught (see porting.toml).",
+  "note": "accepted by device observation on 2026-11-08 (ord203): lock screen, charging badge, touch, brightness, interface size, audio path all working; the three payload carriers were re-recorded on 2026-11-09 for the CI run 42504049040 delivery, whose plug-in answers kAudioDeviceTransportTypeThunderbolt (CDHash 429e404c5299306ac79128c9f27764925efab8dc), and its ADT is byte-equal to the accepted boot's except /chosen random-seed; 2026-11-09: -no_slto_panic was dropped from the line on purpose, its only reader is osfmk/kern/startup.c:473 and no accepted boot printed a spinlock timeout, and it is not a CRITICAL_ARGS row; the slot it paid for now carries dby-torch=1 plus the short-named iOS switch dby-ti=1; those two are deliberately NOT in the accepted args list, because no boot has verified them yet, and they are gated as CRITICAL_ARGS from this round on so a later trim that loses one is caught (see porting.toml); 2026-11-15: three entries left this list because the line itself moved, not because a boot lost anything - sheng-pmgr=2 is now pmgr=2 (upstream 47ec6a5 dropped the prefix from every boot argument and scripts/unixnu/payload.py refuses the native-UFS-root payload unless exactly one pmgr=2 is present, so the marker had to be renamed and nothing in this tree reads either spelling), and sheng-data-reset=1 plus sheng-disable-jobs=... are deliberately not passed (see board.toml: the first is the last variable to add to a stability measurement and the second was the argument paid for the GPU rows); all three were also stale CRITICAL_ARGS rows in scripts/check-regression.py, so the gate was red for its own reasons before it could say anything about this artifact. The carrier hashes above still describe the 2026-11-08 boot and are expected to differ on a tree that ships a new seed and trust bundle; re-recording them needs a boot that works.",
   "adt_reference": "regression-baseline-adt.adt",
   "adt_sha256_note": "pinned as bytes in scripts/regression-baseline-adt.adt instead of a digest: /chosen/random-seed is os.urandom(64), so adt_sha256 of the accepted boot (e91c7e803a16bdd7) is not reproducible -- two builds of identical carriers gave 4e32ceddde6dc8a3 and 7d836064183b222c, one 64-byte run apart"
 }
