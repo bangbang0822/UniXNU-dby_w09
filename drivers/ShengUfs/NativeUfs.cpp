@@ -2977,10 +2977,31 @@ bool NativeUfs::startRoot (IOService *provider)
     gRootDiagnostic.result = static_cast<uint32_t> (rootPublishResult (result.phase));
     IOLog ("NativeUfs: root preparation failed phase=%u window=%u; nothing published\n",
            static_cast<unsigned> (result.phase), result.index);
+    // kprintf, not IOLog: the CDC console mirrors kprintf only, and this refusal decides whether the
+    // boot has a root device at all. The stage names the sub-check that refused (policy count,
+    // capacity match, allocation, vr_open), and the two capacity-matching inputs are printed next to
+    // it so one boot answers which side of the comparison is wrong.
+    {
+      kprintf ("NativeUfs: root fail phase=%u window=%u stage=%s policies=%llu windowBytes=%llu\n",
+               static_cast<unsigned> (result.phase), result.index,
+               gRootDiagnostic.stage ? gRootDiagnostic.stage : "-",
+               static_cast<unsigned long long> (verified_root_policy_count),
+               static_cast<unsigned long long> (gRootDiagnostic.windowBytes));
+#if defined(NATIVE_VERIFIED_BLOCK) && NATIVE_VERIFIED_BLOCK
+      for (uint64_t index = 0; index < verified_root_policy_count && index < 4; ++index) {
+        const uint8_t *manifest = verified_root_policies[index].manifest;
+        unsigned long long imageBytes = 0;
+        if (manifest) for (unsigned i = 0; i < 8; ++i) imageBytes |= static_cast<unsigned long long> (manifest[24 + i]) << (8 * i);
+        kprintf ("NativeUfs: policy[%llu] bytes=%llu manifestBytes=%llu\n",
+                 static_cast<unsigned long long> (index), imageBytes,
+                 static_cast<unsigned long long> (verified_root_policies[index].manifestBytes));
+      }
+#endif
+    }
     IOService::stop (provider);
     rootDiagnosticFailure (result.phase == UfsRootPhase::Schedule ? "root publisher thread creation failed" :
                           result.phase == UfsRootPhase::Identity ? "signed window identities rejected" :
-                          "root window preparation failed");
+                          gRootDiagnostic.stage ? gRootDiagnostic.stage : "root window preparation failed");
     return false;
   }
   return true;
