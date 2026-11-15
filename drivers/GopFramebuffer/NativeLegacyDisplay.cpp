@@ -469,7 +469,7 @@ public:
         // that says which half of the path produced them.
         {
             static unsigned copies;
-            if((++copies & 31u)==0u) {
+            if(++copies<=8u || (copies & 63u)==0u) {
                 const uint32_t *srcp=reinterpret_cast<const uint32_t *>(source->getVirtualAddress());
                 const volatile uint32_t *dstp=reinterpret_cast<const volatile uint32_t *>(bootMapping->getVirtualAddress());
                 kprintf("DbyDisplay: copy=%u fmt=%08x stride=%llu src=%08x %08x %08x dst=%08x %08x %08x\n",
