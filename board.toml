@@ -473,12 +473,6 @@ kernel_args = [
   # qcom-usb-debug=1 挤进 DarwinBoot.c:542 的 1024 字节命令行缓冲而删掉了本来就有的参数。
   # 现在原样加回来，字节改从我自己新加的那条还（见下面 armcpu-self-ipi 的撤销）。
   "sheng-log=1",
-  # 2026-11-15 临时：Data 的 seed 换成了 data-final.dbr（UUID 2138CDAC...），而 UFS 持久存储里还是
-  # 上一份 seed 的数据——NativeRamBlock 因此进 persist::Open::Kept（诊断页 D st=7），overlay 关掉，
-  # APFS 第一次写就报 "disk1: device is not ready"。sheng-data-reset=1 是官方 "Install and boot"
-  # 语义（NativeRamBlock.cpp:82 discardRequested，旧页丢掉不 apply），跑一次让存储按这份 seed 重开；
-  # 首位成功后要删掉这条，否则每次开机都会清掉 overlay。字节 934 + 19 = 953/1000。
-  "sheng-data-reset=1",
   # 2026-11-15 sheng-log-replay=1（含分隔符 20 字节，914 + 20 = 934/1000）：上一次运行死在
   # 控制台能读之前，这次开机把它留在日志窗里的文本从同一个窗口读回来，再走这次的控制台打出来，
   # 不写介质。读取点是 package/BootLog.c 的 boot_log_tick（PE_parse_boot_argn("sheng-log-replay")），
@@ -491,12 +485,14 @@ kernel_args = [
   # boot-ui-focus 的唯一读者是 package/BootProcessProbe.c:105，作用是把 targets[1] 从默认的 backboardd 换成 launchd，
   # 而 launchd 本来就在槽 0（BootProcessProbe.c:35-36 的默认表 + trace_slot={0,1,1}），删掉只是采样表回到默认分配，
   # 没有任何运行行为跟着走。全树 grep 过 core/ 与 upstream/：除本板与 alioth 的注释外没有别的读者。
-  # sheng-gpu-addon 是 kern_exec.c:7649 native_gpu_addon_prepare() 的唯一门：没有 addon blob 时 native_gpu_addon_install()
-  # 在 :7405 第一步就 return，四个 union 挂载照旧执行，其中 /private/var/ngpu/audio → /System/Library/Audio/Plug-Ins/HAL
-  # 就是本板音频 HAL 的挂载点（上游 sheng 把 HAL 放在同一块里，docs/zh/devices/sheng.md:443）。开这道门也一并带来同一块
-  # 的官方副作用：native_cryptex_os_view（/private/preboot union）、native_gestalt_cache_drop、native_ls_store_drop（各一次），
-  # 判读行是 BootLog.c 的 A mount4=stage/status 与 [cryptex os]。
-  "sheng-gpu-addon=1",
+  # 2026-11-15 改名回裸名 gpu-addon=1。上游 47ec6a5 去掉了所有 boot arg 的 sheng- 前缀，kern_exec.c:7661
+  # 的 native_gpu_addon_prepare() 读的是 "gpu-addon"，而本板一直传 "sheng-gpu-addon=1"——这条参数因此
+  # 静默失效了整轮：函数第一行就 return，后面的 native_gpu_addon_install、五个 native_gpu_addon_mount、
+  # native_cryptex_os_view、native_gestalt_cache_drop 和 native_ls_store_drop 全部不执行。没有 addon blob 时
+  # install 会自己提前返回，但 cryptex 的 OS 视图正是由这里创建，缺了它 dyld 共享缓存在用户态不可见，
+  # 每次 exec 都报 shared_region: vm_shared_region_start_address() failed（诊断页 [cryptex os] stage=0）。
+  # 少 7 字节（19 -> 12），字节账同时受益。
+  "gpu-addon=1",
   # 2026-11-06 boot-ui-focus4=SpringBoard 让位给 -enable_kprintf_spam（27 换 21，仍进 1000 门）。
   # 唯一读者 package/BootProcessProbe.c:116-118：它把 targets[4] 从默认的 runningboardd 改成
   # SpringBoard 并给槽 4 打开 trace。SpringBoard 本来就在默认表的槽 2 且 trace_slot[2] 已经是 1
