@@ -45,9 +45,10 @@ raised DTR: `pump()` returns early while `d->dtr` is 0 and `dtr` is set only by 
 SET_CONTROL_LINE_STATE. A reader that merely opens the port therefore measures itself, not the kernel, and
 reads zero bytes from a live boot. The workspace tools do it in this order: wait for the port to appear (it
 enumerates a few seconds after the reboot, well before the kernel has finished), assert DTR and RTS with
-`EscapeCommFunction` because this device refuses `SetCommState`, and hold one handle open, appending as data
-arrives. `tools/read-console-raw.ps1` is the one-shot reader and `tools/catch-console.ps1` is the one that
-opens at enumeration and keeps the handle. Window's driver also keeps the friendly name from the port number
+`EscapeCommFunction` because this device refuses `SetCommState`, and keep reading for as long as the boot
+lasts. `tools/read-console-raw.ps1` is the one-shot reader; `tools/catch-console.ps1` opens the port the moment
+it appears and then reopens it every three seconds to drain what the gadget buffered, raising DTR and RTS on
+every open. Window's driver also keeps the friendly name from the port number
 the device first started with, so the name the device key and `SERIALCOMM` agree on (COM20) is the one to
 open, not the one shown in the device list.
 
