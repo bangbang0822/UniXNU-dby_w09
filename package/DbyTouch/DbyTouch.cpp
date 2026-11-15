@@ -3865,6 +3865,25 @@ stage5Thread(void *arg, wait_result_t wait)
 			IOSleep(DBY_TOUCH_HID_PERIOD_MS);
 			if (stage5ReadChunked(buf, kFrameLen, &again) == DBY_TOUCH_OK) {
 				fails = 0;
+				/* One fingerprint row every 64 publishes (~2.5 s): the non-idle byte count of the
+				 * scanned payload, a rolling hash and the word at 0x1000, so a capture with a finger
+				 * held on the panel and one without can be compared without reading the medium.
+				 * This is the comparison the 0x1000 question needs; the frame itself is unchanged. */
+				if ((gTouchPublishes & 63u) == 0u) {
+					uint32_t nz = 0, sum = 0;
+					const size_t p = kFrameStart + 0x1000u;
+
+					for (size_t i = kFrameStart; i < kFrameStart + 8192u && i < kFrameLen; i++) {
+						if (!dbyFrameIdle(buf[i])) {
+							nz++;
+						}
+						sum = sum * 31u + buf[i];
+					}
+					kprintf("DbyTouch(s5): pub=%u nz=%u sum=%08x w1000=%02x%02x%02x%02x\n",
+					        (unsigned)gTouchPublishes, (unsigned)nz, (unsigned)sum,
+					        p + 3 < kFrameLen ? buf[p] : 0u, p + 3 < kFrameLen ? buf[p + 1] : 0u,
+					        p + 3 < kFrameLen ? buf[p + 2] : 0u, p + 3 < kFrameLen ? buf[p + 3] : 0u);
+				}
 				dbyTouchFindContact(buf, kFrameLen);
 				dbyTouchPublishContact();
 				/* Refresh the page every 16 publishes: ~0.6 s at the 2026-11-03 sample period
