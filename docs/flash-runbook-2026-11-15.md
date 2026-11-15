@@ -38,6 +38,23 @@ writes. That path does not need an unlocked bootloader but does need the Qualcom
    `-enable_kprintf_spam`, and `panic_screen = true` keeps a panic on screen instead of rebooting into a loop.
 3. Only after a clean boot, `fastboot flash boot out/dby-w09-boot.img` and `fastboot reboot`.
 
+## Reading the console
+
+The console is a CDC-ACM gadget (`1209:316d`) whose transmit path only queues IN transfers once the host has
+raised DTR: `pump()` returns early while `d->dtr` is 0 and `dtr` is set only by the host's
+SET_CONTROL_LINE_STATE. A reader that merely opens the port therefore measures itself, not the kernel, and
+reads zero bytes from a live boot. The workspace tools do it in this order: wait for the port to appear (it
+enumerates a few seconds after the reboot, well before the kernel has finished), assert DTR and RTS with
+`EscapeCommFunction` because this device refuses `SetCommState`, and hold one handle open, appending as data
+arrives. `tools/read-console-raw.ps1` is the one-shot reader and `tools/catch-console.ps1` is the one that
+opens at enumeration and keeps the handle. Window's driver also keeps the friendly name from the port number
+the device first started with, so the name the device key and `SERIALCOMM` agree on (COM20) is the one to
+open, not the one shown in the device list.
+
+A USB switch that hands the device to another host (`usbipd attach`) resets that state and silences the
+console for the rest of the boot: read from the machine that owns the device, and only forward the device for
+`fastboot` steps.
+
 ## Rows worth capturing, and what each settles
 
 | row | settles |
