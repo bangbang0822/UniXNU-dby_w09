@@ -451,6 +451,11 @@ volatile int native_touch_ids[12];
 static void (*gTouchSink)(void *);
 static void *gTouchSinkContext;
 static uint32_t gTouchPublishes;
+/* Periods the live loop skipped because the chip had not raised its interrupt (pin 39, idle high,
+ * falling when a report is ready). The vendor reads the frame from inside that IRQ thread; polling the
+ * same command without waiting for it returns whatever page the chip last selected, which the
+ * 2026-11-15 fingerprint row measured as byte-identical with and without a finger on the panel. */
+static uint32_t gTouchIrqSkips;
 /* Reader bookkeeping for the diagnostics row: how many frames the reader has looked at and how many
  * of them held a contact.  Declared here rather than next to gTouchBase because publishPageRow(),
  * which reports them, is defined above that block. */
@@ -3594,10 +3599,27 @@ dbyTouchHidWanted(void)
 	return want != 0;
 }
 
+/* Is the chip asking to be read? Pin 39 idles high and falls when a report is ready, and the vendor's
+ * only frame reader runs inside the interrupt thread. Reading the same command without that gate returns
+ * the page the chip last selected rather than the report, which is what the 2026-11-15 fingerprint row
+ * measured: identical bytes with a finger held on the panel and with the panel idle. When the level
+ * cannot be read (unmapped tile) this answers true, so the loop keeps its old behaviour instead of
+ * stopping touch on a board whose pin layout differs. */
+static bool
+dbyTouchIrqPending(void)
+{
+	DbyTouchMap *tile = tlmmTile(DBY_TOUCH_GPIO_IRQ);
+	uint64_t block;
+
+	if (tile == nullptr || tile->base == 0 || !tlmmBlock(DBY_TOUCH_GPIO_IRQ, &block)) {
+		return true;
+	}
+	return (rd32(tile->base, block + DBY_TOUCH_TLMM_GPIO_IN) & 1u) == 0;
+}
+
 static void
 stage5Thread(void *arg, wait_result_t wait)
-{
-	/* The vendor's get_frame() reads cd->frame_size in one transaction, and that is
+{	/* The vendor's get_frame() reads cd->frame_size in one transaction, and that is
 	 * THP_MAX_FRAME_SIZE = 8*1024+16 = 8208 (huawei_thp.h:248, huawei_thp_core.c:2379).  A 512-byte
 	 * read is a prefix of that frame, not the frame. */
 	const size_t kFrameLen = 8208;
@@ -3873,6 +3895,11 @@ stage5Thread(void *arg, wait_result_t wait)
 			size_t again = 0;
 
 			IOSleep(DBY_TOUCH_HID_PERIOD_MS);
+			if (!dbyTouchIrqPending()) {
+				/* No report is waiting: the vendor would not be in its IRQ thread either. */
+				gTouchIrqSkips++;
+				continue;
+			}
 			if (stage5ReadChunked(buf, kFrameLen, &again) == DBY_TOUCH_OK) {
 				fails = 0;
 				/* One fingerprint row every 64 publishes (~2.5 s): the non-idle byte count of the
@@ -3889,10 +3916,11 @@ stage5Thread(void *arg, wait_result_t wait)
 						}
 						sum = sum * 31u + buf[i];
 					}
-					kprintf("DbyTouch(s5): pub=%u nz=%u sum=%08x w1000=%02x%02x%02x%02x\n",
+					kprintf("DbyTouch(s5): pub=%u nz=%u sum=%08x w1000=%02x%02x%02x%02x skip=%u\n",
 					        (unsigned)gTouchPublishes, (unsigned)nz, (unsigned)sum,
 					        p + 3 < kFrameLen ? buf[p] : 0u, p + 3 < kFrameLen ? buf[p + 1] : 0u,
-					        p + 3 < kFrameLen ? buf[p + 2] : 0u, p + 3 < kFrameLen ? buf[p + 3] : 0u);
+					        p + 3 < kFrameLen ? buf[p + 2] : 0u, p + 3 < kFrameLen ? buf[p + 3] : 0u,
+					        (unsigned)gTouchIrqSkips);
 				}
 				dbyTouchFindContact(buf, kFrameLen);
 				dbyTouchPublishContact();
