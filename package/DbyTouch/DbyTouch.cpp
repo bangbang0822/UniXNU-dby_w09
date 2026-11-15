@@ -2768,7 +2768,17 @@ dbyTouchScanPartition(uint64_t first, uint64_t last, uint8_t *buf, uint64_t chun
 		uint64_t left = last - lba + 1;
 		uint32_t chunk = (uint32_t)(left < chunkBlocks ? left : chunkBlocks);
 		if (!native_ufs_abs_read(lba, chunk, buf)) {
+			/* Indistinguishable from "the bytes are not there" in the row the caller prints, and the
+			 * two have different fixes: a refused read means this picker never saw the partition. */
+			kprintf("DbyTouch(fwsel): read refused at lba=%llx (%u blocks)\n",
+			        (unsigned long long)lba, (unsigned)chunk);
 			return false;
+		}
+		if (lba == first) {
+			/* One row for the first chunk: it says whether the partition is readable at all and what
+			 * its first bytes look like, which is what separates a refused read from a wrong offset. */
+			kprintf("DbyTouch(fwsel): oeminfo first=%02x%02x%02x%02x %02x%02x%02x%02x\n",
+			        buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
 		}
 		if (dbyTouchScanProject(buf, (size_t)chunk * 4096, out, outLen)) {
 			return true;
