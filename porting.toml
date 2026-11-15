@@ -260,6 +260,13 @@ command = "the boot after sheng-pmgr=2 was restored; the panel slot of that run 
 revision = "86beeae46b4b789f11f73062f02edd46dc262b10"
 result = "The first boot that ran the whole userspace: the slot the run left behind reports `time=1392s idle=4s IRQ=1857951 monitor=1388 lost=16 root=1 procs=246 published=2`, 634 writer rounds, and process rows for `backboardd p56 n15 r2 w13 b0 t1 s1/31`, `SpringBoard p27 n15 r4 w11 b0 t1 s4/47` and `runningboardd p26 n5 r0 w5`, with the stage line naming `target pid=562 fairplayd.A2 exec process signature accepted`. Display: `DISPLAY stage=10 PM=4 calls=4 callbacks=1 guard=0 owned=1`, `SWAP calls=44 accepted=1 reason=0 COPY calls=44 status=00000000 bytes=16384000 retired=44` and `GOP actual mapping virtual=fffffff206752000 physical=9c000000 bytes=16384000`, so the legacy backend owns the panel and the CPU copy presented 44 full 1600x2560x4 frames. The panel title had moved to `LIVE: DEADLINE EXCEEDED - OS and diagnostic recording continue`, which is the monitor saying the OS kept running past its observation deadline rather than dying. This is the first time this port has had SpringBoard, backboardd and a presented frame after the audit rebuild, and the first boot that outlived the 46 s wall that the missing PMGR nub had set."
 
+[[area.evidence]]
+kind = "device"
+reference = "drivers/GopFramebuffer/NativeLegacyDisplay.cpp"
+command = "a console row every 32 copies carrying the surface format, the source stride and the first pixels of the compositor-s surface and of the scanout; kernel 696c167d and payload 0d5e5aa5 were built and flashed on the boot that showed white horizontal lines on the panel"
+revision = "4922886330e98d65556b5ab358ac1675ace281cf"
+result = "The owner-reported symptom for this round is a garbled panel: white horizontal lines instead of the lock screen, on a boot whose counters say 44 full frames were copied (SWAP calls=44 accepted=1, COPY calls=44 status=00000000 bytes=16384000 retired=44) and whose swap state is coherent (format 0x42475241, src_stride 0x1900, src/dst 1600x2560, allocation 0xfa0000, IOMFB reporting `default_fb_surface: No Default FB Surface found`). So the question is which half of the path produces the lines - a surface the renderer never drew, or a copy that lands elsewhere. The new row prints `copy=`, the surface format, the source stride and three pixels from the source and from the scanout at the same offsets, once every 32 copies, which answers that from the console alone. Its reading is the next evidence row; nothing in this one is a measurement of the lines yet."
+
 [[area]]
 id = "input"
 status = "device-verified"

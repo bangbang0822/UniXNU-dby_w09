@@ -463,6 +463,20 @@ public:
             source->getLength(),sourceStride,width,height)) {
             OSSafeReleaseNULL(source);native_legacy_transfer_observed(kIOReturnBadArgument,request,0);return;
         }
+        // One console row per 32 copies: the first pixels of the compositor's surface and of the scanout
+        // separate a surface the renderer never drew (empty or white) from a copy that lands somewhere
+        // else. The 2026-11-15 boot showed white horizontal lines on the panel and this is the reading
+        // that says which half of the path produced them.
+        {
+            static unsigned copies;
+            if((++copies & 31u)==0u) {
+                const uint32_t *srcp=reinterpret_cast<const uint32_t *>(source->getVirtualAddress());
+                const volatile uint32_t *dstp=reinterpret_cast<const volatile uint32_t *>(bootMapping->getVirtualAddress());
+                kprintf("DbyDisplay: copy=%u fmt=%08x stride=%llu src=%08x %08x %08x dst=%08x %08x %08x\n",
+                    copies,(unsigned)native_legacy_surface_format(surface),(unsigned long long)sourceStride,
+                    srcp[0],srcp[1],srcp[width/2],dstp[0],dstp[1],dstp[width/2]);
+            }
+        }
         // The two content scans read every pixel again; they only describe the first frames (the probe keeps 32).
         if(scanBudget) {
             --scanBudget;
