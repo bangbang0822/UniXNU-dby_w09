@@ -831,6 +831,11 @@ command = "powershell -File tools/read-console-raw.ps1 -Port COM20 -Seconds 10 -
 revision = "f7cf971e6454a54e5b2b74a3cfafb9da41d77952"
 result = "2026-11-15 03:21..03:27, the first boot of kernel 1c8270c3: 1209:316d enumerated 12 s after fastboot reboot (LastArrivalDate 03:21:34) and no control-line request was accepted for as long as the tablet stayed in that state - GetCommState reported 115200/8 instead of the 3000000 the gadget negotiates, and SetCommState and EscapeCommFunction(SETDTR) both returned ERROR_GEN_FAILURE - while the tablet sat on its panic screen. That re-reads the earlier zero-byte captures too: the raw reader never raised DTR, and Dwc3.c:387 refuses to queue an IN transfer while d->dtr is 0 while :313 sets dtr only from the host's SET_CONTROL_LINE_STATE, so 0 bytes measured the reader rather than proving the kernel stopped printing. Windows also keeps the friendly name COM6 from the port number the device started with while the device key's PortName and SERIALCOMM both say COM20, so the reader opens the name directly instead of trusting GetPortNames(). tools/catch-console.ps1 now opens the port the moment it appears, holds that handle and raises DTR and RTS before reading; the next boot is what has to show the buffered early log and the [prev] rows."
 
+[[area.evidence]]
+kind = "source"
+reference = "docs/debug-2026-11-15-hardware.md"
+result = "The session's order of events, kept apart from the measurements above: eleven symptoms with the commit that closed each, from the zero-byte console to the white lines on the panel. Its use is the sequence - which row answered which question - because several of the session's wrong conclusions (the link-only trust stub read as a kernel hang, the stalled-looking touch read, the replay that could not open the window) were only recognisable once the order was written down."
+
 [[area]]
 id = "device-tree"
 status = "host-verified"
