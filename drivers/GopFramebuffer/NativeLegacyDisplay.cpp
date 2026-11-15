@@ -208,36 +208,12 @@ class NativeLegacyDisplay : public IOMobileFramebufferLegacy {
         flip(kBootIova,kBootStride);directBoot=true;shownSlot=-1;
         native_legacy_direct[8]=native_legacy_direct[8]+1;
     }
-    // What the display controller is fetching. The copy row says what the compositor's surface and the
-    // scanout hold; this says which memory the pipes point at, which is the other half of the same
-    // question - a panel that shows white lines while the copy lands correctly is a scanout-source
-    // mismatch, not a content one. Read-only: nothing here writes a pipe or a flush. Boot argument
-    // dby-dpu=2 turns it on, and the registers are DPU 9.2's, the ones flip() programs: VIG 0 and 1 at
-    // 0x4000/0x6000 with source address at +0x14, stride at +0x24, format at +0x30, source xy at +0x38,
-    // source size at +0x3c; CTL 0 at 0x15000 with its flush at +0x18.
-    void dpuRow(uint64_t bootStride) {
-        static int mode=-1;
-        static volatile uint32_t *pipes=nullptr;
-        static unsigned rows;
-        if(mode<0){unsigned v=0;PE_parse_boot_argn("dby-dpu",&v,sizeof v);mode=int(v);}
-        if(mode<2 || !bootMapping)return;
-        if(!pipes) {
-            IODeviceMemory *memory=IODeviceMemory::withRange(0xae01000,0x8f000);
-            IOMemoryMap *map=memory?memory->map(kIOMapAnywhere|kIOMapInhibitCache):nullptr;
-            if(memory)memory->release();
-            if(!map)return;
-            pipes=reinterpret_cast<volatile uint32_t *>(map->getVirtualAddress());
-        }
-        // The first four copies and then one in 64: the first frame is what the panel shows while the OS
-        // settles, and the later ones catch a flip that moved the pipes after it.
-        if(++rows>4u && (rows&63u))return;
-        const uint32_t boot=uint32_t(bootMapping->getPhysicalAddress());
-        kprintf("DbyDisplay: dpu=%u vig0 src=%08x str=%u fmt=%08x xy=%08x size=%08x vig1 src=%08x str=%u fmt=%08x ctl=%08x flush=%u boot=%08x bstr=%llu\n",
-            unsigned(mode),
-            pipes[(kVig[0]+0x14)/4],pipes[(kVig[0]+0x24)/4]&0xffffu,pipes[(kVig[0]+0x30)/4],pipes[(kVig[0]+0x38)/4],pipes[(kVig[0]+0x3c)/4],
-            pipes[(kVig[1]+0x14)/4],pipes[(kVig[1]+0x24)/4]&0xffffu,pipes[(kVig[1]+0x30)/4],pipes[0x15000/4],pipes[kCtlFlush/4],
-            boot,(unsigned long long)bootStride);
-    }
+    // What the display controller is fetching would be the other half of the white-line question, and reading
+    // it directly is not possible from here: mapping the MDP block (0xae01000) and reading VIG 0/1's registers
+    // aborts the kernel right after the first copy ("Unclassified kernel abort", 2026-11-15 23:43, copy=1
+    // printed and nothing after it), so the block is not safely readable without the clocks and the power
+    // domain the direct-scanout path sets up first. The pipes are therefore still the firmware's: nothing in
+    // this driver writes them, and the firmware points them at the GOP framebuffer the copy lands in.
     bool vsyncWanted() const {
         const void *head=nullptr;memcpy(&head,reinterpret_cast<const unsigned char *>(this)+5592,sizeof(head));return head;
     }
@@ -514,7 +490,6 @@ public:
                     srcp[0],srcp[1],srcp[width/2],dstp[0],dstp[1],dstp[width/2]);
             }
         }
-        dpuRow(video.v_rowBytes);
         // The two content scans read every pixel again; they only describe the first frames (the probe keeps 32).
         if(scanBudget) {
             --scanBudget;

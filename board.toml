@@ -453,13 +453,6 @@ kernel_args = [
   "offline-legacy-transfer=1",
   "offline-legacy-cpu-present=1",
   "offline-legacy-phase=4",
-  # dby-dpu=2 让 GopFramebuffer 把 DPU 两条 VIG 管道此刻的取数状态打进控制台：
-  # source 地址、stride、格式、source xy/size，以及 CTL 0 的 flush 位，并与我们拷贝进去的
-  # GOP 帧缓冲物理地址（bootMapping->getPhysicalAddress()，0x9c000000）和行宽对比。
-  # 读取点 drivers/GopFramebuffer/NativeLegacyDisplay.cpp 的 dpuRow()；只读，不写管道、不触发 flush。
-  # 2026-11-15 花屏（白色横线）时，copy 行只能证明"拷贝落到了帧缓冲"，这一行才回答"面板到底在扫哪块内存"。
-  # 值 2 = 打印；缺省 0 = 不打印。两个 VIG 都读，因为 VIG 1 走自己的 source x 取右半屏。
-  "dby-dpu=2",
   "offline-mobile-graphics-client=1",
   "offline-hid-home=1",
   "offline-hid-input=1",
