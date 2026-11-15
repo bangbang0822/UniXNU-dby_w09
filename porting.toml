@@ -293,6 +293,13 @@ command = "./unixnu build kernel && ./unixnu build payload -D ../UniXNU-dby_w09 
 revision = "e61237a2db62a1a35b57d6cdcec8671ec1878265"
 result = "Accepted on the tablet on 2026-11-04: contacts follow the finger, the swipe clears the lock screen and the three keys report. This is the state committed as e61237a."
 
+[[area.evidence]]
+kind = "device"
+reference = "package/DbyTouch/DbyTouch.cpp"
+command = "the boot that first ran the whole userspace; a finger was then swept across the panel while the CDC console was being captured (COM20, DTR raised at enumeration)"
+revision = "86beeae46b4b789f11f73062f02edd46dc262b10"
+result = "The chip side of this area is healthy on the new build and the report side is not. Firmware: `DbyTouch(fwsel): oeminfo 0x3000..0x8fff has no project id, keeping W2599Z2700` then `DbyTouch(upload): image=W2599Z2700 ilm=14547/18f0d943 dlm=0bc47/b674d6db` and `rc=0 attempts=1 state=160`, so the no-flash part did take its image and answered 0xA0 (the vendor HAL-s own firmware-up range). Host commands: `DbyTouch(hostcmd): bt=0 idle=0 active=0`, i.e. all three stamps came back with the value written. The HID device exists: `TOUCH HID started=1 drv=1 key-reports=2 touch-reports=0 res=-1 | pad dots=0`, with key-reports=2 saying the button path reaches the consumer. Then a finger was swept on the panel and the console carried no `[touch] p=` row at all - the accepted 2026-11-06 capture had 360 of them - while `InputUI[626]` started in the same window. So on this build a real contact does not reach the driver-s publish path; res=-1 (never evaluated) is consistent with that. This reopens the input area-s completion criterion as a measured failure rather than an open observation, and the next step is a row in the read loop rather than another photograph: the loop-s frame count, its last chip status and whether IRQ 39 fires are what separate a chip that stops answering after the upload from a publish path that is never called."
+
 [[area]]
 id = "gpu"
 status = "planned"
