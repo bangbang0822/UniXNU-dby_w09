@@ -33,6 +33,10 @@ extern "C" void native_legacy_surface_rejected(uint64_t,uint64_t,uint32_t,uint32
 extern "C" bool native_legacy_prepare_scanout(void);
 extern "C" void native_legacy_transfer_observed(IOReturn,const void *,uint64_t);
 extern "C" void native_legacy_copy_timing_observed(uint64_t ticks,uint64_t bytes);
+// The component flushes the surface's lines before it copies them (upstream NativeLegacyDisplay.cpp does this
+// immediately before its copy). The renderer wrote the frame through its own mapping; a read through the
+// kernel's must not be able to see stale lines. XNU exports this from osfmk/arm64/machine_routines_asm.s.
+extern "C" void flush_dcache64(addr64_t addr,unsigned count,int phys);
 extern "C" void native_legacy_retirement_observed(IOService *);
 // GPU hand-off (boot-arg sheng-fb-gpu=1): the frame is offered to the privileged GPU client instead of being copied; the swap retires when the
 // client reports the GPU copy done (native_legacy_gpu_complete). A refused offer or a failed copy uses the CPU copy below and is counted.
@@ -203,6 +207,36 @@ class NativeLegacyDisplay : public IOMobileFramebufferLegacy {
         if(!directOn || directBoot)return;
         flip(kBootIova,kBootStride);directBoot=true;shownSlot=-1;
         native_legacy_direct[8]=native_legacy_direct[8]+1;
+    }
+    // What the display controller is fetching. The copy row says what the compositor's surface and the
+    // scanout hold; this says which memory the pipes point at, which is the other half of the same
+    // question - a panel that shows white lines while the copy lands correctly is a scanout-source
+    // mismatch, not a content one. Read-only: nothing here writes a pipe or a flush. Boot argument
+    // dby-dpu=2 turns it on, and the registers are DPU 9.2's, the ones flip() programs: VIG 0 and 1 at
+    // 0x4000/0x6000 with source address at +0x14, stride at +0x24, format at +0x30, source xy at +0x38,
+    // source size at +0x3c; CTL 0 at 0x15000 with its flush at +0x18.
+    void dpuRow(uint64_t bootStride) {
+        static int mode=-1;
+        static volatile uint32_t *pipes=nullptr;
+        static unsigned rows;
+        if(mode<0){unsigned v=0;PE_parse_boot_argn("dby-dpu",&v,sizeof v);mode=int(v);}
+        if(mode<2 || !bootMapping)return;
+        if(!pipes) {
+            IODeviceMemory *memory=IODeviceMemory::withRange(0xae01000,0x8f000);
+            IOMemoryMap *map=memory?memory->map(kIOMapAnywhere|kIOMapInhibitCache):nullptr;
+            if(memory)memory->release();
+            if(!map)return;
+            pipes=reinterpret_cast<volatile uint32_t *>(map->getVirtualAddress());
+        }
+        // The first four copies and then one in 64: the first frame is what the panel shows while the OS
+        // settles, and the later ones catch a flip that moved the pipes after it.
+        if(++rows>4u && (rows&63u))return;
+        const uint32_t boot=uint32_t(bootMapping->getPhysicalAddress());
+        kprintf("DbyDisplay: dpu=%u vig0 src=%08x str=%u fmt=%08x xy=%08x size=%08x vig1 src=%08x str=%u fmt=%08x ctl=%08x flush=%u boot=%08x bstr=%llu\n",
+            unsigned(mode),
+            pipes[(kVig[0]+0x14)/4],pipes[(kVig[0]+0x24)/4]&0xffffu,pipes[(kVig[0]+0x30)/4],pipes[(kVig[0]+0x38)/4],pipes[(kVig[0]+0x3c)/4],
+            pipes[(kVig[1]+0x14)/4],pipes[(kVig[1]+0x24)/4]&0xffffu,pipes[(kVig[1]+0x30)/4],pipes[0x15000/4],pipes[kCtlFlush/4],
+            boot,(unsigned long long)bootStride);
     }
     bool vsyncWanted() const {
         const void *head=nullptr;memcpy(&head,reinterpret_cast<const unsigned char *>(this)+5592,sizeof(head));return head;
@@ -463,6 +497,9 @@ public:
             source->getLength(),sourceStride,width,height)) {
             OSSafeReleaseNULL(source);native_legacy_transfer_observed(kIOReturnBadArgument,request,0);return;
         }
+        // The renderer wrote this frame through its own mapping; drop what the CPU may still hold for it
+        // before anything below reads it through the kernel's, the way the component does before its copy.
+        flush_dcache64(reinterpret_cast<addr64_t>(source->getVirtualAddress()),(unsigned)source->getLength(),false);
         // One console row per 32 copies: the first pixels of the compositor's surface and of the scanout
         // separate a surface the renderer never drew (empty or white) from a copy that lands somewhere
         // else. The 2026-11-15 boot showed white horizontal lines on the panel and this is the reading
@@ -477,6 +514,7 @@ public:
                     srcp[0],srcp[1],srcp[width/2],dstp[0],dstp[1],dstp[width/2]);
             }
         }
+        dpuRow(video.v_rowBytes);
         // The two content scans read every pixel again; they only describe the first frames (the probe keeps 32).
         if(scanBudget) {
             --scanBudget;
