@@ -2027,6 +2027,9 @@ stage5ReadChunked(uint8_t *buf, size_t len, size_t *done_out)
 			gSnapStatus = gSpi.snap_status;
 			gSnapTxfs = gSpi.snap_txfs;
 			gSnapRxfs = gSpi.snap_rxfs;
+			kprintf("DbyTouch(s5): transfer failed at %u/%u irq=%08x status=%08x txfs=%08x rxfs=%08x\n",
+			        (unsigned)done, (unsigned)len, (unsigned)gSnapIrq, (unsigned)gSnapStatus,
+			        (unsigned)gSnapTxfs, (unsigned)gSnapRxfs);
 
 			/* A failed *middle* piece is the one that strands the chip; a failure on the last piece
 			 * already ended the frame.  The release is harmless either way and its own result is
@@ -2042,6 +2045,14 @@ stage5ReadChunked(uint8_t *buf, size_t len, size_t *done_out)
 			}
 			*done_out = done;
 			return DBY_TOUCH_ERR_IO;
+		}
+		/* The console row that says whether the frame read is slow or stuck: s5=0xFFFFFFFE on the
+		 * panel only says the thread had not finished, and the slot is written long after. One row
+		 * per 8 chunks (1 KiB of the 8208-byte frame) makes the pace visible at the rate the transfer
+		 * engine answers, and the failure row carries the engine snapshot the panel row only prints
+		 * after the thread gives up. */
+		if ((done % (DBY_TOUCH_FRAME_CHUNK * 8u)) == 0) {
+			kprintf("DbyTouch(s5): read %u/%u\n", (unsigned)done, (unsigned)len);
 		}
 		done += chunk;
 	}
