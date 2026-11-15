@@ -307,6 +307,13 @@ command = "one console row per 1 KiB of the 8208-byte frame (feat f9a60d2), kern
 revision = "f9a60d26cc5291cc4947374ad24b058480f41cbf"
 result = "The probe settles the question the previous row left open, and it settles it the other way: the read path is healthy. The console carries the full ladder `DbyTouch(s5): read 0/8208` through `read 8192/8208`, then `read 0/8208` again, i.e. the 65 chunked transfers of a whole frame complete and the thread starts the next frame immediately; `s5=0xFFFFFFFE` on the panel means `started, not finished` for a thread that reads frames forever, not a read that stopped. What still does not happen is the contact: `[touch edge] installed=1 contacts=0 from_edge=0 skipped=0`, `[touch multi] reports=0 max=0 lifts=0`, and the HID row stays `touch-reports=0 res=-1` while `key-reports` climbed to 8 on the same boot, so the consumer and the key path are both fine and only the frame decode is silent. The next question is therefore in the payload rather than in the transport: what the 0x1000 region of a frame carries on this part, which is the N9Z decode question the input findings already describe (the structured 0..0xFFF region not moving under a finger, the 0x1000+ region stable per boot and random across boots)."
 
+[[area.evidence]]
+kind = "device"
+reference = "package/DbyTouch/DbyTouch.cpp"
+command = "feat a1c644b adds one row every 64 publishes with the scanned payload-s non-idle byte count, a rolling hash and the word at 0x1000; kernel 4d93c639 and payload dea4bd9f were flashed and the same boot was captured first with the panel idle and then with a finger held on it"
+revision = "a1c644b4b4d195244aece6b8220264711517024a"
+result = "The comparison the decode question needed, and it answers it: the frame does not change with a finger. Idle, eight consecutive rows read `pub=512..960 nz=4677 sum=688f4116 w1000=14000000`; with a finger held on the panel, ten further rows read the same `nz=4677 sum=688f4116 w1000=14000000` through pub=2368, byte-identical. So stage5ReadChunked-s 0x20 request returns one static page every time rather than the chip-s report page - which is what the comment above the FWINFO block already suspects from the other direction: latching a different page before the read moved the frame from 267 real bytes to 4029, and this page is denser still at 4677. The next step is therefore the page selection the vendor-s get_frame() performs before it reads, not the transport, the HID publish path or the pin/power bring-up - all three of those are now measured healthy on this build."
+
 [[area]]
 id = "gpu"
 status = "planned"
