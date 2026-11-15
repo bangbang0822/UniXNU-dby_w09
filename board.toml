@@ -340,7 +340,14 @@ kernel_args = [
   # stage 1 在任何映射之前返回，12 类 MMIO 写全部关掉，只留只读探针。
   # 记录与后续见 docs/display-white-lines-2026-11-16.md；要回触摸必须先做那篇 §4 的复位门
   # （dby-touch-reset=1），不能直接把 8 加回来。
-  "dby-touch=1",
+  # 2026-11-16 00:30 触摸固件不匹配：本机 oeminfo 被擦成全 0xff，选固件只能落到表里的默认
+  # W2599Z2700；所有者报告"固件触摸不匹配就会花屏"。新增 dby-touch-fw=<名字|四位|序号> 显式选图，
+  # 先试 1100，再试 1300，用"花屏是否消失 + 是否上报触点"判定这块面板到底要哪一版。
+  # 00:40 修正：XNU 的 PE_parse_boot_argn 只对下划线开头的名字强制字符串拷贝，其余走数值解析，
+  # 所以 `dby-touch-fw=1100` 被当成整数 1100 写进缓冲区（日志里成了 "L"），选图根本没发生。
+  # 值必须是非纯数字的完整项目号 W2599Z1100，走的才是字符串分支。
+  "dby-touch=8",
+  "dby-touch-fw=W2599Z1100",
 
   "dby-touch-se=1",
   # CPU 频率投票（package/CpuFreqProbe.cpp 读 sheng-cpufreq=，来自官方同 SoC 板 alioth）。
