@@ -2239,12 +2239,42 @@ dbyTouchPadProbeWrite(uint32_t addr, const uint8_t *bytes, size_t len)
  * bias-disable; huawei_tp.dtsi DTBO:9991-10025).  The OE bit stays set in both phases - the pad is
  * always driven, only its level changes - because a cleared OE means a floating pad, not "reset
  * asserted". */
+/* Whether this boot may drive the reset pad at all.  The pad is shared with the panel: driving it
+ * resets the TDDI, and nothing re-initialises DSI afterwards, so the panel stays in its
+ * uninitialised state and paints white lines (docs/display-white-lines-2026-11-16.md).  The default
+ * is therefore "leave it alone" and a boot that wants touch has to say so. */
+static bool
+dbyTouchResetAllowed(void)
+{
+	unsigned allow = 0;
+
+	if (!PE_parse_boot_argn("dby-touch-reset", &allow, sizeof allow)) {
+		return false;
+	}
+	return allow != 0;
+}
+
 static int
 dbyTouchResetDrive(int high)
 {
 	uint32_t want = DBY_TOUCH_CFG_DRV_8MA | DBY_TOUCH_CFG_OE;
 	uint32_t cfg = 0, io = 0;
 
+	if (!dbyTouchResetAllowed()) {
+		/* Once per boot, not per call: every error path calls the release.  Returning OK rather than an
+		 * error keeps the rest of the enable sequence - the 0xAA idle write, the firmware upload, the
+		 * counter probes - running against a pad nobody drove.  That is what makes "no pulse, but the
+		 * image still uploaded" an observable state: the upload's own rc row then says whether the
+		 * chip took an image without being reset, and the panel says whether the image itself is what
+		 * garbles it. */
+		static bool said;
+		if (!said) {
+			said = true;
+			IOLog("DbyTouch: reset pad untouched (pass dby-touch-reset=1 to drive gpio%u)\n",
+			    DBY_TOUCH_GPIO_RESET);
+		}
+		return DBY_TOUCH_OK;
+	}
 	if (dbyTouchPadLevel(DBY_TOUCH_GPIO_RESET, high) != DBY_TOUCH_OK) {
 		return DBY_TOUCH_ERR_IO;
 	}
@@ -2846,6 +2876,17 @@ dbyTouchScanPartition(uint64_t first, uint64_t last, uint8_t *buf, uint64_t chun
 	return false;
 }
 
+/* The one console line that says which image the uploader will run.  Split out so an explicit choice
+ * can reach it without walking the GPT at all.  It does not touch native_touch_rows: this file's own
+ * note above that array says the row is neither drawn nor archived, so the console line is the only
+ * place the selection is visible. */
+static void
+dbyTouchReportFirmware(const char *src)
+{
+	IOLog("DbyTouch(fwsel): image %s, ilm=%05x/%08x, source %s\n",
+	    gDbyTouchFw->project, (unsigned)gDbyTouchFw->ilm_len, (unsigned)gDbyTouchFw->ilm_crc, src);
+}
+
 static void
 dbyTouchPickFirmwareFromDevice(void)
 {
@@ -2856,6 +2897,52 @@ dbyTouchPickFirmwareFromDevice(void)
 	char found[8] = { 0 };
 	const char *src = "default";
 	uint8_t *buf = nullptr;
+
+	/* An explicit choice beats the device's own, and this unit is why.  The vendor picks the image by
+	 * the project id in oeminfo; this tablet's oeminfo is erased (every byte 0xff, recorded in the
+	 * 2026-11-15 session), so the driver has been uploading the table's fallback image - a guess - and
+	 * a touch image that does not match the panel is one of the ways the display ends up garbled.
+	 * Naming one here is the only way to test which image this panel wants without a working oeminfo.
+	 * The name has to be text for XNU to hand it over as text, and a purely numeric value is not: see
+	 * the numeric branch below for what that costs. */
+	{
+		char want[16] = { 0 };
+
+		if (PE_parse_boot_argn("dby-touch-fw", want, sizeof want)) {
+			if (dbyTouchFwSelect(want) == 0) {
+				dbyTouchReportFirmware("argument");
+				return;
+			}
+			/* A purely numeric value never arrives here as text.  XNU's PE_parse_boot_argn forces a
+			 * string copy only for argument names that begin with an underscore; every other name
+			 * goes through getval(), which returns NUM for digits and stores an integer - `1100`
+			 * becomes the four bytes 4C 04 00 00, whose first byte is 'L', which is exactly the
+			 * image name the 2026-11-16 00:40 boot asked for.  So ask for it as a number too and
+			 * turn that into the two forms the table knows: 1..3 is a 1-based index, anything else
+			 * is a four-digit project suffix. */
+			unsigned number = 0;
+
+			if (PE_parse_boot_argn("dby-touch-fw", &number, sizeof number)) {
+				char digits[8];
+
+				if (number >= 1 && number <= 3) {
+					digits[0] = (char)('0' + number);
+					digits[1] = '\0';
+				} else {
+					snprintf(digits, sizeof digits, "%04u", number);
+				}
+				if (dbyTouchFwSelect(digits) == 0) {
+					dbyTouchReportFirmware("argument");
+					return;
+				}
+				IOLog("DbyTouch(fwsel): dby-touch-fw=%s is not in the table, keeping %s\n",
+				    digits, gDbyTouchFw->project);
+			} else {
+				IOLog("DbyTouch(fwsel): dby-touch-fw is not in the table, keeping %s\n",
+				    gDbyTouchFw->project);
+			}
+		}
+	}
 
 	if (!&native_ufs_abs_read) {
 		IOLog("DbyTouch(fwsel): no UFS reader linked, keeping %s\n", gDbyTouchFw->project);
@@ -2939,10 +3026,7 @@ dbyTouchPickFirmwareFromDevice(void)
 		    oemFirst, oemLast, gDbyTouchFw->project);
 	}
 
-	IOLog("DbyTouch(fwsel): image %s, ilm=%05x/%08x, source %s\n",
-	    gDbyTouchFw->project, (unsigned)gDbyTouchFw->ilm_len, (unsigned)gDbyTouchFw->ilm_crc, src);
-	snprintf(native_touch_rows[2], sizeof native_touch_rows[2],
-	    "FW %s ilm=%05x src=%s", gDbyTouchFw->project, (unsigned)gDbyTouchFw->ilm_len, src);
+	dbyTouchReportFirmware(src);
 	IOFreeAligned(buf, bufBytes);
 }
 
