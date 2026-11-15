@@ -2069,6 +2069,57 @@ stage5ReadChunked(uint8_t *buf, size_t len, size_t *done_out)
 }
 
 /* ------------------------------------------------------------------ */
+/* The frame header, read before the frame                             */
+/* ------------------------------------------------------------------ */
+
+/* The vendor's get_frame() and the upstream ShengNovatekTouch protocol both read a short header at the
+ * frame offset first (nvt_peek_frame_header, 24 bytes), and upstream's loop only reads a whole frame when
+ * that header says a new one arrived.  This driver reads the frame unconditionally, so the peek here is a
+ * measurement rather than a gate: it counts how often the header changes.  That is the one thing the frame
+ * fingerprint cannot say - a chip that never announces a new frame returns the same page forever, and the
+ * fingerprint row then looks exactly like a chip whose page does not carry the contact.
+ *
+ * The transfer has the frame reader's shape: 0x20 in the first byte, then the two address-phase bytes, so
+ * the header starts at rx[2] - the same reason stage5ReadChunked's caller treats buf[2] as the first frame
+ * byte. */
+#define DBY_TOUCH_THP_HEADER 24
+
+static uint8_t  gThpHead[DBY_TOUCH_THP_HEADER];
+static uint8_t  gThpLast[DBY_TOUCH_THP_HEADER];
+static uint32_t gThpPeeks;
+static uint32_t gThpNew;
+static uint32_t gThpSame;
+static uint32_t gThpFails;
+
+static int
+stage5PeekHeader(void)
+{
+	uint8_t tx[2 + DBY_TOUCH_THP_HEADER];
+	uint8_t rx[2 + DBY_TOUCH_THP_HEADER];
+	size_t i;
+
+	for (i = 0; i < sizeof tx; i++) {
+		tx[i] = 0;
+	}
+	tx[0] = 0x20;
+	if (geni_spi_transfer(&gSpi, tx, rx, sizeof rx, 0) != 0) {
+		gThpFails++;
+		return DBY_TOUCH_ERR_IO;
+	}
+	for (i = 0; i < DBY_TOUCH_THP_HEADER; i++) {
+		gThpHead[i] = rx[2 + i];
+	}
+	gThpPeeks++;
+	if (memcmp(gThpHead, gThpLast, DBY_TOUCH_THP_HEADER) == 0) {
+		gThpSame++;
+	} else {
+		memcpy(gThpLast, gThpHead, DBY_TOUCH_THP_HEADER);
+		gThpNew++;
+	}
+	return DBY_TOUCH_OK;
+}
+
+/* ------------------------------------------------------------------ */
 /* Chip enable (stage 6+)                                             */
 /* ------------------------------------------------------------------ */
 
@@ -3903,6 +3954,10 @@ stage5Thread(void *arg, wait_result_t wait)
 				gTouchIrqSkips++;
 				continue;
 			}
+			/* The header first, then the frame: the peek says whether the chip announced a new frame at
+			 * all, which the frame content alone cannot (see stage5PeekHeader). A failed peek does not
+			 * block the read - the frame is still what the rest of this loop needs. */
+			(void)stage5PeekHeader();
 			if (stage5ReadChunked(buf, kFrameLen, &again) == DBY_TOUCH_OK) {
 				fails = 0;
 				/* One fingerprint row every 64 publishes (~2.5 s): the non-idle byte count of the
@@ -3910,7 +3965,7 @@ stage5Thread(void *arg, wait_result_t wait)
 				 * held on the panel and one without can be compared without reading the medium.
 				 * This is the comparison the 0x1000 question needs; the frame itself is unchanged. */
 				if ((gTouchPublishes & 63u) == 0u) {
-					uint32_t nz = 0, sum = 0;
+					uint32_t nz = 0, sum = 0, h0 = 0, h1 = 0;
 					const size_t p = kFrameStart + 0x1000u;
 
 					for (size_t i = kFrameStart; i < kFrameStart + 8192u && i < kFrameLen; i++) {
@@ -3919,11 +3974,16 @@ stage5Thread(void *arg, wait_result_t wait)
 						}
 						sum = sum * 31u + buf[i];
 					}
-					kprintf("DbyTouch(s5): pub=%u nz=%u sum=%08x w1000=%02x%02x%02x%02x skip=%u\n",
+					for (unsigned b = 0; b < 4; b++) {
+						h0 |= (uint32_t)gThpHead[b] << (8u * b);
+						h1 |= (uint32_t)gThpHead[4 + b] << (8u * b);
+					}
+					kprintf("DbyTouch(s5): pub=%u nz=%u sum=%08x w1000=%02x%02x%02x%02x skip=%u thp=%u new=%u same=%u fail=%u h=%08x %08x\n",
 					        (unsigned)gTouchPublishes, (unsigned)nz, (unsigned)sum,
 					        p + 3 < kFrameLen ? buf[p] : 0u, p + 3 < kFrameLen ? buf[p + 1] : 0u,
 					        p + 3 < kFrameLen ? buf[p + 2] : 0u, p + 3 < kFrameLen ? buf[p + 3] : 0u,
-					        (unsigned)gTouchIrqSkips);
+					        (unsigned)gTouchIrqSkips, (unsigned)gThpPeeks, (unsigned)gThpNew,
+					        (unsigned)gThpSame, (unsigned)gThpFails, (unsigned)h0, (unsigned)h1);
 				}
 				dbyTouchFindContact(buf, kFrameLen);
 				dbyTouchPublishContact();
