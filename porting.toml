@@ -250,7 +250,7 @@ result = "The CPU path is alive only while offer() stays gated on gpuClient. Wit
 kind = "device"
 reference = "package/LegacyDisplayProbe.cpp"
 command = "the boot after sheng-pmgr=2 was restored; the panel slot of that run was read back through sheng-log-replay=1 on the next boot"
-revision = "86beeae1e4e6e0f0a0c9f1a49a1b6b0b9d1f3c2a"
+revision = "86beeae46b4b789f11f73062f02edd46dc262b10"
 result = "The first boot that ran the whole userspace: the slot the run left behind reports `time=1392s idle=4s IRQ=1857951 monitor=1388 lost=16 root=1 procs=246 published=2`, 634 writer rounds, and process rows for `backboardd p56 n15 r2 w13 b0 t1 s1/31`, `SpringBoard p27 n15 r4 w11 b0 t1 s4/47` and `runningboardd p26 n5 r0 w5`, with the stage line naming `target pid=562 fairplayd.A2 exec process signature accepted`. Display: `DISPLAY stage=10 PM=4 calls=4 callbacks=1 guard=0 owned=1`, `SWAP calls=44 accepted=1 reason=0 COPY calls=44 status=00000000 bytes=16384000 retired=44` and `GOP actual mapping virtual=fffffff206752000 physical=9c000000 bytes=16384000`, so the legacy backend owns the panel and the CPU copy presented 44 full 1600x2560x4 frames. The panel title had moved to `LIVE: DEADLINE EXCEEDED - OS and diagnostic recording continue`, which is the monitor saying the OS kept running past its observation deadline rather than dying. This is the first time this port has had SpringBoard, backboardd and a presented frame after the audit rebuild, and the first boot that outlived the 46 s wall that the missing PMGR nub had set."
 
 [[area]]
