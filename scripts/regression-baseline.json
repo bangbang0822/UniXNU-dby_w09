@@ -20,7 +20,7 @@
     "serial=3",
     "debug=0x14e",
     "-enable_kprintf_spam",
-    "sheng-smp=1",
+    "smp=1",
     "dby-touch=8",
     "dby-touch-se=1",
     "sheng-cpufreq=3",

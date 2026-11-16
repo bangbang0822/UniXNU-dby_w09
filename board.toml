@@ -337,7 +337,11 @@ kernel_args = [
   #  QcomXnuUsbDebug/docs/integration.md:85 写的是同一件事。
   # 字节从下面 boot-ui-focus4=SpringBoard 那条重复采样还（998 - 27 + 21 = 992/1000）。
   "-enable_kprintf_spam",
-  "sheng-smp=1",
+  # 2026-11-16 14:50 从 sheng-smp=1 改成 smp=1：树里那只 ArmCpu（core 子模块 d90e457）读的是
+  # "smp"（ArmCpu.cpp:561，从核启动的 opt-in），没有任何地方解析 sheng-smp——所以 SMP req 一直是 0，
+  # 系统只在 cpu0 上跑。feeds.toml 里 xVanTuring/ArmCpu@a9c4585 确实解析 sheng-smp，但那是 feed 源，
+  # 优先级低于树内子模块，所以它对这次启动没有作用。
+  "smp=1",
   # 触摸驱动阶段梯（package/DbyTouch/DbyTouch.cpp 读 dby-touch=）：8 = 取帧+接触点提取+发布，
   # 并且跑厂商固件下载——这颗 N9Z 是无闪存 THP，主机每次开机不上传 0x30000 镜像就永远不上报。
   # dby-touch-se=1 是单独一道门：本驱动从不做时钟投票，未上电读 SE 会挂死总线（2026-10-31 实测）。

@@ -5064,11 +5064,15 @@ dbyButtonsThread(void *arg, wait_result_t wait)
 			if (count >= static_cast<uint32_t>(kBtnStableFrames) && candidate != stable) {
 				stable = candidate;
 				gBtnMask = stable;
-				/* Release/acquire on both, the way this file's touch sink already does it
-				 * (native_touch_set_sink() / dbyTouchPublishContact()): the poller is a thread of its
-				 * own, and a plain load of the function pointer can observe it before the context
-				 * store, which would call the sink with a stale or null context. */
+				/* The boot page carries this state, but a key press is what has to be seen while the
+				 * tablet is running: one console row per change says whether the PMIC reads move and
+				 * whether a sink was registered to receive them. Printed before the sink is called so
+				 * a sink that blocks cannot swallow the only evidence. */
 				void (*sink)(void *, uint32_t) = __atomic_load_n(&gBtnSink, __ATOMIC_ACQUIRE);
+				kprintf("DbyButtons(s1): mask=%x pon=%02x g6=%02x sink=%u calls=%u\n",
+				    static_cast<unsigned>(stable), static_cast<unsigned>(gPmic.lastPon),
+				    static_cast<unsigned>(gPmic.lastGpio),
+				    sink != nullptr ? 1u : 0u, static_cast<unsigned>(gBtnSinkCalls));
 				if (sink != nullptr) {
 					gBtnSinkCalls++;
 					sink(__atomic_load_n(&gBtnSinkCtx, __ATOMIC_RELAXED), stable);

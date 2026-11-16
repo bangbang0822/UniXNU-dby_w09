@@ -44,7 +44,7 @@ CRITICAL_ARGS = {
     "offline-key-events=1": "按键事件",
     "pmgr=2": "PMGR（AMFI 前置，上游 47ec6a5 去掉 sheng- 前缀后 payload.py 只认这个名字）",
     "armcpu-spi-ipi=1": "ArmCpu IPI（timer PPI 前置）",
-    "sheng-smp=1": "多核",
+    "smp=1": "多核",
     "panic_on_crash_disabled=1": "崩了还能读串口",
     "serial=3": "串口输出",
     "-enable_kprintf_spam": "kprintf 不被限流",
