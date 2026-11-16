@@ -78,6 +78,9 @@ jobs:
           # and spirv-tools are what gen-turnip-smoke-shaders.py runs (`glslc` then `spirv-val`).
           brew install dtc llvm lld cmake mtools ninja glslang bison flex shaderc spirv-tools \
                        blacktop/tap/ipsw
+          # The Metal bridge is a Rust static library and build-adreno-metal-bridge.py asks for the
+          # pinned toolchain by name (`cargo +1.98.0`), which the image's default Rust does not have.
+          rustup toolchain install 1.98.0 --profile minimal --component rust-src
           llvm_prefix=$(brew --prefix llvm)
           bison_prefix=$(brew --prefix bison)
           {
@@ -94,7 +97,7 @@ jobs:
           for t in llvm-nm llvm-objcopy llvm-ar; do
             [ -f "$llvm_prefix/bin/$t" ] || { echo "missing tool: $t"; ok=0; }
           done
-          for t in bison flex glslc spirv-val; do
+          for t in bison flex glslc spirv-val cargo rustup; do
             command -v "$t" >/dev/null || { echo "missing tool: $t"; ok=0; }
           done
           [ "$ok" = 1 ]
