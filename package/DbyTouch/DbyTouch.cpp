@@ -3268,8 +3268,9 @@ dbyTouchStartScanning(struct dby_touch_bus *bus)
 	    gHostCmdRc[0], gHostCmdRc[1], gHostCmdRc[2]);
 }
 
-/* One enable round.  Returns DBY_TOUCH_OK only when every step answered; gEnableRc names the step
- * that stopped, and the reset line is released on every exit. */
+/* One enable round.  gEnableRc names the step that stopped (0 while every step answered), and the
+ * reset line is released on every exit.  It returns an error only for the steps before the upload
+ * path: past stage 8 the round is run by the caller, whose rows carry the verdict. */
 static int
 dbyTouchChipEnable(struct dby_touch_bus *bus)
 {
@@ -3355,11 +3356,11 @@ dbyTouchChipEnable(struct dby_touch_bus *bus)
 
 	/* Stage 8: upload the firmware image the vendor HAL loads on every start, then re-read the same
 	 * state byte.  Two paths: with dby-touch-probe=1 the image is the one that proves itself by
-	 * reporting frames (dbyTouchProbeFirmware, which also runs the enable round); without it the
-	 * picker's image - dby-touch-fw or the table default - is uploaded and the round runs once at the
-	 * end of this function, which is the path the 2026-11-16 01:0x boot proved works. The probe is off
-	 * by default because a boot with it selected the right image but left touch unresponsive
-	 * (2026-11-16 14:00), and that is still unexplained. */
+	 * reporting frames (dbyTouchProbeFirmware, which runs the enable round per candidate); without it
+	 * the picker's image - dby-touch-fw, or the panel project id when oeminfo carries one, else the
+	 * table default - is uploaded and the round runs once, right here. The probe is off by default
+	 * because a boot with it selected the right image and left touch unresponsive (2026-11-16 14:00),
+	 * and that is still unexplained. */
 	if (gState.stage >= DBY_TOUCH_STAGE_FWUPLOAD) {
 		static bool picked = false;
 		unsigned probe_arg = 0;
@@ -3368,7 +3369,10 @@ dbyTouchChipEnable(struct dby_touch_bus *bus)
 			picked = true;
 			dbyTouchPickFirmwareFromDevice();
 		}
-		if (PE_parse_boot_argn("dby-touch-probe", &probe_arg, sizeof probe_arg) && probe_arg != 0) {
+		/* Text values never arrive as text: PE_parse_boot_argn forces a string copy only for names
+		 * beginning with an underscore, so a word like "off" lands as its bytes and is nonzero. Only
+		 * an explicit 1 turns the probe on. */
+		if (PE_parse_boot_argn("dby-touch-probe", &probe_arg, sizeof probe_arg) && probe_arg == 1u) {
 			/* The probe ends with the picker's image on the chip when nothing answers, so the rows
 			 * below describe the image this line names either way. */
 			(void)dbyTouchProbeFirmware(bus);
@@ -3385,10 +3389,10 @@ dbyTouchChipEnable(struct dby_touch_bus *bus)
 		}
 	}
 
-	/* The upload path owns the round: the selection ran dbyTouchEnableTail once per candidate, and the
-	 * image it settled on is the one whose round succeeded (or the picker's, restored with its own
-	 * round). Running it again here would send the start-scanning pair a second time and overwrite the
-	 * counter evidence that says which round ran. Stage 7 only needs it once. */
+	/* Stage 8 already ran the round: either the selection ran it once per candidate (probe) or this
+	 * function ran it once right after the upload (default). Running it again would send the
+	 * start-scanning pair a second time and overwrite the counter evidence that says which round ran.
+	 * Stage 7, which has no upload, needs it here. */
 	if (gState.stage < DBY_TOUCH_STAGE_FWUPLOAD) {
 		if (!dbyTouchEnableTail(bus)) {
 			dbyTouchResetRelease();
