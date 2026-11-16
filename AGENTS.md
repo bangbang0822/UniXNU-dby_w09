@@ -119,9 +119,14 @@ Run from the UniXNU checkout:
 ./unixnu tree -D ../UniXNU-dby_w09
 ./unixnu build kernel -j 2 -D ../UniXNU-dby_w09 --uefi ../uefi-sheng
 ./unixnu build payload -D ../UniXNU-dby_w09 --uefi ../uefi-sheng <inputs from README.md>
-python3 scripts/check-repository.py                    # no build host, no hardware
-python3 scripts/porting-record.py check --device ../UniXNU-dby_w09
+python3 check-repository.py                             # in this repository; no build host, no hardware
+python3 porting-record.py check --device ../UniXNU-dby_w09   # the core's script, run from the core
+python3 check-regression.py                             # in this repository; needs a built payload in out/
 ```
+
+The three Python checks are named without a directory on purpose: they do not all live in the same
+place. `check-repository.py` and `check-regression.py` belong to this repository, `porting-record.py`
+belongs to the core.
 
 `unixnu defconfig` must run after any `configs/*_defconfig` edit: the generated `.config`, not the
 defconfig text, is what the kernel build reads.
