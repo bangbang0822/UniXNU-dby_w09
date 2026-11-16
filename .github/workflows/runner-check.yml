@@ -1,0 +1,23 @@
+# Diagnostic, not part of the build: one Ubuntu job and one macOS job that do nothing but say which
+# runner image answered. The 2026-11-16 package runs were all cancelled with "The job was not acquired
+# by Runner of type hosted even after multiple attempts" while Ubuntu workflows in this repository
+# started normally, and this file is what tells those two cases apart without another build.
+name: runner check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "linux ok: $(uname -a)"
+  macos:
+    runs-on: macos-15
+    steps:
+      - run: |
+          echo "macos ok: $(sw_vers -productVersion) $(xcodebuild -version | head -1)"
