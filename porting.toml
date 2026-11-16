@@ -115,6 +115,11 @@ kind = "source"
 reference = "package/DbyTouch/DbyTouch.cpp"
 result = "2026-11-16 21:40, the touch path after the evening's retreat: the chip revival feature was taken back out (the two builds carrying it left touch unresponsive while the build before it worked), and the three measured improvements were re-applied on 79d5dcb8's touch code instead - the Y mirror, the peek-first read (an idle pass costs ~0.2 ms instead of the 8 KiB read), and the 2 ms/12 ms pacing. Measured on hardware: 54.4 publishes a second over a 20 s window (was 32), frames flowing with new=N same=0 and skip=9. The direction was fixed in the same build and the owner has not yet said whether it follows the finger. Still open: why the revival path broke touch (the dead-page test only reads), and the chip losing its firmware about fifty minutes into a boot, which the revival was meant to answer and now does not - a reboot does."
 
+[[area.evidence]]
+kind = "source"
+reference = "package/DbyTouch/DbyTouch.cpp"
+result = "2026-11-16 22:00, the third touch failure of the day and the first with a clear split: the chip was still reporting (h=fa060040, new=N same=0, pub climbing at the usual rate) and touch did nothing, so the break is above the driver - either the HID device stopped (native_touch_set_sink is cleared in NativeHidInput::stop) or the system stopped consuming its reports. Earlier in the same boot it worked, and a reboot brings it back, which is the same shape as the 0xFE death from the driver's point of view but a different cause: this time nothing was lost by the chip. Next measurement: count the publishes that found a non-null sink and put that number in the s5 row, so one boot says whether the sink disappeared. Also worth recording from the same evening: after a fresh flash the first boot can have no touch at all and a reboot fixes it, seen on 6cfd898a, b6a5dd85 and 667a23b6 - that is a start-order effect between the touch driver and the HID device, not a property of the image."
+
 [[area]]
 id = "cpu"
 status = "implemented"
