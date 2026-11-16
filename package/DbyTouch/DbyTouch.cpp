@@ -2865,6 +2865,11 @@ dbyTouchScanPartition(uint64_t first, uint64_t last, uint8_t *buf, uint64_t chun
 	return false;
 }
 
+/* True when dby-touch-fw named the image. An explicit choice is uploaded as asked and never second-
+ * guessed; without one, the image is proven on the tablet instead of taken from the table (see
+ * dbyTouchProbeFirmware). */
+static bool gFwExplicit;
+
 /* The one console line that says which image the uploader will run.  Split out so an explicit choice
  * can reach it without walking the GPT at all.  It does not touch native_touch_rows: this file's own
  * note above that array says the row is neither drawn nor archived, so the console line is the only
@@ -2899,6 +2904,7 @@ dbyTouchPickFirmwareFromDevice(void)
 
 		if (PE_parse_boot_argn("dby-touch-fw", want, sizeof want)) {
 			if (dbyTouchFwSelect(want) == 0) {
+				gFwExplicit = true;
 				dbyTouchReportFirmware("argument");
 				return;
 			}
@@ -2921,6 +2927,7 @@ dbyTouchPickFirmwareFromDevice(void)
 					snprintf(digits, sizeof digits, "%04u", number);
 				}
 				if (dbyTouchFwSelect(digits) == 0) {
+					gFwExplicit = true;
 					dbyTouchReportFirmware("argument");
 					return;
 				}
@@ -3041,6 +3048,129 @@ dbyTouchUploadFirmware(struct dby_touch_bus *bus)
 	IOLog("DbyTouch(upload): rc=%u attempts=%u state=%u\n", gUploadRc, gUploadAttempts, gUploadState);
 }
 
+/* One THP header through the engine, the frame reader's own shape: 0x20 first, then the answer with
+ * its two address-phase bytes in front, so the header starts at rx[2]. */
+static int
+dbyTouchReadHeader(uint8_t *head, size_t len)
+{
+	uint8_t tx[2 + DBY_TOUCH_THP_HEADER];
+	uint8_t rx[2 + DBY_TOUCH_THP_HEADER];
+
+	if (len > DBY_TOUCH_THP_HEADER) {
+		return DBY_TOUCH_ERR_PARAM;
+	}
+	for (size_t i = 0; i < sizeof tx; i++) {
+		tx[i] = 0;
+	}
+	tx[0] = 0x20;
+	if (geni_spi_transfer(&gSpi, tx, rx, sizeof rx, 0) != 0) {
+		return DBY_TOUCH_ERR_IO;
+	}
+	memcpy(head, rx + 2, len);
+	return DBY_TOUCH_OK;
+}
+
+/* Defined below, after the uploader: the probe has to leave doze before it can see a frame. */
+static void dbyTouchStartScanning(struct dby_touch_bus *bus);
+
+/* Which image this panel wants, decided on the tablet instead of from oeminfo.
+ *
+ * The vendor reads a panel project id out of oeminfo and picks the image by it. This unit's oeminfo
+ * is erased, and the vendor's own rule is the reason this matters: a touch image that does not match
+ * the panel is one of the ways the display ends up garbled (2026-11-16: the table's fallback image
+ * was uploaded, the panel showed white lines, and the image that answered was W2599Z1100). An id that
+ * can be missing cannot be the gate.
+ *
+ * The proof is the chip's own behaviour: upload an image, send the vendor's start-scanning pair (the
+ * controller announces frames only once it has left doze), then read the THP header three times 30 ms
+ * apart and require the header to change in BOTH intervals. An image the chip reports through changes
+ * it; one it accepts without reporting through returns the same page, which is exactly what the
+ * 2026-11-15 fingerprints measured with the wrong image (identical nz/sum for 2048 peeks).
+ *
+ * Candidates are the current selection first - which is the image the picker chose, the panel's own
+ * project id when oeminfo still carries one, or the table default - and then the rest of the table in
+ * order. When oeminfo is gone, that first candidate is the default that shipped wrong once, so a boot
+ * on this unit costs two uploads; a unit whose id survives still costs one. Because the probe ends
+ * with the last candidate it tried, and the default is always among them, a failed probe needs no
+ * second upload: the caller's rows already describe the image on the chip.
+ *
+ * Returns DBY_TOUCH_OK with gDbyTouchFw at the image that answered, or DBY_TOUCH_ERR_IO with the
+ * default put back (which is also what is on the chip in that case). */
+static int
+dbyTouchProbeFirmware(struct dby_touch_bus *bus)
+{
+	const struct dbyTouchFwSel *original = gDbyTouchFw;
+	const struct dbyTouchFwSel *order[DBY_TOUCH_FW_COUNT];
+	unsigned count = 0;
+
+	if (original != nullptr) {
+		order[count++] = original;
+	}
+	for (unsigned i = 0; i < DBY_TOUCH_FW_COUNT; i++) {
+		if (&gDbyTouchFwAll[i] != original) {
+			order[count++] = &gDbyTouchFwAll[i];
+		}
+	}
+	for (unsigned i = 0; i < count; i++) {
+		const struct dbyTouchFwSel *candidate = order[i];
+		uint8_t head[3][DBY_TOUCH_THP_HEADER];
+		int readRc = DBY_TOUCH_ERR_IO;
+		unsigned changes = 0;
+
+		if (candidate->len == 0) {
+			/* No bytes for this row: say so instead of silently skipping, which is the reason a
+			 * firmware-less build used to print. */
+			IOLog("DbyTouch(fwprobe): %s has no image in this build\n", candidate->project);
+			continue;
+		}
+		gDbyTouchFw = candidate;
+		dbyTouchUploadFirmware(bus);
+		if (gUploadRc != 0) {
+			IOLog("DbyTouch(fwprobe): %s upload failed rc=%08x\n",
+			    candidate->project, (unsigned)gUploadRc);
+			continue;
+		}
+		/* An upload leaves the chip in its bootloader: this pair is what the vendor sends to start
+		 * scanning, and without it every read returns the page the chip last selected, so a good
+		 * image would fail its own test. */
+		dbyTouchStartScanning(bus);
+		for (unsigned r = 0; r < 3; r++) {
+			IOSleep(30);
+			readRc = dbyTouchReadHeader(head[r], sizeof head[r]);
+			if (readRc != DBY_TOUCH_OK) {
+				break;
+			}
+		}
+		if (readRc == DBY_TOUCH_OK) {
+			if (memcmp(head[0], head[1], sizeof head[0]) != 0) {
+				changes++;
+			}
+			if (memcmp(head[1], head[2], sizeof head[1]) != 0) {
+				changes++;
+			}
+		}
+		if (changes == 2) {
+			IOLog("DbyTouch(fwprobe): %s reports new frames in both intervals, selected\n",
+			    candidate->project);
+			return DBY_TOUCH_OK;
+		}
+		IOLog("DbyTouch(fwprobe): %s did not report (read rc=%d changes=%u)\n",
+		    candidate->project, readRc, changes);
+	}
+	/* The loop leaves the last candidate running, which is the table's last row and not the image the
+	 * rows below - and the caller's comment - say is on the chip. Put the original back so the log
+	 * and the chip agree, even in the boot where nothing answered. */
+	if (original != nullptr && (count == 0 || order[count - 1] != original)) {
+		gDbyTouchFw = original;
+		dbyTouchUploadFirmware(bus);
+	} else {
+		gDbyTouchFw = original;
+	}
+	IOLog("DbyTouch(fwprobe): no image reported frames; keeping %s\n",
+	    original != nullptr ? original->project : "the table default");
+	return DBY_TOUCH_ERR_IO;
+}
+
 /* The three commands sent at stage 7, in order:
  *   0  BT stylus status (0xC2)  - the vendor kernel's own boot command, used to prove that the
  *                                 mailbox write path and the stamp acknowledgement work at all;
@@ -3144,15 +3274,22 @@ dbyTouchChipEnable(struct dby_touch_bus *bus)
 	}
 
 	/* Stage 8: upload the firmware image the vendor HAL loads on every start, then re-read the same
-	 * state byte.  The probe above is what says whether this is needed; the upload is attempted
-	 * regardless of its value only when stage 8 was asked for, so stage 7 still costs nothing. */
+	 * state byte.  An explicit dby-touch-fw is uploaded as asked; otherwise the image is the one that
+	 * proves itself by reporting frames (dbyTouchProbeFirmware), and only if none does is the table's
+	 * default uploaded so the rows below describe the image the log names. */
 	if (gState.stage >= DBY_TOUCH_STAGE_FWUPLOAD) {
 		static bool picked = false;
 		if (!picked) {
 			picked = true;
 			dbyTouchPickFirmwareFromDevice();
 		}
-		dbyTouchUploadFirmware(bus);
+		if (gFwExplicit) {
+			dbyTouchUploadFirmware(bus);
+		} else {
+			/* The probe ends with the table default on the chip when nothing answers, so the rows
+			 * below describe the image this line names either way. */
+			(void)dbyTouchProbeFirmware(bus);
+		}
 		if (gUploadRc == 0) {
 			uint8_t fw[6];
 
