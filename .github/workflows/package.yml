@@ -58,7 +58,7 @@ jobs:
           # --branch only names the line; the commit below is what the board was qualified against,
           # so a later tip or a force-push cannot change the kernel under this workflow.
           git clone --branch dby-w09 https://gitee.com/uni-xnu-dby-w09/UniXNU.git UniXNU
-          git -C UniXNU checkout --detach 491efd7cbc2164ed797d43cfb8f4cca7ad28f69f
+          git -C UniXNU checkout --detach a15009d5fedb0f6df87d4865e4727efaec7344ac
           git -C UniXNU submodule update --init --recursive
       - uses: actions/checkout@v4
         with:
