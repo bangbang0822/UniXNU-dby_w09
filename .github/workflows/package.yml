@@ -133,6 +133,18 @@ jobs:
           else
             scripts/package.sh --os "$OS_PROFILE" --uefi ../uefi-dby_w09
           fi
+      - name: runtime log
+        if: failure()
+        run: |
+          # The runtime step runs its sub-tools with check=True and captures their output, so a failure
+          # there reaches the job log as a Python traceback with no message from the tool that failed -
+          # which is exactly what the 2026-11-16 seed-data-grow failure looked like. Print the tools'
+          # own logs so the next failure names its command.
+          for f in UniXNU/out/dby-w09/*/*/logs/runtime.log UniXNU/out/dby-w09/*/*/logs/*.log; do
+            [ -f "$f" ] || continue
+            echo "=== ${f} (tail)"
+            tail -150 "$f"
+          done
       - uses: actions/cache/save@v4
         if: always() && steps.data-cache.outputs.cache-hit != 'true'
         with:
