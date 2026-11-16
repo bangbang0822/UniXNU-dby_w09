@@ -3,6 +3,28 @@
 One day, 17 hours, 30 commits. This is what is true at the end of it, what is on the tablet, and
 what the first hour of the next session should be.
 
+## Evening addendum (21:45)
+
+The day ended with a build that is better than the one this document was first written about.
+Payload **`667a23b6`** (`touch3.img`): touch works, the Y axis follows the finger, and the reader
+publishes **54.4 times a second** measured over 20 s (was 32). It gets there by reading the frame
+only when the header peek says one arrived, and by pacing 2 ms after a frame and 12 ms after a pass
+that found nothing.
+
+Two things changed after the first draft and matter:
+
+- The chip revival feature (`5f8668a`) was **withdrawn**: the two builds carrying it left touch
+  completely unresponsive, while the build before it worked. Why is unknown - its dead-page test
+  only reads - and `0feb429` takes it back out with the finding kept in the record.
+- `79d5dcb8` is no longer the tablet's payload; `667a23b6` is, and `touch-restored.img` remains as
+  the fallback that is known to boot.
+
+The GPU workflow gained a `runner` input (`f4567d9`) after three macos-26 runs and one macos-15 run
+were all cancelled at 15:01 with GitHub's annotation "The job was not acquired by Runner of type
+hosted even after multiple attempts". Ubuntu jobs in the same repository do start, so the macOS pool
+is what this account cannot get, not the repository or the code.
+
+
 ## What works on the tablet now
 
 Payload **`79d5dcb8`** (`touch-restored.img` on the build host, `/root/payloads/`):
