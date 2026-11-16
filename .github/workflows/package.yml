@@ -136,6 +136,21 @@ jobs:
       # seed on the runner and rewrites CONFIG_XNU_OWNER_DATA_VOLUME_UUID before the kernel compiles,
       # so the images belong to that seed. The seed is cached at the end of the run, so later runs do
       # not need the input again.
+      # The runtime step rebuilds Mesa's Turnip runtime and the shader tools from scratch on every
+      # run: a mesa clone, a pip venv, and a cross build that takes most of the quarter hour the
+      # hosted macOS pool is willing to give before it takes the runner back. Caching the directories
+      # it writes is what should turn a retry into minutes rather than a rebuild. The key carries the
+      # OS profile and the runner image, so a different image starts clean.
+      - name: turnip cache restore
+        id: turnip-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/tree/.cache/mesa-work
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/tree/.cache/mesa-venv
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/tree/.cache/mesa-tools
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/tree/build/mesa-tu-ios
+          key: turnip-v1-${{ inputs.os }}-${{ inputs.runner }}
       - name: package
         working-directory: device
         env:
@@ -169,6 +184,18 @@ jobs:
             UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/data.dbr
             UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/inputs.json
           key: ${{ steps.seed-key.outputs.key }}-${{ inputs.os }}
+      # Saved even when the run fails, which is the usual case: whatever the Turnip build finished
+      # before the failure is what makes the next attempt shorter.
+      - name: turnip cache save
+        if: always() && steps.turnip-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/tree/.cache/mesa-work
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/tree/.cache/mesa-venv
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/tree/.cache/mesa-tools
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/tree/build/mesa-tu-ios
+          key: turnip-v1-${{ inputs.os }}-${{ inputs.runner }}
       - name: installation seed backup
         if: always()
         uses: actions/upload-artifact@v4
