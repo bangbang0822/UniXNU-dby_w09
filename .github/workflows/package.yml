@@ -74,8 +74,10 @@ jobs:
         run: |
           # glslang is what build-turnip-darwin.py asks for by name ("glslangValidator is required
           # by the Vulkan runtime build") before it configures Mesa's Vulkan runtime; bison and flex
-          # generate src/freedreno/ir3/ir3_parser.c, and macOS ships bison 2.3, which cannot.
-          brew install dtc llvm lld cmake mtools ninja glslang bison flex blacktop/tap/ipsw
+          # generate src/freedreno/ir3/ir3_parser.c, and macOS ships bison 2.3, which cannot; shaderc
+          # and spirv-tools are what gen-turnip-smoke-shaders.py runs (`glslc` then `spirv-val`).
+          brew install dtc llvm lld cmake mtools ninja glslang bison flex shaderc spirv-tools \
+                       blacktop/tap/ipsw
           llvm_prefix=$(brew --prefix llvm)
           bison_prefix=$(brew --prefix bison)
           {
@@ -92,7 +94,7 @@ jobs:
           for t in llvm-nm llvm-objcopy llvm-ar; do
             [ -f "$llvm_prefix/bin/$t" ] || { echo "missing tool: $t"; ok=0; }
           done
-          for t in bison flex; do
+          for t in bison flex glslc spirv-val; do
             command -v "$t" >/dev/null || { echo "missing tool: $t"; ok=0; }
           done
           [ "$ok" = 1 ]
