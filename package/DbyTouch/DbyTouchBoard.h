@@ -327,7 +327,13 @@
  * the peek), so this is the floor that keeps the read path at ~45-50 Hz instead of one frame per
  * loop pass.  12 ms + the read is inside the 25 ms the board used before, which is why the pointer
  * should feel better and not worse. */
-#define DBY_TOUCH_HID_READ_GAP_MS     12U
+#define DBY_TOUCH_HID_READ_GAP_MS     2U
+
+/* The floor for a pass whose peek found the same header: dbyTouchIrqPending() answers "read"
+ * whenever pin 39 cannot be read, and this unit's pin measures low from boot, so the gap is the only
+ * pacing. A chip that is not announcing frames therefore keeps the old 12 ms rather than letting this
+ * thread read a frame every pass. */
+#define DBY_TOUCH_HID_READ_GAP_SAME_MS 12U
 
 /* Firmware liveness: after a firmware upload the vendor HAL polls six bytes at chip 0x2FE60 and
  * accepts a first byte in 0xA0..0xAF as "the firmware finished resetting" (nvt_check_fw_reset_state,

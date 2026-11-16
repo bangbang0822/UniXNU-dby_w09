@@ -3620,6 +3620,10 @@ dbyTouchCentroid(const struct DbyTouchCandidate *c, unsigned cols, unsigned rows
 	/* Centroid in node units, then the half-node centre: x = (wx/wsum + 0.5) * PANEL_W / cols. */
 	x = (uint32_t)(((wx * 2u + wsum) * DBY_TOUCH_PANEL_W) / (wsum * 2u * cols));
 	y = (uint32_t)(((wy * 2u + wsum) * DBY_TOUCH_PANEL_H) / (wsum * 2u * rows));
+	/* 2026-11-16 15:52, owner: the pointer moved opposite to the finger along Y while X followed, so
+	 * this panel's matrix rows run bottom-to-top. The calibration note above says "row 0 the top
+	 * edge", which a finger-held frame capture cannot tell apart from a 180-degree mount. */
+	y = (DBY_TOUCH_PANEL_H - 1u) - y;
 	if (x >= DBY_TOUCH_PANEL_W || y >= DBY_TOUCH_PANEL_H) {
 		return false;
 	}
@@ -4241,7 +4245,17 @@ stage5Thread(void *arg, wait_result_t wait)
 			/* The header first, then the frame: the peek says whether the chip announced a new frame at
 			 * all, which the frame content alone cannot (see stage5PeekHeader). A failed peek does not
 			 * block the read - the frame is still what the rest of this loop needs. */
+			const unsigned newBefore = gThpNew;
+
 			(void)stage5PeekHeader();
+			if (gThpNew == newBefore) {
+				/* The header did not move: there is no new frame, and an 8 KiB read would only
+				 * return the page this loop already has. Skipping it makes an idle pass cost the
+				 * peek (~0.2 ms) instead of the read (~8 ms), which is what leaves the engine free
+				 * for the pass that does have a frame. */
+				IOSleep(DBY_TOUCH_HID_READ_GAP_SAME_MS);
+				continue;
+			}
 			if (stage5ReadFrame(buf, kFrameLen, &again) == DBY_TOUCH_OK) {
 				/* One fingerprint row every 64 publishes (~1 s at the 3 ms period plus the frame read
 				 * and the publish step): the non-idle byte count of the
@@ -4274,7 +4288,9 @@ stage5Thread(void *arg, wait_result_t wait)
 				/* The read path's floor: this pass cost ~7-10 ms of engine time, so the next one waits
 				 * long enough that the thread cannot own a core even when the gate always answers
 				 * "read".  The cheap pass above keeps the 3 ms cadence for latency. */
-				IOSleep(DBY_TOUCH_HID_READ_GAP_MS);
+				/* Pacing after the read: a frame arrived, so keep the 2 ms gap; a pass that found
+				 * the same header keeps the old 12 ms floor. */
+				IOSleep(gThpNew != newBefore ? DBY_TOUCH_HID_READ_GAP_MS : DBY_TOUCH_HID_READ_GAP_SAME_MS);
 				/* Refresh the page every 16 publishes (~0.3 s at this cadence), which is inside the
 				 * log writer's 2 s cadence. */
 				if ((gTouchPublishes & 15u) == 0u) {
