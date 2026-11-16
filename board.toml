@@ -93,7 +93,8 @@ windows = [
 # ---------------------------------------------------------------------------
 [package]
 unixnu = "../UniXNU"           # UniXNU 检出相对本仓的路径，与 README 的构建命令一致；
-                               # 需要 gitee.com/uni-xnu-dby-w09/UniXNU 的 dby-w09 分支（0c29766）：
+                               # 需要 gitee.com/uni-xnu-dby-w09/UniXNU 的 dby-w09 分支，钉在
+                               # 491efd7（workflow 里 checkout --detach 的就是这个提交）：
                                # 上游 main（2366e33）的 components.toml 没有 QcomXnuUsbDebug 条目
 
 [package.defconfig]

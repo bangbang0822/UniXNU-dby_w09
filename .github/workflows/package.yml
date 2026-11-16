@@ -48,14 +48,18 @@ jobs:
         with:
           path: device
           submodules: recursive
-      - uses: actions/checkout@v4
-        with:
-          repository: UniXNU/UniXNU
-          # Pin the UniXNU revision this board was qualified against. Replace this
-          # branch with the commit once it is recorded in porting.toml.
-          ref: main
-          path: UniXNU
-          submodules: recursive
+      # The board builds against the dby-w09 line of the core, not the public main: board.toml
+      # selects QcomXnuUsbDebug, which only that line's components.toml carries, and the build stops
+      # with "unixnu: unknown component: QcomXnuUsbDebug" on main. That line lives on gitee and its
+      # history is unrelated to github.com/UniXNU/UniXNU, so this is a clone rather than a checkout of
+      # a branch of the public repository. The core's own submodules are GitHub URLs.
+      - name: UniXNU core
+        run: |
+          # --branch only names the line; the commit below is what the board was qualified against,
+          # so a later tip or a force-push cannot change the kernel under this workflow.
+          git clone --branch dby-w09 https://gitee.com/uni-xnu-dby-w09/UniXNU.git UniXNU
+          git -C UniXNU checkout --detach 491efd7cbc2164ed797d43cfb8f4cca7ad28f69f
+          git -C UniXNU submodule update --init --recursive
       - uses: actions/checkout@v4
         with:
           repository: WQSQW/uefi-dby_w09
