@@ -68,10 +68,13 @@ jobs:
       - name: tools
         run: |
           # glslang is what build-turnip-darwin.py asks for by name ("glslangValidator is required
-          # by the Vulkan runtime build") before it configures Mesa's Vulkan runtime.
-          brew install dtc llvm lld cmake mtools ninja glslang blacktop/tap/ipsw
+          # by the Vulkan runtime build") before it configures Mesa's Vulkan runtime; bison and flex
+          # generate src/freedreno/ir3/ir3_parser.c, and macOS ships bison 2.3, which cannot.
+          brew install dtc llvm lld cmake mtools ninja glslang bison flex blacktop/tap/ipsw
           llvm_prefix=$(brew --prefix llvm)
+          bison_prefix=$(brew --prefix bison)
           {
+            echo "$bison_prefix/bin"
             echo "$llvm_prefix/bin"
             echo "$(brew --prefix lld)/bin"
           } >> "$GITHUB_PATH"
@@ -83,6 +86,9 @@ jobs:
           done
           for t in llvm-nm llvm-objcopy llvm-ar; do
             [ -f "$llvm_prefix/bin/$t" ] || { echo "missing tool: $t"; ok=0; }
+          done
+          for t in bison flex; do
+            command -v "$t" >/dev/null || { echo "missing tool: $t"; ok=0; }
           done
           [ "$ok" = 1 ]
       - name: platform seed
@@ -141,8 +147,10 @@ jobs:
           # The runtime step runs its sub-tools with check=True and captures their output, so a failure
           # there reaches the job log as a Python traceback with no message from the tool that failed -
           # which is exactly what the 2026-11-16 seed-data-grow failure looked like. Print the tools'
-          # own logs so the next failure names its command.
-          for f in UniXNU/out/dby-w09/*/*/logs/runtime.log UniXNU/out/dby-w09/*/*/logs/*.log; do
+          # own logs so the next failure names its command. The mesa build log lives under .cache/ and
+          # is the only place a compiler error inside Turnip is written down.
+          for f in UniXNU/out/dby-w09/*/*/logs/runtime.log UniXNU/out/dby-w09/*/*/logs/*.log \
+                   UniXNU/out/dby-w09/*/*/tree/.cache/mesa-*-build.log; do
             [ -f "$f" ] || continue
             echo "=== ${f} (tail)"
             tail -150 "$f"
