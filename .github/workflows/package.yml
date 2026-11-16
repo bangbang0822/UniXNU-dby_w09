@@ -67,7 +67,9 @@ jobs:
           submodules: recursive
       - name: tools
         run: |
-          brew install dtc llvm lld cmake mtools ninja blacktop/tap/ipsw
+          # glslang is what build-turnip-darwin.py asks for by name ("glslangValidator is required
+          # by the Vulkan runtime build") before it configures Mesa's Vulkan runtime.
+          brew install dtc llvm lld cmake mtools ninja glslang blacktop/tap/ipsw
           llvm_prefix=$(brew --prefix llvm)
           {
             echo "$llvm_prefix/bin"
