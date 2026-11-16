@@ -443,14 +443,6 @@ volatile uint32_t native_touch_count;
  * separates "the driver stopped publishing" from "the HID side stopped sending" (2026-11-16 22:00:
  * frames and publishes were healthy while touch was dead). */
 extern volatile uint32_t native_touch_hid_reports;
-/* The offline IOHIDDevice HidInputProbe.cpp built at boot (its native_hid_input_object). It is
- * registered once, after the boot matching pass, and on some boots IOHIDEventDriver never attaches
- * to it; NativeHidInput then refuses to send anything (`r=` in the s5 row stays 0) and touch is dead
- * while the chip keeps reporting. Re-registering gives the match another pass. */
-extern "C" {
-extern volatile uint64_t native_hid_input_object;
-extern volatile int native_hid_input_results[8];
-}
 volatile int native_touch_xs[12];
 volatile int native_touch_ys[12];
 volatile int native_touch_ids[12];
@@ -463,8 +455,6 @@ volatile int native_touch_ids[12];
 static void (*gTouchSink)(void *);
 static void *gTouchSinkContext;
 static uint32_t gTouchPublishes;
-/* Times the reader has re-registered the offline HID device because no report had ever been sent. */
-static unsigned gHidRetries;
 /* Periods the live loop skipped because the chip had not raised its interrupt (pin 39, idle high,
  * falling when a report is ready). The vendor reads the frame from inside that IRQ thread; polling the
  * same command without waiting for it returns whatever page the chip last selected, which the
@@ -4302,25 +4292,6 @@ stage5Thread(void *arg, wait_result_t wait)
 				}
 				dbyTouchFindContact(buf, kFrameLen);
 				dbyTouchPublishContact();
-				/* No report has ever reached the system and the device is registered: give the
-				 * event-driver match another pass, at most three times, one ~1500 publishes apart.
-				 * Two counters have to agree, because each alone lies: `native_touch_hid_reports` is
-				 * zero on a healthy boot whose panel nobody has touched (the component only counts a
-				 * report it actually sent), and `native_hid_input_results[3]` is that component's own
-				 * 1 Hz verdict on whether an IOHIDEventDriver sits below it (0 = none, 1 = found,
-				 * -1 = never evaluated). */
-				if (native_touch_hid_reports == 0u && native_hid_input_results[3] == 0 &&
-				    gHidRetries < 3u &&
-				    gTouchPublishes >= (uint64_t)(gHidRetries + 1u) * 1500u) {
-					const uintptr_t object = (uintptr_t)native_hid_input_object;
-
-					if (object != 0u) {
-						gHidRetries++;
-						reinterpret_cast<IOService *>(object)->registerService(kIOServiceSynchronous);
-						kprintf("DbyTouch(s5): no HID event driver after %u publishes, re-registered it (try %u)\n",
-						    (unsigned)gTouchPublishes, gHidRetries);
-					}
-				}
 				/* The read path's floor: this pass cost ~7-10 ms of engine time, so the next one waits
 				 * long enough that the thread cannot own a core even when the gate always answers
 				 * "read".  The cheap pass above keeps the 3 ms cadence for latency. */
