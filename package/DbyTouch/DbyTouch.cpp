@@ -2074,10 +2074,6 @@ stage5ReadFrame(uint8_t *buf, size_t len, size_t *done_out)
 #define DBY_TOUCH_THP_HEADER 24
 
 static uint8_t  gThpHead[DBY_TOUCH_THP_HEADER];
-/* Consecutive 0xFE pages seen by the reader; eight in a row is a chip with no firmware. */
-static unsigned gTouchDeadPages;
-/* Times the reader has re-uploaded the image this boot; three attempts and it stops trying. */
-static unsigned gTouchRevives;
 static uint8_t  gThpLast[DBY_TOUCH_THP_HEADER];
 static uint32_t gThpPeeks;
 static uint32_t gThpNew;
@@ -2111,28 +2107,6 @@ stage5PeekHeader(void)
 	}
 	return DBY_TOUCH_OK;
 }
-
-/* Did this page come from a chip with no firmware running?  2026-11-16: about forty minutes into a
- * boot the report became 0xFE everywhere (nz=8192, a fixed sum, h=fefefefe) and stayed there, which
- * is the chip's bootloader output rather than a report - the owner saw it as "touch stopped
- * responding" and only a reboot brought it back. Sampled every 128th byte of the payload so the
- * check costs nothing next to the read it follows. */
-static bool
-dbyTouchPageIsDead(const uint8_t *frame, size_t len)
-{
-	/* The header is taken from the page itself and not from gThpHead: the peek's result is
-	 * discarded by the caller, so a failed peek would leave a stale header deciding "dead". */
-	if (len < 4u || frame[2] != 0xFEu || frame[3] != 0xFEu) {
-		return false;
-	}
-	for (size_t i = 4u; i + 1u < len; i += 128u) {
-		if (frame[i] != 0xFEu) {
-			return false;
-		}
-	}
-	return true;
-}
-
 
 /* ------------------------------------------------------------------ */
 /* Chip enable (stage 6+)                                             */
@@ -4269,44 +4243,6 @@ stage5Thread(void *arg, wait_result_t wait)
 			 * block the read - the frame is still what the rest of this loop needs. */
 			(void)stage5PeekHeader();
 			if (stage5ReadFrame(buf, kFrameLen, &again) == DBY_TOUCH_OK) {
-				/* A page that is 0xFE everywhere is the chip with no firmware running: on 2026-11-16
-				 * the report went from h=fa060040 to h=fefefefe about forty minutes into a boot and
-				 * never came back, which is what "touch stopped responding" looked like. The vendor's
-				 * resume path re-downloads the image; do the same here, after enough pages to tell a
-				 * dead chip from a half-read one, and do not publish the page. */
-				if (dbyTouchPageIsDead(buf, kFrameLen)) {
-					if (gTouchDeadPages == 0u) {
-						/* A finger that was down when the chip stopped is still down in the shared
-						 * page: publish the lift before the page is otherwise ignored. The counter
-						 * is reset after each burst, so this repeats once per eight dead pages
-						 * rather than once per boot - harmless, and it keeps a chattering chip
-						 * from leaving a contact stuck down. */
-						gTouchLiveCount = 0;
-						dbyTouchPublishContact();
-					}
-					if (++gTouchDeadPages >= 8u) {
-						struct dby_touch_bus deadBus = { &gSpi, dbyBusXfer, dbyBusDelay };
-
-						gTouchDeadPages = 0;
-						/* An image that keeps dying is not fixed by uploading it again every
-						 * second: three attempts, then say so once and leave it alone. The round is
-						 * the whole boot round (reset pulse, 0xAA, identify, upload, tail), not just
-						 * the upload: a chip that is not sitting in its bootloader would otherwise
-						 * burn every attempt without accepting an image. */
-						if (gTouchRevives < 3u) {
-							gTouchRevives++;
-							kprintf("DbyTouch(s5): chip stopped reporting (0xFE page), reviving it (try %u)\n",
-							    gTouchRevives);
-							(void)dbyTouchChipEnable(&deadBus);
-						} else if (gTouchRevives == 3u) {
-							gTouchRevives++;
-							kprintf("DbyTouch(s5): chip is not coming back after 3 attempts; touch stays off\n");
-						}
-					}
-					IOSleep(DBY_TOUCH_HID_READ_GAP_MS);
-					continue;
-				}
-				gTouchDeadPages = 0;
 				/* One fingerprint row every 64 publishes (~1 s at the 3 ms period plus the frame read
 				 * and the publish step): the non-idle byte count of the
 				 * scanned payload, a rolling hash and the word at 0x1000, so a capture with a finger
