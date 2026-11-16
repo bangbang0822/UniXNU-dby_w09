@@ -6,10 +6,13 @@ name: package
 # images, so the run's artifacts belong to one device alone: download them, then
 # delete the run.
 #
-# The Data seed is an input no builder on this board can make (README prerequisite 4):
-# it is produced on macOS and its APFS volume UUID has to equal
-# CONFIG_XNU_OWNER_DATA_VOLUME_UUID in configs/dby_w09_defconfig. The cache below keeps
-# that one file between runs; a run with no cached seed stops instead of inventing one.
+# The Data seed is produced on macOS and its APFS volume UUID has to equal
+# CONFIG_XNU_OWNER_DATA_VOLUME_UUID in configs/dby_w09_defconfig. The cache below keeps that one file
+# between runs, and a run that finds no cached seed stops - unless init_data is set. That input is the
+# first-install path for a repository that has never had a seed (a fresh fork): the runtime step builds
+# one on the runner, which has the macOS hdiutil the seed tool needs, and rewrites the UUID before the
+# kernel compiles. A cached seed is reused even when init_data is set; the input only answers "what if
+# there is no cache".
 
 on:
   workflow_dispatch:
@@ -19,6 +22,10 @@ on:
         type: choice
         options: ["ipados-17.7.11-21H461"]
         default: "ipados-17.7.11-21H461"
+      init_data:
+        description: "Build a Data seed when no cached one exists (first-install path for a repository with no seed cache)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -98,21 +105,30 @@ jobs:
             UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/inputs.json
           key: ${{ steps.seed-key.outputs.key }}-${{ inputs.os }}
       - name: require the preserved Data seed
+        if: ${{ !inputs.init_data }}
         run: |
           seed="UniXNU/out/dby-w09/$OS_PROFILE/dby_w09/runtime/data.dbr"
           if [ ! -f "$seed" ]; then
             echo "No cached Data seed at $seed." >&2
-            echo "This board cannot generate one (prepare-owner-data-fixture.py needs macOS hdiutil)." >&2
-            echo "Restore the seed produced for this unit, or build it on a Mac and seed the cache." >&2
+            echo "Restore the seed produced for this unit, or run with init_data=true to build one here (the runner has the macOS hdiutil that the seed tool needs)." >&2
             exit 1
           fi
+      # init_data is for a repository that has no seed cache yet: the runtime step then builds a new
+      # seed on the runner and rewrites CONFIG_XNU_OWNER_DATA_VOLUME_UUID before the kernel compiles,
+      # so the images belong to that seed. The seed is cached at the end of the run, so later runs do
+      # not need the input again.
       - name: package
         working-directory: device
         env:
           UNIXNU_UNIQUE_CHIP_ID: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
           UNIXNU_UEFI: ${{ github.workspace }}/uefi-dby_w09
+          INIT_DATA: ${{ inputs.init_data }}
         run: |
-          scripts/package.sh --os "$OS_PROFILE" --uefi ../uefi-dby_w09
+          if [ "$INIT_DATA" = "true" ]; then
+            scripts/package.sh --os "$OS_PROFILE" --uefi ../uefi-dby_w09 --init-data
+          else
+            scripts/package.sh --os "$OS_PROFILE" --uefi ../uefi-dby_w09
+          fi
       - uses: actions/cache/save@v4
         if: always() && steps.data-cache.outputs.cache-hit != 'true'
         with:
