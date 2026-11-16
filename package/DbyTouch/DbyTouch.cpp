@@ -2865,11 +2865,6 @@ dbyTouchScanPartition(uint64_t first, uint64_t last, uint8_t *buf, uint64_t chun
 	return false;
 }
 
-/* True when dby-touch-fw named the image. An explicit choice is uploaded as asked and never second-
- * guessed; without one, the image is proven on the tablet instead of taken from the table (see
- * dbyTouchProbeFirmware). */
-static bool gFwExplicit;
-
 /* The one console line that says which image the uploader will run.  Split out so an explicit choice
  * can reach it without walking the GPT at all.  It does not touch native_touch_rows: this file's own
  * note above that array says the row is neither drawn nor archived, so the console line is the only
@@ -2904,7 +2899,6 @@ dbyTouchPickFirmwareFromDevice(void)
 
 		if (PE_parse_boot_argn("dby-touch-fw", want, sizeof want)) {
 			if (dbyTouchFwSelect(want) == 0) {
-				gFwExplicit = true;
 				dbyTouchReportFirmware("argument");
 				return;
 			}
@@ -2927,7 +2921,6 @@ dbyTouchPickFirmwareFromDevice(void)
 					snprintf(digits, sizeof digits, "%04u", number);
 				}
 				if (dbyTouchFwSelect(digits) == 0) {
-					gFwExplicit = true;
 					dbyTouchReportFirmware("argument");
 					return;
 				}
@@ -3048,30 +3041,106 @@ dbyTouchUploadFirmware(struct dby_touch_bus *bus)
 	IOLog("DbyTouch(upload): rc=%u attempts=%u state=%u\n", gUploadRc, gUploadAttempts, gUploadState);
 }
 
-/* One THP header through the engine, the frame reader's own shape: 0x20 first, then the answer with
- * its two address-phase bytes in front, so the header starts at rx[2]. */
+/* THP_MAX_FRAME_SIZE = 8*1024+16 = 8208 (huawei_thp.h:248, huawei_thp_core.c:2379). The probe reads
+ * a whole frame rather than the 24 bytes it needs: a 26-byte transfer does not move the chip's
+ * buffer, and the 2026-11-16 12:05 and 12:12 boots both measured the same page from 26-byte reads -
+ * three inside 90 ms, then fifty over a second - while the live loop, which reads this much, reported
+ * new=N same=0 fifty milliseconds later with the same image on the same chip. */
+#define DBY_TOUCH_PROBE_FRAME 8208u
+
+/* One header read through the engine, on the frame transfer the live loop uses. */
+static uint8_t *gProbeFrame;
+
 static int
 dbyTouchReadHeader(uint8_t *head, size_t len)
 {
-	uint8_t tx[2 + DBY_TOUCH_THP_HEADER];
-	uint8_t rx[2 + DBY_TOUCH_THP_HEADER];
+	size_t done = 0;
 
 	if (len > DBY_TOUCH_THP_HEADER) {
 		return DBY_TOUCH_ERR_PARAM;
 	}
-	for (size_t i = 0; i < sizeof tx; i++) {
-		tx[i] = 0;
+	if (gProbeFrame == nullptr) {
+		gProbeFrame = (uint8_t *)IOMallocAligned(DBY_TOUCH_PROBE_FRAME, 64);
+		if (gProbeFrame == nullptr) {
+			return DBY_TOUCH_ERR_IO;               /* no frame buffer: this read cannot answer */
+		}
 	}
-	tx[0] = 0x20;
-	if (geni_spi_transfer(&gSpi, tx, rx, sizeof rx, 0) != 0) {
+	if (stage5ReadFrame(gProbeFrame, DBY_TOUCH_PROBE_FRAME, &done) != DBY_TOUCH_OK) {
 		return DBY_TOUCH_ERR_IO;
 	}
-	memcpy(head, rx + 2, len);
+	/* The live loop calls the frame's first two bytes an address phase and takes the header from
+	 * index 2 (kFrameStart, :3976); compare the same bytes it compares. */
+	memcpy(head, gProbeFrame + 2, len);
 	return DBY_TOUCH_OK;
 }
 
 /* Defined below, after the uploader: the probe has to leave doze before it can see a frame. */
 static void dbyTouchStartScanning(struct dby_touch_bus *bus);
+
+/* Everything the chip needs after its image is on it: the counter probe, the vendor's start-scanning
+ * pair, the second counter probe and the IRQ sample. It is split out so the selection can run it once
+ * per candidate, because the 2026-11-16 12:12 and 12:26 boots measured that a chip which has just
+ * been uploaded does not answer the pair at all (bt=1 idle=1 active=1) - its command channel only
+ * comes up after this round - so a header read taken right after an upload always sees the same page,
+ * whatever image is on the chip. */
+static bool
+dbyTouchEnableTail(struct dby_touch_bus *bus)
+{
+	bool ok = true;
+
+	/* The verdict belongs to this round: the selection runs one round per candidate and publishes the
+	 * one it settled on, so a failure from an earlier candidate must not survive into it. */
+	gEnableRc = 0;
+	if (dbyTouchProbeCounter(bus) != DBY_TOUCH_OK) {
+		gEnableRc = 7;
+		/* The enable sequence releases the pad on every exit, and a caller that gives up on this
+		 * candidate still goes on to upload the next one. */
+		dbyTouchResetRelease();
+		return false;
+	}
+	if (gState.stage >= DBY_TOUCH_STAGE_HOSTCMD) {
+		for (unsigned i = 0; i < 4; i++) {
+			gCounterFirst[i] = gCounterBytes[i];
+		}
+		dbyTouchStartScanning(bus);
+		if (dbyTouchProbeCounter(bus) != DBY_TOUCH_OK) {
+			gCounterBytes[0] = 0xFFu;
+			gCounterBytes[1] = 0xFFu;
+			gCounterBytes[2] = 0xFFu;
+			gCounterBytes[3] = 0xFFu;
+			/* A probe that failed is a step that did not answer, not a success. */
+			gEnableRc = 8;
+			ok = false;
+		}
+		gCounterMoved = (gCounterFirst[0] != gCounterBytes[0] ||
+		                 gCounterFirst[1] != gCounterBytes[1] ||
+		                 gCounterFirst[2] != gCounterBytes[2] ||
+		                 gCounterFirst[3] != gCounterBytes[3]);
+	}
+	dbyTouchSampleIrq(200, &gIrqLevel, &gIrqEdges);
+	dbyTouchResetRelease();
+	IOLog("DbyTouch(enable): rc=%u ident=%u/%d irq=%u/%u f=%02x%02x%02x%02x rst_cfg=%08x rst_io=%08x\n",
+	    gEnableRc, gEnableIdentRc, gEnableIdentRow, gIrqLevel, gIrqEdges,
+	    gCounterBytes[0], gCounterBytes[1], gCounterBytes[2], gCounterBytes[3],
+	    gResetCfg, gResetIo);
+	return ok;
+}
+
+/* Does the chip announce new frames? Two whole-frame reads 30 ms apart, the live loop's own test. */
+static bool
+dbyTouchFramesFlow(void)
+{
+	uint8_t first[DBY_TOUCH_THP_HEADER], second[DBY_TOUCH_THP_HEADER];
+
+	if (dbyTouchReadHeader(first, sizeof first) != DBY_TOUCH_OK) {
+		return false;
+	}
+	IOSleep(30);
+	if (dbyTouchReadHeader(second, sizeof second) != DBY_TOUCH_OK) {
+		return false;
+	}
+	return memcmp(first, second, sizeof first) != 0;
+}
 
 /* Which image this panel wants, decided on the tablet instead of from oeminfo.
  *
@@ -3101,6 +3170,12 @@ dbyTouchProbeFirmware(struct dby_touch_bus *bus)
 {
 	const struct dbyTouchFwSel *original = gDbyTouchFw;
 	const struct dbyTouchFwSel *order[DBY_TOUCH_FW_COUNT];
+	/* The last candidate whose upload returned success: what is on the chip if every later attempt,
+	 * including the restore of the picker's image, fails. */
+	const struct dbyTouchFwSel *lastUploaded = nullptr;
+	/* True once an upload has failed after the last one that landed: the chip is then in its
+	 * bootloader or holding a partial image, so no firmware is running. */
+	bool failedSinceLanding = false;
 	unsigned count = 0;
 
 	if (original != nullptr) {
@@ -3113,9 +3188,6 @@ dbyTouchProbeFirmware(struct dby_touch_bus *bus)
 	}
 	for (unsigned i = 0; i < count; i++) {
 		const struct dbyTouchFwSel *candidate = order[i];
-		uint8_t head[3][DBY_TOUCH_THP_HEADER];
-		int readRc = DBY_TOUCH_ERR_IO;
-		unsigned changes = 0;
 
 		if (candidate->len == 0) {
 			/* No bytes for this row: say so instead of silently skipping, which is the reason a
@@ -3128,46 +3200,54 @@ dbyTouchProbeFirmware(struct dby_touch_bus *bus)
 		if (gUploadRc != 0) {
 			IOLog("DbyTouch(fwprobe): %s upload failed rc=%08x\n",
 			    candidate->project, (unsigned)gUploadRc);
+			failedSinceLanding = true;
 			continue;
 		}
-		/* An upload leaves the chip in its bootloader: this pair is what the vendor sends to start
-		 * scanning, and without it every read returns the page the chip last selected, so a good
-		 * image would fail its own test. */
-		dbyTouchStartScanning(bus);
-		for (unsigned r = 0; r < 3; r++) {
-			IOSleep(30);
-			readRc = dbyTouchReadHeader(head[r], sizeof head[r]);
-			if (readRc != DBY_TOUCH_OK) {
-				break;
-			}
+		lastUploaded = candidate;
+		failedSinceLanding = false;
+		/* The chip's command channel is not up until the round below has run, so the round is part
+		 * of the test and not a later step: upload, run it, then ask the chip whether it is
+		 * announcing frames. */
+		if (!dbyTouchEnableTail(bus)) {
+			IOLog("DbyTouch(fwprobe): %s did not come up (enable rc=%u)\n",
+			    candidate->project, gEnableRc);
+			continue;
 		}
-		if (readRc == DBY_TOUCH_OK) {
-			if (memcmp(head[0], head[1], sizeof head[0]) != 0) {
-				changes++;
-			}
-			if (memcmp(head[1], head[2], sizeof head[1]) != 0) {
-				changes++;
-			}
-		}
-		if (changes == 2) {
-			IOLog("DbyTouch(fwprobe): %s reports new frames in both intervals, selected\n",
-			    candidate->project);
+		if (dbyTouchFramesFlow()) {
+			IOLog("DbyTouch(fwprobe): %s announces frames, selected\n", candidate->project);
 			return DBY_TOUCH_OK;
 		}
-		IOLog("DbyTouch(fwprobe): %s did not report (read rc=%d changes=%u)\n",
-		    candidate->project, readRc, changes);
+		IOLog("DbyTouch(fwprobe): %s is running but reports the same page\n", candidate->project);
 	}
-	/* The loop leaves the last candidate running, which is the table's last row and not the image the
-	 * rows below - and the caller's comment - say is on the chip. Put the original back so the log
-	 * and the chip agree, even in the boot where nothing answered. */
-	if (original != nullptr && (count == 0 || order[count - 1] != original)) {
+	/* Put the picker's image back on the chip and run its round, so the rows below - and the caller -
+	 * describe what is actually running even in the boot where nothing answered. The uploader reads
+	 * gDbyTouchFw, so the last candidate that actually landed is remembered first: a failed restore
+	 * leaves that one on the chip, and the rows must not claim otherwise. */
+	if (original != nullptr) {
 		gDbyTouchFw = original;
 		dbyTouchUploadFirmware(bus);
-	} else {
-		gDbyTouchFw = original;
+		if (gUploadRc == 0) {
+			lastUploaded = original;
+			failedSinceLanding = false;
+			(void)dbyTouchEnableTail(bus);
+		} else {
+			/* A failed upload leaves the chip in its bootloader or with a partial image, so an
+			 * upload that failed after the last landed one means nothing is running - the row says
+			 * so rather than naming an image that is not on the chip. */
+			gDbyTouchFw = lastUploaded != nullptr ? lastUploaded : original;
+			IOLog("DbyTouch(fwprobe): restoring %s failed rc=%08x; %s\n",
+			    original->project, (unsigned)gUploadRc,
+			    failedSinceLanding ? "no image is running" :
+			    (lastUploaded != nullptr ? "that is what runs" : "nothing landed"));
+		}
 	}
-	IOLog("DbyTouch(fwprobe): no image reported frames; keeping %s\n",
-	    original != nullptr ? original->project : "the table default");
+	if (lastUploaded == nullptr) {
+		IOLog("DbyTouch(fwprobe): no image announced frames; nothing landed, keeping %s\n",
+		    gDbyTouchFw != nullptr ? gDbyTouchFw->project : "the table default");
+	} else {
+		IOLog("DbyTouch(fwprobe): no image announced frames; keeping %s\n",
+		    gDbyTouchFw != nullptr ? gDbyTouchFw->project : "the table default");
+	}
 	return DBY_TOUCH_ERR_IO;
 }
 
@@ -3274,22 +3354,19 @@ dbyTouchChipEnable(struct dby_touch_bus *bus)
 	}
 
 	/* Stage 8: upload the firmware image the vendor HAL loads on every start, then re-read the same
-	 * state byte.  An explicit dby-touch-fw is uploaded as asked; otherwise the image is the one that
-	 * proves itself by reporting frames (dbyTouchProbeFirmware), and only if none does is the table's
-	 * default uploaded so the rows below describe the image the log names. */
+	 * state byte.  The image is the one that proves itself by reporting frames
+	 * (dbyTouchProbeFirmware); dby-touch-fw does not skip that test, it names the image the picker
+	 * starts from and the one a boot falls back to when nothing answers - so a build can carry the
+	 * image this unit is known to need and still let the probe decide. */
 	if (gState.stage >= DBY_TOUCH_STAGE_FWUPLOAD) {
 		static bool picked = false;
 		if (!picked) {
 			picked = true;
 			dbyTouchPickFirmwareFromDevice();
 		}
-		if (gFwExplicit) {
-			dbyTouchUploadFirmware(bus);
-		} else {
-			/* The probe ends with the table default on the chip when nothing answers, so the rows
-			 * below describe the image this line names either way. */
-			(void)dbyTouchProbeFirmware(bus);
-		}
+		/* The probe ends with the picker's image on the chip when nothing answers, so the rows below
+		 * describe the image this line names either way. */
+		(void)dbyTouchProbeFirmware(bus);
 		if (gUploadRc == 0) {
 			uint8_t fw[6];
 
@@ -3299,42 +3376,16 @@ dbyTouchChipEnable(struct dby_touch_bus *bus)
 		}
 	}
 
-	/* Two probes one sampling window apart: if the chip started scanning, the counter at 0x3F8
-	 * moves and gpio39 shows activity in between. */
-	if (dbyTouchProbeCounter(bus) != DBY_TOUCH_OK) {
-		gEnableRc = 7;
-		dbyTouchResetRelease();
-		return DBY_TOUCH_ERR_IO;
-	}
-	/* Stage 7: the reset release alone left the chip answering its registers but returning an
-	 * 8192-byte uniform-random block instead of a report page (measured 2026-11-02 06:30), which is
-	 * the shape of "reset done, reporting never started".  The start-reporting command lives in the
-	 * closed daemon, not in the vendor kernel, so it is sent here by the official driver's protocol.
-	 * It runs between the two counter probes so a change is visible in f=. */
-	if (gState.stage >= DBY_TOUCH_STAGE_HOSTCMD) {
-		for (unsigned i = 0; i < 4; i++) {
-			gCounterFirst[i] = gCounterBytes[i];
+	/* The upload path owns the round: the selection ran dbyTouchEnableTail once per candidate, and the
+	 * image it settled on is the one whose round succeeded (or the picker's, restored with its own
+	 * round). Running it again here would send the start-scanning pair a second time and overwrite the
+	 * counter evidence that says which round ran. Stage 7 only needs it once. */
+	if (gState.stage < DBY_TOUCH_STAGE_FWUPLOAD) {
+		if (!dbyTouchEnableTail(bus)) {
+			dbyTouchResetRelease();
+			return DBY_TOUCH_ERR_IO;
 		}
-		dbyTouchStartScanning(bus);
-		if (dbyTouchProbeCounter(bus) != DBY_TOUCH_OK) {
-			gCounterBytes[0] = 0xFFu;
-			gCounterBytes[1] = 0xFFu;
-			gCounterBytes[2] = 0xFFu;
-			gCounterBytes[3] = 0xFFu;
-			/* A probe that failed is a step that did not answer, not a success. */
-			gEnableRc = 8;
-		}
-		gCounterMoved = (gCounterFirst[0] != gCounterBytes[0] ||
-		                 gCounterFirst[1] != gCounterBytes[1] ||
-		                 gCounterFirst[2] != gCounterBytes[2] ||
-		                 gCounterFirst[3] != gCounterBytes[3]);
 	}
-	dbyTouchSampleIrq(200, &gIrqLevel, &gIrqEdges);
-	dbyTouchResetRelease();
-	IOLog("DbyTouch(enable): rc=0 ident=%u/%d irq=%u/%u f=%02x%02x%02x%02x rst_cfg=%08x rst_io=%08x\n",
-	    gEnableIdentRc, gEnableIdentRow, gIrqLevel, gIrqEdges,
-	    gCounterBytes[0], gCounterBytes[1], gCounterBytes[2], gCounterBytes[3],
-	    gResetCfg, gResetIo);
 	return DBY_TOUCH_OK;
 }
 
