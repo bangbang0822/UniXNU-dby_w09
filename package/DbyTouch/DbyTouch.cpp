@@ -439,6 +439,10 @@ static uint32_t gCrcComputed[2] = { 0xFFFFFFFFu, 0xFFFFFFFFu };
  */
 volatile uint32_t native_touch_seq;
 volatile uint32_t native_touch_count;
+/* Incremented by NativeHidInput.cpp after every touch report it submits. Reading it here is what
+ * separates "the driver stopped publishing" from "the HID side stopped sending" (2026-11-16 22:00:
+ * frames and publishes were healthy while touch was dead). */
+extern volatile uint32_t native_touch_hid_reports;
 volatile int native_touch_xs[12];
 volatile int native_touch_ys[12];
 volatile int native_touch_ids[12];
@@ -4276,12 +4280,15 @@ stage5Thread(void *arg, wait_result_t wait)
 						h0 |= (uint32_t)gThpHead[b] << (8u * b);
 						h1 |= (uint32_t)gThpHead[4 + b] << (8u * b);
 					}
-					kprintf("DbyTouch(s5): pub=%u nz=%u sum=%08x w1000=%02x%02x%02x%02x skip=%u thp=%u new=%u same=%u fail=%u h=%08x %08x\n",
+					kprintf("DbyTouch(s5): pub=%u nz=%u sum=%08x w1000=%02x%02x%02x%02x skip=%u thp=%u new=%u same=%u fail=%u s=%u r=%u h=%08x %08x\n",
 					        (unsigned)gTouchPublishes, (unsigned)nz, (unsigned)sum,
 					        p + 3 < kFrameLen ? buf[p] : 0u, p + 3 < kFrameLen ? buf[p + 1] : 0u,
 					        p + 3 < kFrameLen ? buf[p + 2] : 0u, p + 3 < kFrameLen ? buf[p + 3] : 0u,
 					        (unsigned)gTouchIrqSkips, (unsigned)gThpPeeks, (unsigned)gThpNew,
-					        (unsigned)gThpSame, (unsigned)gThpFails, (unsigned)h0, (unsigned)h1);
+					        (unsigned)gThpSame, (unsigned)gThpFails,
+					        __atomic_load_n(&gTouchSink, __ATOMIC_ACQUIRE) != nullptr ? 1u : 0u,
+					        (unsigned)native_touch_hid_reports,
+					        (unsigned)h0, (unsigned)h1);
 				}
 				dbyTouchFindContact(buf, kFrameLen);
 				dbyTouchPublishContact();
