@@ -21,3 +21,18 @@ jobs:
     steps:
       - run: |
           echo "macos ok: $(sw_vers -productVersion) $(xcodebuild -version | head -1)"
+  # The same image with a job shaped like the package one: a checkout with submodules and a long
+  # timeout. If this one is acquired while `package` is not, the difference is something in that
+  # workflow rather than the runner pool.
+  macos-heavy:
+    runs-on: macos-15
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: device
+          submodules: recursive
+      - run: |
+          echo "macos heavy ok: $(sw_vers -productVersion)"
+          echo "device files: $(find device -type f | wc -l)"
+          sleep 30
