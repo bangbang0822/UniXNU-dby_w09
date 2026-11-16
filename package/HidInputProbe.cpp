@@ -158,6 +158,61 @@ __attribute__((noinline)) void native_hid_live_checkpoint(IOService *device) {
 void native_hid_input_observed(unsigned event,int result) {
     if(event<8){native_hid_input_events[event]=native_hid_input_events[event]+1;native_hid_input_results[event]=result;}
 }
+/*
+ * The offline IOHIDDevice below is created after boot and registered once, and on some boots nothing
+ * ever matches it: NativeHidInput refuses to send a touch report while no IOHIDEventDriver sits below
+ * it, so touch is dead with the chip still reporting (2026-11-16).
+ *
+ * Retrying the registration from the touch reader hangs the boot - registerService runs the service
+ * match inline on its caller, and that thread is needed for progress - so the retry lives here on a
+ * thread of its own, where blocking costs nothing. It asks every two seconds, re-registers when the
+ * answer is no, and gives up after ten tries (~20 s) with one row.
+ */
+static bool native_hid_event_driver_below(IORegistryEntry *parent, unsigned depth) {
+    if (!depth) return false;
+    OSIterator *it = parent->getChildIterator(gIOServicePlane);
+    if (!it) return false;
+    bool found = false;
+    while (OSObject *child = it->getNextObject()) {
+        IORegistryEntry *entry = OSDynamicCast(IORegistryEntry, child);
+        if (!entry) continue;
+        if (entry->metaCast("IOHIDEventDriver") || native_hid_event_driver_below(entry, depth - 1)) {
+            found = true;
+            break;
+        }
+    }
+    it->release();
+    return found;
+}
+
+/* The device is pinned for the boot: the success path below never releases the reference
+ * native_hid_input_allocate() returned, so the pointer this thread reads cannot be freed under it. A
+ * future release path would need a retain here. */
+static void native_hid_match_thread(void *, wait_result_t) {
+    IORegistryEntry *device = (IORegistryEntry *)(uintptr_t)native_hid_input_object;
+    if (!device) return;
+    for (unsigned attempt = 1; attempt <= 5; ++attempt) {
+        IOSleep(2000);
+        if (native_hid_event_driver_below(device, 4) || native_hid_input_results[3] > 0) {
+            kprintf("HidInputProbe: event driver attached after %u s\n", attempt * 2);
+            return;
+        }
+        /* Asynchronous, not kIOServiceSynchronous: the synchronous form runs the match inline and
+         * its doServiceMatch/startMatching loops have no deadline, so one stuck match would keep
+         * this thread (and its stack) forever - the same shape that took the boot down when the
+         * retry ran on the touch thread. The result is read back below instead of waited for. */
+        static_cast<IOService *>(device)->registerService(kIOServiceAsynchronous);
+        IOSleep(1000);
+        if (native_hid_event_driver_below(device, 4) || native_hid_input_results[3] > 0) {
+            kprintf("HidInputProbe: the re-registration attached an event driver (try %u)\n", attempt);
+            return;
+        }
+    }
+    /* One closing row, not one per attempt: a burst of kprintf from a background thread is what has
+     * stalled this board before. */
+    kprintf("HidInputProbe: no event driver after five re-registrations; touch stays off\n");
+}
+
 __attribute__((noinline)) void native_hid_checkpoint(void) { __asm__ volatile("" ::: "memory"); }
 void native_hid_input_probe(void) {
     unsigned enabled=0;
@@ -221,6 +276,14 @@ void native_hid_input_probe(void) {
                     // when it was the provider. Under IOResources nothing does, so publish it the way every other offline
                     // service on the reference board does (package/ShengPlatformPower.cpp:125 registerService(kIOServiceSynchronous)).
                     if(started && !resource) device->registerService(kIOServiceSynchronous);
+                    if(started) {
+                        thread_t matchThread = nullptr;
+                        if (kernel_thread_start(native_hid_match_thread, nullptr, &matchThread) != KERN_SUCCESS) {
+                            kprintf("HidInputProbe: could not start the match retry thread\n");
+                        } else {
+                            thread_deallocate(matchThread);
+                        }
+                    }
                     unsigned touchHid=0;
                     unsigned split=0;
                     PE_parse_boot_argn("sheng-touch-split",&split,sizeof(split));

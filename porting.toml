@@ -125,6 +125,11 @@ kind = "source"
 reference = "package/DbyTouch/DbyTouch.cpp"
 result = "2026-11-16 23:10, the HID match attempt and why it came out again: the reader re-registered the offline HID device (HidInputProbe.cpp's native_hid_input_object) when the component said no IOHIDEventDriver sat below it and no report had ever been sent, gated on native_hid_input_results[3] == 0 after a review pointed out that the report count alone is also zero on a healthy boot nobody has touched. The build carrying it stops at the Apple logo: registerService(kIOServiceSynchronous) runs the service match inline on the caller, and the caller was the touch thread. That is the second time a background thread calling into IOKit matching took the machine down - the chip revival was the first - so both are out and the finding is what stays: the match has to be retried from a boot-time thread or a dedicated kernel thread, never from the reader."
 
+[[area.evidence]]
+kind = "source"
+reference = "package/HidInputProbe.cpp"
+result = "2026-11-17 00:30, the third shape of the HID match fix, and the one that answers the review: a kernel thread started beside the offline device asks every two seconds whether an IOHIDEventDriver sits below it, re-registers when the answer is no (kIOServiceAsynchronous, never the synchronous form, whose doServiceMatch/startMatching loops have no deadline), accepts the component's own verdict native_hid_input_results[3] > 0 as well as the registry walk, stops after five tries and prints one closing row because eleven kprintfs in twenty seconds from a background thread is the burst that has stalled this board. The device is pinned for the boot by the reference the success path never releases, which is why the thread may hold the raw pointer. Not yet seen on hardware: the boot that prints 'the re-registration attached an event driver' and then sends touch reports is the measurement."
+
 [[area]]
 id = "cpu"
 status = "implemented"
