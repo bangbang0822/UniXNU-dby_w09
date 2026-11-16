@@ -100,6 +100,11 @@ kind = "source"
 reference = "porting.toml"
 result = "2026-11-16 audit of the repository as pushed to gitee: the remote matched the working tree, no file had ever been deleted, and scripts/check-repository.py was green, but four pushes landed code without a record update - f6c61b1 (a DbyTouchProtocol.c comment with no input row), 510c68d (board.toml and DbyTouch.cpp: the image put back and the probe gate), and f326f2b with its revert 3619477 (the two-rate pacing added and removed, which is why the input rows say 12 ms and no row mentions the 2 ms experiment). This row and the two corrections above are that gap being closed; the pacing experiment itself is on the stash 'touch: y-mirror, peek-first skip, button poll1 log' and is not part of the tree. The audit also found scripts/porting-record.py named in AGENTS.md but absent from this repository - it lives in the core checkout, and AGENTS.md now says so."
 
+[[area.evidence]]
+kind = "source"
+reference = "package/DbyTouch/DbyTouch.cpp"
+result = "2026-11-16: the volume keys produce no event and the poller's own row cannot say why. What is known: dby_buttons_start() runs (sheng-buttons=1 is set), dbyPmicUp() succeeds, the sink is registered by NativeHidInput, and the reads answer - the first row after a second reads pon=04 g6=01 okPon=1 okGpio=1 err=0 sink=1, i.e. PON RT_STS bit2 set and GPIO6 high. Pressing volume up or down changes neither byte, so the mask never moves and the 'DbyButtons(s1): mask=' row never prints; the state row with those bytes is drawn on the boot page only, which is why this went unnoticed. A raw row every 500 polls (~5 s) now prints both bytes whether or not they change: hold a key down and whichever byte moves identifies the register, whatever bit this code tests. If nothing moves, the keys are not on PON RT_STS/GPIO6 RT_STS and the vendor's key node (PM8150 PON at kona-pmic-overlay.dtsi, gpio-keys with KEY_VOLUMEUP/DOWN) is where to look next."
+
 [[area]]
 id = "cpu"
 status = "implemented"

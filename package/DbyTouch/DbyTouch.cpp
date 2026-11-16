@@ -4876,6 +4876,8 @@ static dbyPmicBus gPmic;
 static dbyButtonSink gBtnSink;
 static void *gBtnSinkCtx;
 static uint32_t gBtnMask;
+/* Polls since the thread started, for the raw five-second row below. */
+static uint32_t gBtnPolls;
 static uint32_t gBtnSinkCalls;
 static bool gBtnStarted;
 
@@ -5085,6 +5087,19 @@ dbyButtonsThread(void *arg, wait_result_t wait)
 		    static_cast<unsigned>(gBtnMask), gPmic.apidPon, gPmic.apidGpio6,
 		    static_cast<unsigned>(gPmic.mark), static_cast<unsigned>(gPmic.errors),
 		    static_cast<unsigned>(gBtnSinkCalls));
+		/* The state row above lives on the boot page, and a press that changes nothing there cannot
+		 * be told apart from a poller reading the wrong register. A raw row every five seconds says
+		 * which: hold a key down and the byte that moves is the key, whatever bit this code tests.
+		 * (2026-11-16: every press so far left pon=04 g6=01 unchanged.) */
+		if (gBtnPolls % 500u == 0u) {
+			kprintf("DbyButtons(s1): poll=%u pon=%02x g6=%02x mask=%x okPon=%d okGpio=%d sink=%u err=%u\n",
+			    static_cast<unsigned>(gBtnPolls), static_cast<unsigned>(gPmic.lastPon),
+			    static_cast<unsigned>(gPmic.lastGpio), static_cast<unsigned>(gBtnMask),
+			    okPon ? 1 : 0, okGpio ? 1 : 0,
+			    __atomic_load_n(&gBtnSink, __ATOMIC_ACQUIRE) != nullptr ? 1u : 0u,
+			    static_cast<unsigned>(gPmic.errors));
+		}
+		gBtnPolls++;
 		IOSleep(kBtnPollMs);
 	}
 }
