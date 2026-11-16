@@ -14,6 +14,11 @@
 // definition is a hard `duplicate symbol` at the link. alioth escapes that because it enables
 // CONFIG_XNU_NATIVE_LEGACY_DISPLAY, which takes the #if !XNU_NATIVE_LEGACY_DISPLAY branch out.
 // Weak keeps the same decline-yourself behaviour while letting the kernel-side stub win.
+/* The touch reader re-registers the offline HID device by this pointer (see DbyTouch.cpp); a build
+ * without the display archive that creates it must still link, and zero means "no device here". */
+__attribute__((weak)) volatile uint64_t native_hid_input_object;
+__attribute__((weak)) volatile int native_hid_input_results[8];
+
 __attribute__((weak)) void native_legacy_display_probe(void);
 __attribute__((weak)) void native_legacy_display_probe(void)
 {

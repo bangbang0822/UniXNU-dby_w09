@@ -120,6 +120,11 @@ kind = "source"
 reference = "package/DbyTouch/DbyTouch.cpp"
 result = "2026-11-16 22:00, the third touch failure of the day and the first with a clear split: the chip was still reporting (h=fa060040, new=N same=0, pub climbing at the usual rate) and touch did nothing, so the break is above the driver - either the HID device stopped (native_touch_set_sink is cleared in NativeHidInput::stop) or the system stopped consuming its reports. Earlier in the same boot it worked, and a reboot brings it back, which is the same shape as the 0xFE death from the driver's point of view but a different cause: this time nothing was lost by the chip. Next measurement: count the publishes that found a non-null sink and put that number in the s5 row, so one boot says whether the sink disappeared. Also worth recording from the same evening: after a fresh flash the first boot can have no touch at all and a reboot fixes it, seen on 6cfd898a, b6a5dd85 and 667a23b6 - that is a start-order effect between the touch driver and the HID device, not a property of the image."
 
+[[area.evidence]]
+kind = "source"
+reference = "package/DbyTouch/DbyTouch.cpp"
+result = "2026-11-16 late evening: the HID half of the touch path fails on whole boots, not in bursts. The chip reports (h=fa060040, new=N same=0), the driver publishes and finds a sink (s=1), and native_touch_hid_reports stays 0 for minutes because NativeHidInput::touchSend returns at its first gate - no IOHIDEventDriver attached below the offline device, which HidInputProbe.cpp creates after boot and registers once. The reader now re-registers that device up to three times, 1500 publishes apart, gated on the component's own verdict (native_hid_input_results[3] == 0) plus 'no report has ever been sent' - the second condition alone is also true on a healthy boot whose panel nobody has touched, which is the review's correction. The weak definitions in LinkStubs.c keep a build without the display archive linking. Not yet seen working: the boot that prints 'no HID event driver after N publishes, re-registered it' and then starts reporting is what proves it."
+
 [[area]]
 id = "cpu"
 status = "implemented"
