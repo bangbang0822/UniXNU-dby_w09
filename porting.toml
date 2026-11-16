@@ -110,6 +110,11 @@ kind = "source"
 reference = "package/DbyTouch/DbyTouch.cpp"
 result = "2026-11-16 18:30 the tablet hung on payload f2bb4d7a and stopped enumerating USB - screen lit, no touch, no console - after the button diagnostic booted, ran its raw row every five seconds and played the PA sequence. Forcing a power cycle and flashing the previous payload (79d5dcb8) brought it back with frames flowing (new=N same=0), so the payload, not the hardware, is what stopped. The only difference in f2bb4d7a is the button thread's kprintf every 500 polls, which is the first thing in that thread that writes to the console, and this file's own history has the console path blocking before (the display probe's kprintf burst); the hang is not diagnosed, only located, and the next attempt should print the raw row through the boot page instead of kprintf, or rate-limit it to once at start."
 
+[[area.evidence]]
+kind = "source"
+reference = "package/DbyTouch/DbyTouch.cpp"
+result = "2026-11-16 21:40, the touch path after the evening's retreat: the chip revival feature was taken back out (the two builds carrying it left touch unresponsive while the build before it worked), and the three measured improvements were re-applied on 79d5dcb8's touch code instead - the Y mirror, the peek-first read (an idle pass costs ~0.2 ms instead of the 8 KiB read), and the 2 ms/12 ms pacing. Measured on hardware: 54.4 publishes a second over a 20 s window (was 32), frames flowing with new=N same=0 and skip=9. The direction was fixed in the same build and the owner has not yet said whether it follows the finger. Still open: why the revival path broke touch (the dead-page test only reads), and the chip losing its firmware about fifty minutes into a boot, which the revival was meant to answer and now does not - a reboot does."
+
 [[area]]
 id = "cpu"
 status = "implemented"
