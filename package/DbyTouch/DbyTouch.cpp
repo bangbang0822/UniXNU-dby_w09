@@ -3354,19 +3354,28 @@ dbyTouchChipEnable(struct dby_touch_bus *bus)
 	}
 
 	/* Stage 8: upload the firmware image the vendor HAL loads on every start, then re-read the same
-	 * state byte.  The image is the one that proves itself by reporting frames
-	 * (dbyTouchProbeFirmware); dby-touch-fw does not skip that test, it names the image the picker
-	 * starts from and the one a boot falls back to when nothing answers - so a build can carry the
-	 * image this unit is known to need and still let the probe decide. */
+	 * state byte.  Two paths: with dby-touch-probe=1 the image is the one that proves itself by
+	 * reporting frames (dbyTouchProbeFirmware, which also runs the enable round); without it the
+	 * picker's image - dby-touch-fw or the table default - is uploaded and the round runs once at the
+	 * end of this function, which is the path the 2026-11-16 01:0x boot proved works. The probe is off
+	 * by default because a boot with it selected the right image but left touch unresponsive
+	 * (2026-11-16 14:00), and that is still unexplained. */
 	if (gState.stage >= DBY_TOUCH_STAGE_FWUPLOAD) {
 		static bool picked = false;
+		unsigned probe_arg = 0;
+
 		if (!picked) {
 			picked = true;
 			dbyTouchPickFirmwareFromDevice();
 		}
-		/* The probe ends with the picker's image on the chip when nothing answers, so the rows below
-		 * describe the image this line names either way. */
-		(void)dbyTouchProbeFirmware(bus);
+		if (PE_parse_boot_argn("dby-touch-probe", &probe_arg, sizeof probe_arg) && probe_arg != 0) {
+			/* The probe ends with the picker's image on the chip when nothing answers, so the rows
+			 * below describe the image this line names either way. */
+			(void)dbyTouchProbeFirmware(bus);
+		} else {
+			dbyTouchUploadFirmware(bus);
+			(void)dbyTouchEnableTail(bus);
+		}
 		if (gUploadRc == 0) {
 			uint8_t fw[6];
 
