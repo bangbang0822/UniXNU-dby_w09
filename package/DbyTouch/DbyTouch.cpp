@@ -4241,6 +4241,8 @@ stage5Thread(void *arg, wait_result_t wait)
 			/* The header first, then the frame: the peek says whether the chip announced a new frame at
 			 * all, which the frame content alone cannot (see stage5PeekHeader). A failed peek does not
 			 * block the read - the frame is still what the rest of this loop needs. */
+			const unsigned newBefore = gThpNew;
+
 			(void)stage5PeekHeader();
 			if (stage5ReadFrame(buf, kFrameLen, &again) == DBY_TOUCH_OK) {
 				/* One fingerprint row every 64 publishes (~1 s at the 3 ms period plus the frame read
@@ -4271,10 +4273,16 @@ stage5Thread(void *arg, wait_result_t wait)
 				}
 				dbyTouchFindContact(buf, kFrameLen);
 				dbyTouchPublishContact();
-				/* The read path's floor: this pass cost ~7-10 ms of engine time, so the next one waits
-				 * long enough that the thread cannot own a core even when the gate always answers
-				 * "read".  The cheap pass above keeps the 3 ms cadence for latency. */
-				IOSleep(DBY_TOUCH_HID_READ_GAP_MS);
+				/* Pacing after the read. Two rates, chosen by whether the peek just saw a new
+				 * header: a chip that announces frames keeps the 2 ms gap, which is what turns the
+				 * read's own 7-10 ms into a ~70 Hz path instead of ~32 Hz. A pass that found the same
+				 * header - which is also what a gate stuck at "readable" produces - falls back to the
+				 * old 12 ms floor, so a broken pin cannot make this thread own a core. */
+				if (gThpNew != newBefore) {
+					IOSleep(DBY_TOUCH_HID_READ_GAP_MS);
+				} else {
+					IOSleep(DBY_TOUCH_HID_READ_GAP_SAME_MS);
+				}
 				/* Refresh the page every 16 publishes (~0.3 s at this cadence), which is inside the
 				 * log writer's 2 s cadence. */
 				if ((gTouchPublishes & 15u) == 0u) {

@@ -324,10 +324,23 @@
 #define DBY_TOUCH_HID_PERIOD_MS       3U
 
 /* Added after the frame read: one frame costs ~7-10 ms of engine time at 9.6 MHz (8208 bytes plus
- * the peek), so this is the floor that keeps the read path at ~45-50 Hz instead of one frame per
- * loop pass.  12 ms + the read is inside the 25 ms the board used before, which is why the pointer
- * should feel better and not worse. */
-#define DBY_TOUCH_HID_READ_GAP_MS     12U
+ * the peek), so this is the floor between two frames that carry something new.
+ *
+ * 2026-11-16 15:50: 12 ms measured ~32 publishes a second on the tablet (64 per 2 s row) and the owner
+ * calls the latency high. Read + 2 ms is ~10-12 ms per frame, so a chip that is announcing frames now
+ * sets the rate instead of this constant.
+ *
+ * The first version of this change used 2 ms for every pass, which the review refused: dbyTouchIrqPending()
+ * answers "read" whenever pin 39 cannot be read, and this unit's pin measures low from boot, so the gap
+ * is the only pacing - a stuck gate would have had this thread read a frame every pass. The loop
+ * therefore sleeps DBY_TOUCH_HID_READ_GAP_SAME_MS whenever the peek just returned the same header,
+ * which is exactly the symptom a stuck gate produces. */
+#define DBY_TOUCH_HID_READ_GAP_MS     2U
+
+/* The floor for a pass that saw no new header: the value the whole path used before the 2026-11-16
+ * latency work, kept so a gate that fails open cannot turn this thread into a loop that reads a frame
+ * every few milliseconds. */
+#define DBY_TOUCH_HID_READ_GAP_SAME_MS 12U
 
 /* Firmware liveness: after a firmware upload the vendor HAL polls six bytes at chip 0x2FE60 and
  * accepts a first byte in 0xA0..0xAF as "the firmware finished resetting" (nvt_check_fw_reset_state,
