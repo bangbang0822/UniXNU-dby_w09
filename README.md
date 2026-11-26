@@ -190,16 +190,18 @@ Kernel arguments reach the device through the payload's ESP `unixnu.toml`, so a
   and leaves the previous tree where it was. The slug is `dby-w09` because the upstream device catalog rejects
   an underscore, while the board id inside the path stays `dby_w09`.
 
-### A fresh output tree needs three inputs no builder here can make
+### A cold macOS build regenerates its build-tree inputs
 
-Those are build-tree artifacts, not repository files: they embed the donor Apple kernelcache, so they can never
-be committed and a clean tree cannot pass the gates without them.
+These files stay out of Git because they are generated build inputs. The macOS workflow creates a
+bootstrap kernel first, then uses it to regenerate the reference candidates and display ABI record.
+It extracts and verifies the OS and SystemOS members from the pinned 21H461 IPSW before building the
+dual-policy archive. The first-pass stubs are replaced by the audited archives in the shipping build.
 
 | Input | Who requires it | What it is |
 | --- | --- | --- |
-| `tree/build/xnu-prelink/*-candidate.macho` and `.json` | `scripts/build-sheng-hid-input.py`, `scripts/build-gop-legacy-display.py` | this board's previous prelinked kernel (`out/<slug>/…/kernel`), which the HID and display ABI audits compare instruction identity against. `scripts/build-platform-power.py` documents the same reference and has a no-op fallback; the other two have none, so on a new tree they abort with `No reference candidate available`. |
-| `tree/build/display-analysis/mobile-graphics-legacy-abi.json` | `scripts/audit-mobile-graphics-legacy.py` | the recorded runtime observation the audit falls back to when the live `gdb-stop.json` is absent, keyed by `runtime_metadata_checkpoint_sha256`. |
-| `tree/build/verified-root-os-xnu-bundle/libVerifiedRootProbe.a` | `scripts/unixnu/kernel.py` (`XNU_VERIFIED_ROOT_ARCHIVE`) | the archive whose only producer, `scripts/build-cpu-desktop-kernel.py`, needs macOS `hdiutil`. The guide's rule for an archive no builder makes is to supply it in the build tree. It has to be the **real two-policy** bundle - `verified_root_policy_count` 2 in its `archive.json`, a 73 MB archive that grows the kernel to 126,570,496 bytes. The tree this port was last rebuilt on carried `verified-root-defaults.c` instead, which answers `verified_root_policy_count` 0 and an all-zero anchor; every root window is then refused and `bsd_init` waits in `IOFindBSDRoot` forever, which reads as a hang with no kprintf output. The real copy is the one under the old board slug, `out/dby_w09/.../tree/build/verified-root-os-xnu-bundle` (`link_only_stub: false`), and it is what booted to `launchd` on 2026-11-15. |
+| `tree/build/xnu-prelink/*-candidate.macho` and `.json` | `scripts/build-sheng-hid-input.py`, `scripts/build-gop-legacy-display.py` | generated from the bootstrap kernel during a clean macOS workflow. The first pass emits temporary HID/display stubs; the shipping pass rebuilds both audited archives against these candidates. |
+| `tree/build/display-analysis/mobile-graphics-legacy-abi.json` | `scripts/audit-mobile-graphics-legacy.py` | seeded with the previously recorded `runtime_metadata_checkpoint_sha256`, then regenerated from the new candidate. This reuses recorded QEMU provenance; it does not claim a new hardware observation. |
+| `tree/build/verified-root-os-xnu-bundle/libVerifiedRootProbe.a` | `scripts/build-verified-root-probe.py --component os --include-systemos` | built in the shipping archive plan from the verified 21H461 OS/SystemOS policy inputs and the kernel compile record. The bootstrap config omits this archive because its compile inputs are produced by that first pass. |
 
 ## Flash
 

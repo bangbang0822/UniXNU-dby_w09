@@ -2,7 +2,7 @@
 
 - 对应规格：`docs/gpu-120fps-spec-2026-11-24.md` §5 行语法 / §6-S0a、S0b
 - 性质：**不改任何控制流**；只新增计数器、时间戳与五行控制台输出
-- 状态：**v2，已按第一轮两份评审（3+1 BLOCKER）修改；待第二轮复核与构建**
+- 状态：**v2 已完成复核并构建过历史 payload，但未上机；当前源码与该构建有差异，必须重建后再用**
 - 第一轮评审：`.research/gpu-120/reviews/s0a-code.md`（代码）、`s0a-design.md`（测量设计）
 
 ---
@@ -192,3 +192,18 @@ flash 前归档（规格 §3.3 四步）；回退 = flash 上一份 payload。S0
 2. 上机后按 §4 的判据读五行；`[frame budget] avg` 若仍在 8.5 ms 量级而不是 42 ms 量级，
    说明 `accepted_us` 没被写到或被后一帧覆盖，先查 `[frame loss] not_shown` 与 `nostamp`；
 3. 只有五行互证通过，才进入 S1（`clock.idle`）。
+
+## 9. 当前 checkout 复核（2026-11-26）
+
+当前源码仍包含 `[frame]`、`[frame budget]`、`[frame loss]`、`[gpu submit]`、`[gpu ttbr]` 的行格式；
+`scripts/build-boot-progress.py` 也把 `BootLog.c` 编入诊断归档。但当前源文件不再与 §8.1 的历史 kernel 对应：
+
+| 文件 | 当前 SHA-256 | §8.1 构建时前缀 | 一致 |
+| --- | --- | --- | --- |
+| `package/BootLog.c` | `a99f8e6f454b` | `d0154675a52d` | 否 |
+| `package/LegacyDisplayProbe.cpp` | `f060e8f02e63` | `179761bc4e89` | 否 |
+| `drivers/GopFramebuffer/NativeLegacyDisplay.cpp` | `42696efa3083` | `0ec6d3cd6a1f` | 否 |
+| `drivers/Adreno740/NativeAdrenoSubmit.cpp` | `d61041bef011` | `d61041bef011` | 是 |
+| `drivers/Adreno740/NativeAdrenoPublish.cpp` | `31349511e2fc` | `31349511e2fc` | 是 |
+
+因此，§8.4 的 `3ca73bbf` payload 不能作为当前 checkout 的 S0a/S0b 构建来验收或刷入。下一步是从当前源码重建、记录新哈希并跑构建门；只有设备读到帧与提交数据后，才按 S1 继续。此次复核没有改代码、构建或操作设备。
