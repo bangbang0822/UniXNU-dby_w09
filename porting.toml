@@ -981,6 +981,13 @@ command = "GitHub Actions workflow_dispatch run 45848510902 (package.yml, macos-
 revision = "23d391899ecd7aebc75c18960d9025123ca87c38"
 result = "The run remained queued for about 15 minutes, then failed before any workflow step started because GitHub did not assign a hosted runner. The package job is cancelled and has an empty runner name; it produced no kernel or payload. This is a runner allocation failure, not a compile result. No device was flashed or observed."
 
+[[area.evidence]]
+kind = "source"
+reference = ".github/workflows/package.yml"
+command = "GitHub Actions workflow_dispatch run 45851278112 (package.yml, macos-14, ipados-17.7.11-21H461, init_data=false)"
+revision = "c83639ca8517b24ac7e1d394d384e5d3ebb11d50"
+result = "The standalone fallback run was cancelled within seconds, before a runner was assigned or any workflow step ran. No kernel or payload was produced. No device was flashed or observed."
+
 [[area]]
 id = "diagnostics"
 status = "device-verified"
