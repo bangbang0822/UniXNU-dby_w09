@@ -324,6 +324,13 @@ result = "The seed observation is closed from both ends. The kernel console carr
 kind = "source"
 reference = ".github/workflows/package.yml"
 result = "Cold-build path now reconstructs the dual-policy VerifiedRoot inputs from the hash-pinned 21H461 IPSW, produces reference candidates with an intermediate configuration, and restores the shipping configuration before release. This source change is not yet validated by a macOS workflow run."
+
+[[area.evidence]]
+kind = "source"
+reference = ".github/workflows/package.yml"
+command = "GitHub Actions run 45822828154 (package.yml, macos-15, ipados-17.7.11-21H461, init_data=false)"
+revision = "b715ca61d182cb8a27071e030c738991270de93a"
+result = "The runner installed tools, restored the existing Data seed cache, assembled the shipping tree, extracted both 21H461 root images and verified their recorded SHA-256 values. The step then failed because pinned core ff6bf80cac7145cb572c0e096c714e1556ff0382 has no scripts/build-owner-systemos-policy.py; no kernel or payload was produced. The workflow now fetches the official helper from FFT-infra/UniXNU@e0ee2ad9a2654309480c8b0cc725d0dc09186cd4 and verifies SHA-256 a29a653da6812ed092bb548eb37c645b34677c57326047e19369d3bc46e7d700 before use. No device was flashed or observed; the successful retry is pending."
 [[area]]
 id = "display"
 status = "device-verified"
