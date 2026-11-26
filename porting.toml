@@ -331,6 +331,13 @@ reference = ".github/workflows/package.yml"
 command = "GitHub Actions run 45822828154 (package.yml, macos-15, ipados-17.7.11-21H461, init_data=false)"
 revision = "b715ca61d182cb8a27071e030c738991270de93a"
 result = "The runner installed tools, restored the existing Data seed cache, assembled the shipping tree, extracted both 21H461 root images and verified their recorded SHA-256 values. The step then failed because pinned core ff6bf80cac7145cb572c0e096c714e1556ff0382 has no scripts/build-owner-systemos-policy.py; no kernel or payload was produced. The workflow now fetches the official helper from FFT-infra/UniXNU@e0ee2ad9a2654309480c8b0cc725d0dc09186cd4 and verifies SHA-256 a29a653da6812ed092bb548eb37c645b34677c57326047e19369d3bc46e7d700 before use. No device was flashed or observed; the successful retry is pending."
+
+[[area.evidence]]
+kind = "source"
+reference = ".github/workflows/package.yml"
+command = "GitHub Actions workflow_dispatch runs 45829828436 (macos-26), 45832346714, 45834952200, 45838105298 and 45840910709 (macos-15); ipados-17.7.11-21H461, init_data=false"
+revision = "0631ceb9e113aa88da155f449d757873faec64be"
+result = "All five corrected runs ended before the first workflow step because GitHub did not assign a hosted runner; each job has an empty runner name and no step output. The GitHub status page reported Actions operational. No kernel or payload was built. No device was connected, flashed or observed. Retry when a hosted macOS runner can be acquired."
 [[area]]
 id = "display"
 status = "device-verified"
