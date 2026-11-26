@@ -47,6 +47,12 @@ if not candidate.exists() and not any((ROOT/'build/xnu-prelink').glob('native-ow
         path=OUT/archive
         path.unlink(missing_ok=True)
         run(['xcrun','ar','rcs',path,OUT/'FirstPassStub.o'])
+    (OUT/'build-report.json').write_text(json.dumps(dict(
+        first_pass_stubs=True,
+        source_sha256={str(stub.relative_to(ROOT)):sha(stub)},
+        archive_sha256=sha(OUT/'libNativeLegacyDisplay.late.a'),
+        original_instructions_modified=False,driver_initialized=False,display_presented=False,
+        hardware_execution=False),indent=2)+'\n')
     print('legacy display: no reference candidate yet; linked first-pass stubs; rebuild to bind the audited backend.')
     raise SystemExit(0)
 
