@@ -227,6 +227,9 @@ jobs:
         env:
           UNIXNU_UNIQUE_CHIP_ID: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
           INIT_DATA: ${{ inputs.init_data }}
+          # prepare-xnu-source.py and the Adreno source fetcher call the GitHub API; anonymous
+          # requests from hosted runners exhaust the shared quota before the bootstrap build.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           hid=scripts/build-sheng-hid-input.py
