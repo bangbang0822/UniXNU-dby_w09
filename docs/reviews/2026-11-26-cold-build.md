@@ -62,6 +62,16 @@ produced by these attempts; a hosted runner is still required to continue. Stand
 run `45851278112` (`macos-14`) was cancelled within seconds before a runner was assigned or any
 workflow step ran; it also produced no kernel or payload.
 
+On 2026-11-27, the WSL continuation used the saved bootstrap tree and the Linux `llvm-objcopy`
+shim documented in the GPU handover. The DbyTorch archive completed at 524,888 bytes with SHA-256
+`c09522a7f6a6811e77dea62e8028f39c7fd7e6be33b29ac912c914529b91c307`. The display first-pass
+archive and its generated-source report also passed the kernel's hash gate; the archive SHA-256 is
+`cbad7ce2997c671e2e13cbc0de25fc043fda988b75aff12fbb08af5965922f6f`. The final link then stopped
+with undefined VerifiedRoot and RPMh symbols because that attempted bootstrap config omitted the
+signed root inputs and boot-progress providers. It produced no `kernel.macho` or payload. The
+reviewed workflow now carries the verified policies into the bootstrap tree and uses the same
+authenticated-root config as shipping; that path still needs a macOS runner to confirm it.
+
 Before its one-day expiry, installation-seed artifact `15107593055` from run `45796042471` was
 saved under the Git-ignored `.cache/unit-recovery/run-457960/`. Its `data.dbr` is 1,073,280 bytes,
 SHA-256 `d044042c1f2eb7f721396da1ab7cddebcd5e547e88ce7a5df5e14409e4cc2c4f`; the accompanying
