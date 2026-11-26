@@ -1,0 +1,6 @@
+   [panic]
+   Failed to mount root device @IOKitBSDInit.cpp:984 frames fffffff007a460dc fffffff0077ab0d8 fffffff007389cf8 fffffff0074dc4a4
+   psci v1.1 reset=ok imem=5874c4b7 ro
+   [text fixup] parsed=4 applied=0
+   [panic]
+   Failed to mount root device @IOKitBSDInit.cpp:984 frames fffffff007a460dc fffffff0077ab0d8 fffffff007389cf8 fffffff0074dc4a4

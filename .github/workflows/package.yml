@@ -1,0 +1,273 @@
+name: package
+
+# scripts/package.sh of this repository on a macOS runner, with the UniXNU and
+# uefi-dby_w09 checkouts beside it, the layout board.toml names. The platform seed
+# comes from the repository secret UNIXNU_UNIQUE_CHIP_ID and is baked into the
+# images, so the run's artifacts belong to one device alone: download them, then
+# delete the run.
+#
+# The Data seed is produced on macOS and its APFS volume UUID has to equal
+# CONFIG_XNU_OWNER_DATA_VOLUME_UUID in configs/dby_w09_defconfig. The cache below keeps that one file
+# between runs, and a run that finds no cached seed stops - unless init_data is set. That input is the
+# first-install path for a repository that has never had a seed (a fresh fork): the runtime step builds
+# one on the runner, which has the macOS hdiutil the seed tool needs, and rewrites the UUID before the
+# kernel compiles. A cached seed is reused even when init_data is set; the input only answers "what if
+# there is no cache".
+
+on:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: "OS profile of the images"
+        type: choice
+        options: ["ipados-17.7.11-21H461"]
+        default: "ipados-17.7.11-21H461"
+      init_data:
+        description: "Build a Data seed when no cached one exists (first-install path for a repository with no seed cache)"
+        type: boolean
+        default: false
+      runner:
+        description: "Runner image. macos-26 is what this board is qualified on; the older images are the fallback when GitHub has no capacity for it (the 2026-11-16 runs were cancelled with 'not acquired by Runner of type hosted even after multiple attempts')"
+        type: choice
+        options: ["macos-26", "macos-15", "macos-14"]
+        default: "macos-26"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEVICE: dby-w09
+  OS_PROFILE: ${{ inputs.os }}
+  RUN_DIR: out/dby-w09/${{ inputs.os }}/dby_w09/runtime
+
+jobs:
+  package:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: device
+          submodules: recursive
+      # The board builds against the dby-w09 line of the core, not the public main: board.toml
+      # selects QcomXnuUsbDebug, which only that line's components.toml carries, and the build stops
+      # with "unixnu: unknown component: QcomXnuUsbDebug" on main. That line lives on gitee and its
+      # history is unrelated to github.com/UniXNU/UniXNU, so this is a clone rather than a checkout of
+      # a branch of the public repository. The core's own submodules are GitHub URLs.
+      - name: UniXNU core
+        run: |
+          # --branch selects the mirrored line. The temporary rebuild branch is based on its 7b tip
+          # (which contains the board-required f28 revision) and adds the APFS image-store fix needed
+          # to recreate the missing Data seed on current macOS runners.
+          #
+          # Cloned from the GitHub mirror of that line, not from gitee: on 2026-11-17 a run sat for
+          # 300 s and failed with "unable to access https://gitee.com/... Connection timed out", and
+          # every runner is somewhere else in GitHub's network. The mirror is a plain push of that line.
+          git clone --branch dby-w09 https://github.com/bangbang0822/UniXNU-core-dby-w09.git UniXNU
+          git -C UniXNU fetch origin refs/heads/codex/rebuild-macos-2026-11-26
+          git -C UniXNU checkout --detach ff6bf80cac7145cb572c0e096c714e1556ff0382
+          git -C UniXNU submodule update --init --recursive
+      - uses: actions/checkout@v4
+        with:
+          repository: WQSQW/uefi-dby_w09
+          path: uefi-dby_w09
+          submodules: recursive
+      - name: tools
+        run: |
+          # glslang is what build-turnip-darwin.py asks for by name ("glslangValidator is required
+          # by the Vulkan runtime build") before it configures Mesa's Vulkan runtime; bison and flex
+          # generate src/freedreno/ir3/ir3_parser.c, and macOS ships bison 2.3, which cannot; shaderc
+          # and spirv-tools are what gen-turnip-smoke-shaders.py runs (`glslc` then `spirv-val`).
+          brew install dtc llvm lld cmake mtools ninja glslang bison flex shaderc spirv-tools \
+                       blacktop/tap/ipsw
+          # The Metal bridge is a Rust static library and build-adreno-metal-bridge.py asks for the
+          # pinned toolchain by name (`cargo +1.98.0`), which the image's default Rust does not have.
+          rustup toolchain install 1.98.0 --profile minimal --component rust-src
+          # The bridge cross-builds for the board's iOS target; a fresh toolchain only carries the
+          # host's, and without this the build stops at "can't find crate for core" inside typenum.
+          rustup target add --toolchain 1.98.0 aarch64-apple-ios
+          llvm_prefix=$(brew --prefix llvm)
+          bison_prefix=$(brew --prefix bison)
+          {
+            echo "$bison_prefix/bin"
+            echo "$llvm_prefix/bin"
+            echo "$(brew --prefix lld)/bin"
+          } >> "$GITHUB_PATH"
+          # Fail fast, naming the tool, before forty minutes of build.
+          ok=1
+          for t in clang xcodebuild make git ninja cmake dtc fdtget fdtput aea compression_tool \
+                   mformat mcopy ipsw; do
+            command -v "$t" >/dev/null || { echo "missing tool: $t"; ok=0; }
+          done
+          for t in llvm-nm llvm-objcopy llvm-ar; do
+            [ -f "$llvm_prefix/bin/$t" ] || { echo "missing tool: $t"; ok=0; }
+          done
+          for t in bison flex glslc spirv-val cargo rustup; do
+            command -v "$t" >/dev/null || { echo "missing tool: $t"; ok=0; }
+          done
+          [ "$ok" = 1 ]
+      - name: platform seed
+        env:
+          seed: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+        run: |
+          if ! [[ "$seed" =~ ^[0-9a-fA-F]{8}$ ]]; then
+            echo 'Set the repository secret UNIXNU_UNIQUE_CHIP_ID: the platform seed of the device, 8 hex digits.' >&2
+            exit 1
+          fi
+      - name: seed cache identity
+        id: seed-key
+        env:
+          SEED: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, os
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('key=data-seed-v1-' + hashlib.sha256(os.environ['SEED'].encode()).hexdigest()[:16] + '\n')
+          PY
+      - uses: actions/cache/restore@v4
+        id: data-cache
+        with:
+          path: |
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/data.dbr
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/inputs.json
+          key: ${{ steps.seed-key.outputs.key }}-${{ inputs.os }}
+      - name: require the preserved Data seed
+        if: ${{ !inputs.init_data }}
+        run: |
+          seed="UniXNU/out/dby-w09/$OS_PROFILE/dby_w09/runtime/data.dbr"
+          if [ ! -f "$seed" ]; then
+            echo "No cached Data seed at $seed." >&2
+            echo "Restore the seed produced for this unit, or run with init_data=true to build one here (the runner has the macOS hdiutil that the seed tool needs)." >&2
+            exit 1
+          fi
+      # init_data is for a repository that has no seed cache yet: the runtime step then builds a new
+      # seed on the runner and rewrites CONFIG_XNU_OWNER_DATA_VOLUME_UUID before the kernel compiles,
+      # so the images belong to that seed. The seed is cached at the end of the run, so later runs do
+      # not need the input again.
+      - name: package
+        working-directory: device
+        env:
+          UNIXNU_UNIQUE_CHIP_ID: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+          UNIXNU_UEFI: ${{ github.workspace }}/uefi-dby_w09
+          INIT_DATA: ${{ inputs.init_data }}
+        run: |
+          if [ "$INIT_DATA" = "true" ]; then
+            scripts/package.sh --os "$OS_PROFILE" --uefi ../uefi-dby_w09 --init-data
+          else
+            scripts/package.sh --os "$OS_PROFILE" --uefi ../uefi-dby_w09
+          fi
+      # One run of the bridge patch that does not apply on the runner but does on a Linux clone of the
+      # same pinned revisions needs the runner's own state written down: which commit the translator's
+      # checkout is on, whether that checkout is clean, what the patch files hash to, and what git
+      # itself answers for the two patches the bridge applies first.
+      - name: bridge patch state
+        if: always()
+        run: |
+          set +e
+          T=UniXNU/out/dby-w09/*/*/tree
+          SRC=$(ls -d $T/.cache/gpu-reference/metal2vulkan 2>/dev/null | head -1)
+          PAT=$(ls -d $T/drivers/AdrenoMetal/bridge/patches 2>/dev/null | head -1)
+          echo "translator: $SRC"
+          echo "patches:    $PAT"
+          [ -n "$SRC" ] && git -C "$SRC" rev-parse HEAD
+          [ -n "$SRC" ] && git -C "$SRC" status --short | head -5
+          [ -n "$PAT" ] && sha256sum "$PAT"/0002-*.patch "$PAT"/0004-*.patch "$PAT"/0040-*.patch 2>/dev/null
+          if [ -n "$SRC" ] && [ -n "$PAT" ]; then
+            PAT=$(cd "$PAT" && pwd)
+            SRC=$(cd "$SRC" && pwd)
+            IDX=$(mktemp)
+            for p in "$PAT"/0002-*.patch "$PAT"/0004-*.patch; do
+              GIT_INDEX_FILE=$IDX git -C "$SRC" read-tree HEAD
+              if GIT_INDEX_FILE=$IDX git -C "$SRC" apply --check --cached "$p" 2>&1; then
+                echo "check ok:   $(basename "$p")"
+              else
+                echo "check FAIL: $(basename "$p")"
+              fi
+              GIT_INDEX_FILE=$IDX git -C "$SRC" apply --cached "$p" 2>&1 | head -3
+            done
+            rm -f "$IDX"
+          fi
+          git -C UniXNU rev-parse HEAD
+          git -C UniXNU/drivers/AdrenoMetal rev-parse HEAD 2>/dev/null
+      - name: runtime log
+        if: failure()
+        run: |
+          # The runtime step runs its sub-tools with check=True and captures their output, so a failure
+          # there reaches the job log as a Python traceback with no message from the tool that failed -
+          # which is exactly what the 2026-11-16 seed-data-grow failure looked like. Print the tools'
+          # own logs so the next failure names its command. The mesa build log lives under .cache/ and
+          # is the only place a compiler error inside Turnip is written down.
+          for f in UniXNU/out/dby-w09/*/*/logs/runtime.log UniXNU/out/dby-w09/*/*/logs/*.log \
+                   UniXNU/out/dby-w09/*/*/tree/.cache/mesa-*-build.log; do
+            [ -f "$f" ] || continue
+            echo "=== ${f} (tail)"
+            tail -150 "$f"
+          done
+      - uses: actions/cache/save@v4
+        if: always() && steps.data-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/data.dbr
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/inputs.json
+          key: ${{ steps.seed-key.outputs.key }}-${{ inputs.os }}
+      - name: installation seed backup
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installation-seed-${{ inputs.os }}
+          retention-days: 1
+          if-no-files-found: ignore
+          path: |
+            UniXNU/out/dby-w09/*/*/runtime/data.dbr
+            UniXNU/out/dby-w09/*/*/runtime/inputs.json
+      - name: images
+        uses: actions/upload-artifact@v4
+        with:
+          name: images-${{ inputs.os }}
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            UniXNU/out/dby-w09/*/*/boot/boot.img
+            UniXNU/out/dby-w09/*/*/payload/payload.img
+            UniXNU/out/dby-w09/*/*/kernel/kernel.macho
+            UniXNU/out/dby-w09/*/*/package.manifest.json
+      # The GPU addon is the one image input a Linux host cannot make: Turnip and the Metal
+      # plugin need Xcode's clang and the iOS SDK, and the tablet cannot build them either.
+      # board.toml's [payload.runtime] is what asks for it; this step keeps the pair the runtime
+      # step produced - the addon and the owner trust bundle that carries its CDHash - so a
+      # payload built elsewhere can take them with --gpu-addon and --owner-trust-cache. They must
+      # come from the same run: the trust module carries the plugin's hash, and pairing one run's
+      # addon with another run's trust bundle is what AMFI refuses.
+      - name: gpu addon
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-addon-${{ inputs.os }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            UniXNU/out/dby-w09/*/*/runtime/gpuaddon.bin
+            UniXNU/out/dby-w09/*/*/runtime/owner-trust.bundle
+            UniXNU/out/dby-w09/*/*/runtime/generated.json
+      # Keep the build-tree inputs this board cannot recover from its Git history. This run is
+      # the source of record for a fresh tree; download these together with the seed and images.
+      - name: rebuilt kernel inputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rebuilt-inputs-${{ inputs.os }}
+          retention-days: 1
+          if-no-files-found: warn
+          path: |
+            device/configs/dby_w09_defconfig
+            UniXNU/out/dby-w09/*/*/tree/build/xnu-prelink/*-candidate.macho
+            UniXNU/out/dby-w09/*/*/tree/build/xnu-prelink/*-candidate.json
+            UniXNU/out/dby-w09/*/*/tree/build/display-analysis/mobile-graphics-legacy-abi.json
+            UniXNU/out/dby-w09/*/*/tree/build/verified-root-os-xnu-bundle/libVerifiedRootProbe.a
+            UniXNU/out/dby-w09/*/*/tree/build/verified-root-os-xnu-bundle/archive.json
+            UniXNU/out/dby-w09/*/*/tree/build/verified-root-os/verification.json
+            UniXNU/out/dby-w09/*/*/tree/build/verified-root-systemos/verification.json

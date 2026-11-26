@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<data>
+  <!-- One read of the whole boot-log window: it captures the header AND every rotating text slot,
+       so the newest round can be picked by its r= field instead of guessing which of the 509 slots
+       the writer landed on.  first_lba = 0x1D43600 = 30684672 (from the LOGS row's lba=, and equal
+       to userdata_last + 1 - kLogReserveBlocks).  Block 0 is the header, blocks 1..32 the message
+       buffer, slots start at block 33 with 16 blocks each, so 8192 blocks cover the whole window
+       and all 509 slots.  Read-only. -->
+  <program SECTOR_SIZE_IN_BYTES="4096" filename="bootlog-header.img"
+           physical_partition_number="0" label="userdata"
+           start_sector="30684672" num_partition_sectors="80" />
+  <program SECTOR_SIZE_IN_BYTES="4096" filename="bootlog-window.img"
+           physical_partition_number="0" label="userdata"
+           start_sector="30684672" num_partition_sectors="8192" />
+</data>

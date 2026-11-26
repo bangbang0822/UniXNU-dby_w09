@@ -1,0 +1,317 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+# Pre-flash regression gate: proves that the artifact about to be written still carries every
+# capability this tablet has already been observed working, and that no boot arg or payload input
+# silently disappeared on the way from board.toml to payload.json.
+#
+# It answers one question: 这次刷的东西，有没有把以前弄好的东西弄丢。
+# Every literal below was counted inside the shipped kernel.macho of the accepted boot (ord203,
+# 2026-11-08) -- guessed prefixes are not in the list, because they return 0 and would read as green.
+#
+# Usage: python3.11 scripts/check-regression.py [-D <device-repo>] [--verbose]
+import argparse
+import os
+import hashlib
+import json
+import re
+import shutil
+import subprocess
+import tempfile
+import sys
+from pathlib import Path
+
+CRITICAL_ARGS = {
+    "dby-battery=2": "电池/充电图标（DbyBattery 双 tier + ICL 投票）",
+    "dby-touch=8": "触摸阶段梯（DbyTouch）",
+    "sheng-touch-hid=1": "触摸进 HID 消费端",
+    "dby-touch-se=1": "触摸 I2C 从机选择",
+    "sheng-buttons=1": "按键行",
+    "dby-bl=1": "亮度控制",
+    "offline-legacy-unit-scale=2": "界面大小 / display-scale",
+    "boot-progress=2": "诊断页与锁屏画面",
+    "gpu-addon=1": "GPU 附加包（显示后端；native_gpu_addon_prepare() 在 kern_exec.c 读的是 gpu-addon，本板 2026-11-15 从 sheng-gpu-addon=1 改名，29d73bc）",
+    "offline-mobile-graphics-load=1": "移动图形加载",
+    "offline-mobile-graphics-client=1": "移动图形客户端",
+    "dby-audio=2": "音频服务与共享环",
+    "dby-pa=3": "smartPA 阶梯",
+    "sheng-adsp=2": "ADSP 拉起（扬声器的前置）",
+    "smp=1": "八核（ArmCpu 的从核启动 opt-in，2026-11-20 起必须有）",
+    "qcom-usb-debug=1": "COM4 内核串口判读",
+    "native-ufs-root=1": "根卷匹配",
+    "-apfs_shared_datavolume": "共享 Data 卷",
+    "offline-apfs-load=1": "APFS 离线加载",
+    "offline-hid-home=1": "Home 事件",
+    "offline-hid-input=1": "HID 输入",
+    "offline-key-events=1": "按键事件",
+    "pmgr=2": "PMGR（AMFI 前置，上游 47ec6a5 去掉 sheng- 前缀后 payload.py 只认这个名字）",
+    "armcpu-spi-ipi=1": "ArmCpu IPI（timer PPI 前置）",
+    # "smp=1" was dropped on 2026-11-19 with the same change that moved the baseline: the shipped line
+    # has been single-core since 2026-11-18 (board.toml records the touch measurement that paid for it),
+    # so requiring it here would turn the gate red for the state the tablet actually boots.
+    "panic_on_crash_disabled=1": "崩了还能读串口",
+    "serial=3": "串口输出",
+    "-enable_kprintf_spam": "kprintf 不被限流",
+    "sheng-aks=1": "KeyStore",
+    "sheng-log=1": "日志",
+    "sheng-cpufreq=3": "EPSS cpufreq",
+    "dby-torch=1": "\u624b\u7535\u7b52\u751f\u4ea7\u8005\u5b9e\u6a21\u5f0f\uff08DbyTorch\uff0c\u7b49\u539f\u751f API \u8c03\u7528\uff09",
+}
+
+ARG_LIMIT_BYTES = 1000
+
+# Row prefixes the tablet itself printed on 2026-11-08 (com4-ord203.txt, the boot that showed the
+# lock screen, the charging badge, touch, brightness and interface size all working). If one of
+# these is not in the bytes about to be flashed, that boot's driver code is not in this artifact --
+# which is exactly the failure the host-side marker check alone cannot see.
+DEVICE_ROWS = [
+    "DbyBattery: arb=", "DbyBattery: tier=", "DbyBattery: published soc=",
+    "DbyBattery: icl measure", "DbyBattery: icl apply step=", "DbyBattery: icl ceiling",
+    "DbyBattery: icl holding want=", "DbyBattery: read opcode=", "DbyBattery: write opcode=",
+    "DbyBattery: rw channel ppid=", "[apr] os=", "[apr] tr=", "[apr] pa=", "[apr] step=", "[apr] copp=",
+]
+
+
+CARRIER_KEYS = ("trust_cache_sha256", "gpu_addon_sha256", "data_ramdisk_sha256")
+ADT_IN_ESP = "::/EFI/UniXNU/Payloads/kernel.macho.adt"
+
+
+def adt_from_esp(image):
+    """The device tree the firmware hands XNU, read out of the ESP image with mtools: no root, no loop
+    mount. Verified by extracting payload-ord203.img's ADT and getting the digest the baseline pins.
+
+    mtools is a build-host package; a host without it gets the FAIL row below, carrying this reason
+    instead of a traceback that hides which check could not run."""
+    if shutil.which("mcopy") is None:
+        return None, "mtools 不在本机（mcopy）"
+    with tempfile.TemporaryDirectory() as td:
+        dst = Path(td) / "kernel.macho.adt"
+        p = subprocess.run(["mcopy", "-n", "-o", "-i", str(image), ADT_IN_ESP, str(dst)],
+                           capture_output=True, text=True)
+        blob = dst.read_bytes() if p.returncode == 0 and dst.is_file() else None
+        return blob, "mcopy rc=%d" % p.returncode
+
+
+def diff_runs(a, b):
+    """Byte runs where two same-length blobs disagree, so a check can name what moved instead of a hash."""
+    runs, prev = [], None
+    for i in range(min(len(a), len(b))):
+        if a[i] != b[i]:
+            if prev is not None and i == prev[1]:
+                prev = (prev[0], i + 1)
+            else:
+                if prev is not None:
+                    runs.append(prev)
+                prev = (i, i + 1)
+    if prev:
+        runs.append(prev)
+    return runs
+
+
+def adt_ok(flash, ref):
+    """Everything of the accepted ADT must still be there; only the 64-byte /chosen random-seed may differ."""
+    if len(flash) != len(ref):
+        return False, f"长度 {len(flash)} != {len(ref)}"
+    runs = diff_runs(flash, ref)
+    if not runs:
+        return True, "逐字节相同"
+    lo, hi = runs[0][0], runs[-1][1]
+    # The contract is that 64-byte value, not one contiguous run: every byte the new draw happens to repeat
+    # splits the diff (measured ord208: [(392, 445), (446, 456)], 63 of the 64 bytes differing, and nothing
+    # outside 392..456 differing at all). Asking for one run is what made an unchanged ADT read as a failure.
+    if hi - lo != 64:
+        return False, f"差异落在 {lo}..{hi} 共 {hi - lo} 字节，不是 /chosen random-seed 的那 64 字节"
+    for name in (ref, flash):
+        if b"random-seed" not in name[max(0, lo - 64):lo]:
+            return False, f"{lo}..{hi} 前面没有 random-seed 属性名"
+    return True, f"{len(runs)} 段（random-seed）{lo}..{hi}，{sum(e - s for s, e in runs)}/64 字节不同"
+
+
+def out_line(name, ok, detail):
+    return ("PASS  " if ok else "FAIL  ") + name + ("  " + detail if detail else "")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-D", "--device", default=str(Path(__file__).resolve().parent.parent))
+    ap.add_argument("--out", default=os.environ.get(
+        "UNIXNU_OUT", "out/dby-w09/ipados-17.7.11-21H461/dby_w09"))
+    ap.add_argument("--baseline", default=str(Path(__file__).resolve().parent / "regression-baseline.json"))
+    ap.add_argument("--write-baseline", action="store_true")
+    ap.add_argument("-v", "--verbose", action="store_true")
+    a = ap.parse_args()
+
+    dev = Path(a.device)
+    out = Path(a.out)
+    results = []
+    note = lambda ok, name, detail="": results.append((ok, name, detail))
+
+    # ---- 1. artifact identity: the kernel in the payload is the kernel we just built ----
+    # Every file this gate reads is UTF-8, and read_text() without an encoding answers the locale
+    # code page instead - cp936 on the Windows host, which cannot decode the baseline's arrows and
+    # em dashes. The gate then died before its first check, which is why the 2026-11-15 session ran
+    # it on the build host only.
+    baseline_path = Path(a.baseline)
+    base_doc = json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.is_file() and not a.write_baseline else {}
+
+    pj = out / "payload/payload.json"
+    if not pj.is_file():
+        print("FAIL  payload.json missing at", pj)
+        return 1
+    rec = json.loads(pj.read_text(encoding="utf-8"))
+    km = out / "kernel/kernel.macho"
+    if not km.is_file():
+        print("FAIL  kernel.macho missing at", km)
+        return 1
+    ksha = hashlib.sha256(km.read_bytes()).hexdigest()
+    note(ksha == rec["kernel_sha256"], "kernel.macho == payload.json kernel_sha256", ksha[:24])
+    pi = out / "payload/payload.img"
+    note(pi.is_file() and pi.stat().st_mtime > km.stat().st_mtime,
+         "payload.img 晚于 kernel.macho（构建次序）",
+         f"{km.stat().st_mtime_ns // 10**9} -> {pi.stat().st_mtime_ns // 10**9}" if pi.is_file() else "payload.img 不存在")
+
+    # ---- 2. PMGR bridge second pass, else AMFI panics at ConfigurationSettings.cpp:235 ----
+    sp = out / "tree/build/sheng-platform-power"
+    second = (sp / "ShengPlatformPower.o").is_file()
+    note(second, "内核已跑第二遍（ShengPlatformPower.o 在）", str(sp))
+
+    # ---- 3. every accepted capability still compiled into the image ----
+    raw = km.read_bytes()
+    markers = base_doc.get("markers")
+    if markers is None:
+        markers = {
+            "电池 presence 优先修复已发布状态": "DbyBattery: published soc=",
+            "充电 ICL 测量/投票": "DbyBattery: icl measure:",
+            "SPMI arbiter 普查（APID 通道）": "DbyBattery: arb=",
+            "电池探针挂载": "[battery] probe start",
+            "音频服务播放与音量计数": "[apr] os=",
+            "ADSP/PA 阶梯": "[pa-adsp] ",
+            "触摸驱动在镜像里": "DbyTouch",
+            "触摸面板厂商路径": "Novatek",
+            "亮度代码在镜像里": "backlight",
+            "诊断页/锁屏渲染": "BootProgress",
+            "界面大小换算": "unit-scale",
+            "USB 调试控制台": "qcom-usb-debug",
+            "音频服务类": "DbyAudio",
+            "smartPA 表与阶梯在镜像里": "smartpa",
+        }
+    for name, lit in markers.items():
+        n = raw.count(lit.encode())
+        note(n > 0, f"标记串 {name}", f"'{lit}' x{n}")
+
+    # ---- 3b. the same markers inside the object that actually gets written to preload ----
+    # kernel.macho alone proves nothing about the flash: payload.img is the flashable file, and the
+    # gate must read the bytes the tablet will boot. fastboot fetch is unsupported here, so this is
+    # the strongest host-side identity proof available, and it closes the loop against the COM4 rows.
+    pib = pi.read_bytes() if pi.is_file() else b""
+    note(hashlib.sha256(pib).hexdigest() == rec.get("payload_sha256"),
+         "payload.img == payload.json payload_sha256（这就是将刷的那份）",
+         hashlib.sha256(pib).hexdigest()[:24] if pib else "payload.img 不存在")
+    for name, lit in markers.items():
+        n = pib.count(lit.encode())
+        note(n > 0, f"将刷镜像含 {name}", f"'{lit}' x{n}")
+    for lit in DEVICE_ROWS:
+        note(pib.count(lit.encode()) > 0, "真机见过的行在此镜像里", lit)
+
+    # ---- 4. args: board.toml intent == payload.json reality == accepted baseline ----
+    bt = (dev / "board.toml").read_text(encoding="utf-8", errors="replace")
+    m = re.search(r"kernel_args = \[(.*?)\n\]", bt, re.S)
+    authored = []
+    if m:
+        # Only whole-line entries count: the block carries line comments whose prose contains the
+        # very argument names, and a quote-pairing regex across them invents bogus "arguments".
+        authored = re.findall(r'^\s*"([^"]+)"\s*,?.*$', m.group(1), re.M)
+    shipped = rec["kernel_args"].split()
+    note(bool(authored), "board.toml 里读到 kernel_args 列表", f"{len(authored)} 项")
+    missing_vs_toml = [x for x in authored if x not in shipped]
+    extra_vs_toml = [x for x in shipped if x not in authored]
+    note(not missing_vs_toml, "board.toml 的每个参数都进了 payload", ",".join(missing_vs_toml))
+    note(not extra_vs_toml, "payload 没有 board.toml 之外的参数", ",".join(extra_vs_toml))
+    blob = " ".join(shipped)
+    note(len(blob) <= ARG_LIMIT_BYTES, f"命令行长度 <= {ARG_LIMIT_BYTES} 字节", f"{len(blob)} B")
+    for arg, why in CRITICAL_ARGS.items():
+        note(arg in shipped, f"关键参数 {arg}", why)
+    if base_doc.get("args"):
+        base = set(base_doc["args"])
+        lost = sorted(base - set(shipped))
+        note(not lost, "对照已验收基线没有丢参数", ",".join(lost))
+        # Additions are advisory, never gate-red: an argument can be added on purpose, but one that
+        # quietly disappeared is the failure mode this tablet has actually been hit by.
+        added = sorted(set(shipped) - base)
+        results.append((True, "基线之后的新增参数（提示，不拦）", ",".join(added)))
+
+    # ---- 5. payload inputs: a silent swap of seed/addon/trust cache is a capability loss ----
+    # adt_sha256 is deliberately not pinned: /chosen/random-seed is os.urandom(64) (devicetree.py:308), so
+    # two builds of the identical carriers hash differently (measured: 7d836064 vs 4e32cedd). The ADT is
+    # checked as bytes in 5b, against the accepted boot, which is both reproducible and stricter.
+    for key, old in base_doc.get("inputs", {}).items():
+        if key == "adt_sha256":
+            continue
+        note(rec.get(key) == old, f"payload 输入 {key} 与基线一致", f"{str(rec.get(key))[:16]}")
+    if not base_doc.get("inputs"):
+        for key in CARRIER_KEYS:
+            note(key in rec, f"payload 输入 {key} 已记录", str(rec.get(key, ""))[:16])
+
+    # ---- 5b. the device tree in the image, field by field against the accepted boot ----
+    flash_adt, adt_why = adt_from_esp(pi)
+    note(flash_adt is not None, "从将刷镜像取出 kernel.macho.adt",
+         adt_why if flash_adt is None else str(rec.get("adt_sha256"))[:16])
+    ref_name = str(base_doc.get("adt_reference") or "")
+    if flash_adt is not None and ref_name:
+        ref_path = Path(__file__).resolve().parent / ref_name
+        note(ref_path.is_file(), "基线存有已验收 ADT 参照", ref_name)
+        if ref_path.is_file():
+            ok, why = adt_ok(flash_adt, ref_path.read_bytes())
+            note(ok, "ADT 与已验收启动只差 /chosen random-seed", why)
+
+    # ---- 6. no live source restored wholesale from one of its own .bak snapshots ----
+    comparisons = 0
+    identical = []
+    for src in sorted((dev / "package").iterdir()):
+        if src.suffix not in (".c", ".cpp", ".h", ".hpp"):
+            continue
+        for bak in sorted((dev / "package").glob(src.name + ".bak*")):
+            comparisons += 1
+            if bak.is_file() and bak.read_bytes() == src.read_bytes():
+                identical.append(f"{src.name}=={bak.name}")
+    # No .bak snapshot in package/ is the normal state of a clean checkout, not a failed check: the pair
+    # comparison only proves something when there is a snapshot to compare against, so an empty set is
+    # reported as such and the identical-pair test stays armed for when one exists.
+    note(True, "确实比对了源码与快照", f"{comparisons} 对" if comparisons else "没有快照可比对（跳过）")
+    note(not identical, "没有文件与自己的 .bak 快照逐字节相同", ",".join(identical))
+
+    # ---- 7. the HAL the iOS audio server loads is still the one from our repo ----
+    hal = list((dev / "hal").glob("*")) if (dev / "hal").is_dir() else []
+    note(bool([h for h in hal if h.suffix == ".c"]), "设备仓 hal/ 里有插件源码",
+         ",".join(h.name for h in hal if h.suffix in (".c", ".h")))
+
+    fails = [r for r in results if not r[0]]
+    for ok, name, detail in results:
+        if a.verbose or not ok:
+            print(out_line(name, ok, detail))
+    print(f"checks={len(results)} pass={len(results) - len(fails)} fail={len(fails)}")
+    print("kernel_args_bytes=%d" % len(blob))
+    if a.write_baseline:
+        if fails:
+            print("baseline NOT written: the artifact is red, pinning it would accept the regression")
+            print("REGRESSION_GATE=1")
+            return 1
+        ref_path = Path(__file__).resolve().parent / "regression-baseline-adt.adt"
+        if flash_adt:
+            ref_path.write_bytes(flash_adt)
+        Path(a.baseline).write_text(json.dumps({
+            "markers": markers,
+            "args": shipped,
+            "inputs": {k: rec[k] for k in CARRIER_KEYS if k in rec},
+            "adt_reference": ref_path.name,
+            "adt_sha256_of_this_build": rec.get("adt_sha256"),
+            "kernel_sha256": ksha,
+            "note": "accepted by device observation on 2026-11-08 (ord203): lock screen, charging "
+                    "badge, touch, brightness, interface size, audio path all working",
+        }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print("baseline written:", a.baseline)
+    print("REGRESSION_GATE=%d" % (1 if fails else 0))
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

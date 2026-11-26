@@ -1,0 +1,963 @@
+# 板级描述：华为 MatePad 11（DBY-W09，Qualcomm SM8250 / kona）。
+#
+# format 2（docs/porting/device-repository.md）：解析器按 arch → soc → os → device 四层读取，
+# 表按键合并、普通数组覆盖继承值。因此凡是 OS profile
+# （profiles/os/ipados-17.7.11-21H461/profile.toml）已经给出的值，这里一律不再重写：
+# [ipsw] + [ipsw.sha256]、整个 [kernel.prelink]（tool/kernel/slide/early_security_init/
+# kernelcache_sha256/31 项 roots）、[payload] trust_cache_sha256 与 text_fixups、
+# The two trust bundles this board accepts, pinned before the addon exists on the device:
+# the owner bundle carries the plugin/daemon CDHashes, the original one is the donor's
+# unchanged static+System pair. payload.py skips this allow-list when --owner-trust-cache
+# is used, so the pin lives here and is checked by work/verify/pack-gates.py.
+# 2026-11-16: the owner pin is superseded for the CI path. [payload.runtime] below has the
+# macOS runner rebuild the owner bundle (it carries the freshly built plugin's CDHash), so
+# that run's hash cannot be the one pinned here; the original pin still holds, because the
+# runtime appends to the same donor bundle. Keep the owner line for the local path, where
+# an addon and its bundle are supplied together, and re-pin it if a CI build becomes the
+# reference installation.
+owner_trust_cache_sha256 = "54dd82de82c5ac099f731a71c359eacccb2fc42818f29de6665ee08103217381"
+original_trust_cache_sha256 = "7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7"
+# 以及 ADT 的 iPad7,1/J120 身份、/chosen 安全状态、/defaults kern.maxvnodes。
+# 逐键对拍结果（SAME/DIFF）记在 porting.toml 的 os-profile 区，删的每一行都以那次对拍为据。
+# 保留的只有本板实测值，并在旁边写明来源。
+
+schema_version = 2
+
+[board]
+name = "dby-w09"            # catalog slug: sync-devices.py SLUG = [a-z0-9][a-z0-9-]* rejects "_"
+soc = "SM8250"
+soc_source = "sm8250"          # feeds.toml 里 kind = "soc" 的那条钉选
+os_profile = "ipados-17.7.11-21H461"
+description = "Huawei MatePad 11"
+kit = "dby_w09"                # 本仓 package/ 在构建树里出现为 kits/dby_w09
+
+# 目录规范 ID（components.toml）。Adreno740/AdrenoMetal 不在这里：SM8250 的 A650
+# 没有任何目录组件覆盖（soc:configs/sm8250.config 明写 # CONFIG_XNU_NATIVE_ADRENO is not set），
+# 是未移植项，不是省略。ShengHidInput/ShengNovatekTouch/QcomGeniSpi 已经在
+# porting.toml 的 input area 里记为 device-verified（真机触摸与按键可用）。
+# Sm8250Platform 也不在这里（2026-11-13）：它是上游从来没列进 components.toml 的 kit，过去靠作者本机
+# 的目录补丁才被选中，干净 core 会直接报 “unknown component”。现在源码归板级所有，放在 package/Sm8250Platform/，
+# 由 [kernel] archives 的脚本位编译（scripts/build-gpu-power-probe.py）。
+# QcomXnuUsbDebug 自 2026-11-14 起是目录组件：core 的 components.toml 有了它的 spec（仓库指向本组织发布的
+# gitee 镜像，钉 62b2888，与设备仓原来的 package/ 副本逐字节相同），所以这里选中它，归档由组件自己的
+# scripts/build.py 产出（[kernel] archives 的 component:QcomXnuUsbDebug 位），模块在构建树里是
+# drivers/QcomXnuUsbDebug（unixnu fetch 下来的 feeds 检出）。两个 XNU 补丁由 os: 那条 series
+# 从组件里引用（os/patches/xnu/series 第 6-7 行），选中与不选中决定它们 apply 还是跳过；设备仓
+# 不再保存补丁副本，也不再有一条 device:...series-usb。
+[components]
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "GopFramebuffer", "XnuPrelink", "DarwinBoot", "AppleKeyStoreState", "VerifiedRoot", "AdrenoFirmware", "AdrenoPM4", "ArmSmmu4K", "ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi", "QcomXnuUsbDebug",
+           # the five the board package used to carry: board-independent code that now comes from its own
+           # component repository (the package keeps copies only where a host harness compiles them)
+           "QcomGeniI2c", "ShengGpr", "ShengAudioReach", "ShengCs35l43", "ShengPlatformPower"]
+
+# ---------------------------------------------------------------------------
+# userdata：已取证（9008 完整备份 gpt_main0.bin，LUN 0）。
+#   GPT header @ LBA 8 (offset 4096)，分区项 128B/条，num_parts=64。
+#   userdata 条目：first_lba=2733568 (0x29B600), last_lba=30692863 (0x1D455FF)。
+#   LBA 单位 4096 字节（整盘 = 30693376 LBA × 4096 = 117.09 GiB ≈ 128G UFS）。
+#   注意：DBY-W09 的内存和存储都不是单一规格（同型号有 6/8 GiB RAM、128/256 GiB UFS）。
+#   上面这组 LBA 是本机（128 GiB）备份表里的实测值，换机必须读自己那份 GPT，不能照抄。
+#   userdata 容量 = (30692863-2733568+1) × 4096 = 106.66 GiB。
+#   这块分区里放着本机的 iPadOS 根卷：任何时候都不重新镜像它。
+# ---------------------------------------------------------------------------
+[userdata]
+first_lba = 0x29B600
+last_lba = 0x1D455FF
+lba_bytes = 4096
+windows = [
+  { name = "OS", component = "OS" },
+  { name = "SystemOS", component = "Cryptex1,SystemOS" },
+]
+
+# ---------------------------------------------------------------------------
+# kernel：config_fragments 按顺序生效，最后再叠 configs/dby_w09_defconfig，后写覆盖先写。
+# patch_series 四层拼接，这里把 device: 放在 os: 之前：arch/os 两层都默认「本板会补上
+# sheng-platform-power」（官方 device-records/sirius.toml 对 sdm710 逐字记了这条依赖：sdm710 把
+# 缺的文件放在 soc: 层，soc: 排在 os: 之前）。zzz-boot-progress.patch 在 os: 层，它的
+# @@ -773,7 +775,9 @@ hunk 把 sheng-platform-power 插入的那段当上下文，git apply 按解析出的顺序硬执行
+# （scripts/unixnu/patches.py:prepare），所以 device 层必须排在 os 层之前。详见本仓
+# patches/xnu/series 的说明。
+# native-smp-secondary 与 native-smp-type-clusters 不再由本板代管：feeds.toml 把 sm8250 钉到
+# a6e7e36 之后，这两份就在 soc:patches/xnu/series 里，正好落在官方分层该在的位置（拓扑是 SoC
+# 的属性）。cluster-type 标签与 native-smp-type-clusters 只能成对出现，官方门
+# scripts/check-smp-topology.py 在建树之后、链接之前拒不成对的那种组合。
+#
+# archives 顺序 = 内核链接要求的顺序：先产归档，bindings 步骤再把 original 绝对地址对象
+# 加进同一个归档（build-xnu-4k-baseline.sh 的 -Wl,-force_load 路径）。
+# component:<ID> 展开成目录里该组件的 build 配方（例如 ShengUfs → build-arm-driver.py ShengUfs，
+# 产出 build/sheng-ufs/libShengUfs.a）；kernel.py:archive_plan 要求所有 kernel 阶段
+# 有配方的组件都在这里出现，缺一个就直接报错。
+# 脚本查找顺序是 core → soc → device（scripts/unixnu/tree.py:assemble 的 bases），
+# 所以 build-boot-progress / build-link-stubs / build-platform-power /
+# build-gop-legacy-display 由本仓 scripts/ 提供是官方分层，不是自制入口。
+# ---------------------------------------------------------------------------
+[package]
+unixnu = "../UniXNU"           # UniXNU 检出相对本仓的路径，与 README 的构建命令一致；
+                               # 需要 gitee.com/uni-xnu-dby-w09/UniXNU 的 dby-w09 分支，钉在
+                               # 491efd7（workflow 里 checkout --detach 的就是这个提交）：
+                               # 上游 main（2366e33）的 components.toml 没有 QcomXnuUsbDebug 条目
+
+[package.defconfig]
+# 本仓只有 iPadOS 17.7.11 / 21H461 一个目标；新增目标时在这里加一行，不改脚本。
+"ipados-17.7.11-21H461" = "dby_w09_defconfig"
+
+[kernel]
+defconfig = "dby_w09_defconfig"
+config_fragments = ["arch:configs/common.config", "soc:configs/sm8250.config", "os:configs/ipados.config"]
+patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "device:patches/xnu/series", "os:patches/xnu/series",
+  # QcomXnuUsbDebug 的两个补丁不在这里：它们在 os: 那条 series 里（os/patches/xnu/series 的第 6-7 行），
+  # 由组件选中与否决定是否 apply。2026-11-14 之前本行是 device:patches/xnu/series-usb，设备仓另存一份
+  # 逐字节副本；那条副本和它的两个补丁文件已随组件入目录删除。
+  # 音频 HAL 的挂载点必须排在所有层之后：它的上下文是 os: 层那三个 kern_exec 补丁打完之后的样子（见
+  # patches/xnu/series-audio 的说明）。
+  "device:patches/xnu/series-audio",
+  # 手电筒插件的挂载点排在最后：它的两处上下文正是 series-audio 插入的行（见 patches/xnu/series-torch 的说明）。
+  "device:patches/xnu/series-torch"]
+archives = [
+  # arch:configs/common.config 打开 SOURCE_CORECRYPTO14 / SOURCE_PTHREAD，
+  # 这两个归档只有这两步会产。
+  "build-corecrypto-14.py",
+  "build-corecrypto-14.py --namespace",
+  "component:ArmDTPlatform",
+  "component:ArmCpu",
+  # SoftwareAES 是 NATIVE_VIRTIO_BLOCK / NATIVE_RAM_BLOCK 的硬前置
+  # （build-xnu-4k-baseline.sh 要求 XNU_NATIVE_AES=1）。bindings 在没有活体审计时
+  # 走 scripts/data/native-aes-original-bindings.S 的录制回退（官方行为）。
+  "component:SoftwareAES",
+  "build-software-aes-bindings.py",
+  # UFS 传输。feeds.toml 把它钉到带 SM8250 stream 配置的驱动源上。
+  "component:ShengUfs",
+  # 根设备发布要 NativeUfs 的 IOBlockStorageDevice/IOMedia 未定义符号绑到
+  # original kernelcache 的绝对地址。官方 core 只给了 Virtio/RamBlock 的
+  # build-virtio-mmio-bindings.py（--component 的 choices 里没有 NativeUfs），
+  # 所以这一步由设备仓自带 scripts/build-storage-bindings.py 承担：它读的
+  # build/storage-abi/interface-audit.json 是官方 audit-storage-interface.py 在本板
+  # 活体取证的产物。记录在 porting.toml 的 storage 区，属于「上游缺配方」而不是「我们绕过」。
+  "build-storage-bindings.py --component NativeUfs --archive libShengUfs.a --directory build/sheng-ufs",
+  # 策略选择器：导出 native_verified_block_root_authorized()，OWNER_ROOT_AUDIT 调它。
+  # VERIFIED_ROOT_PROBE=1 时 build-arm-driver.py 直接把归档写进 virtio-mmio-block-verified-bundle。
+  "component:VirtioMmioBlock",
+  # 官方入口是 build-virtio-mmio-bindings.py，逐字保留在下面这两行（官方 sheng/board.toml:29-32 的顺序就是 component:VirtioMmioBlock、component:RamBlock、--component RamBlock --directory build/ram-block、--component VirtioMmioBlock）：
+  #   "build-virtio-mmio-bindings.py --component RamBlock --directory build/ram-block",
+  #   "build-virtio-mmio-bindings.py --component VirtioMmioBlock",
+  # 它第 20 行无条件读设备自备的 build/storage-abi/interface-audit.json（docs/porting/migration.md:335 把它列为构建输入），第 27 行还要里面的活体标志；core 里没有任何脚本产它（scripts/unixnu/kernel.py:183 只把 IOStorageFamily 头拷进 build/storage-abi/include），本板活体审计从未跑完（format-1 的 build/storage-abi/ 只剩参考对象与 compile.log）。所以这两步先走设备层录制推导（format-1 硬件验证过的同一份 bindings）让 pass 通，官方活体审计作为发布前必补的门记在 porting.toml 的 storage 区。
+  "build-storage-bindings.py --component NativeVirtioBlock --archive libVirtioMmioBlock.a --directory build/virtio-mmio-block --subset",
+  # defconfig 把块驱动归档指向 verified bundle（和官方 sheng 的 configs/sheng_defconfig:19 同一形状），
+  # 官方入口就是 build-arm-driver.py 的这两个开关（docs/concepts/security.md:57 按容量选择策略包），
+  # 产物 build/virtio-mmio-block-verified-bundle/libVirtioMmioBlock.a 由 kernel.py:141 的 *_ARCHIVE 门校验。
+  "build-arm-driver.py NativeVirtioBlock --verified-root --verified-root-bundle",
+  # defconfig 把 XNU_NATIVE_VIRTIO_BLOCK_ARCHIVE 指向这个 bundle 归档，链接门 build-xnu-4k-baseline.sh:701-709
+  # 要求归档旁边有 bindings.json，并按归档名去 lib 前缀后的同名 .o 核对它的 sha256；bundle 里的对象按
+  # 运行时类名命名，所以这一步（官方文档 docs/porting/migration.md:330-341 允许设备自带 recipe）补 bindings
+  # 记录，并由脚本按同名发布同一份编译产物。产物 build/virtio-mmio-block-verified-bundle/libVirtioMmioBlock.a
+  # 同时满足 kernel.py:141 的 *_ARCHIVE 门。
+  "build-storage-bindings.py --component NativeVirtioBlock --archive libVirtioMmioBlock.a --directory build/virtio-mmio-block-verified-bundle --subset",
+  # 可写 /private/var 必须由 RamBlock 发布真 IOMedia（md0/memdev 路线实测失败：
+  # APFS 拒绝挂裸 memdev，内核 panic "offline scratch Data mount failed: 2"）。
+  # 官方 baseline 会把这份 bindings.json 和 virtio 的共用 original 符号逐条对拍，
+  # 并要求 compiled_object_sha256 对上 NativeRamBlock.o。
+  "component:RamBlock",
+  "build-storage-bindings.py --component NativeRamBlock --archive libRamBlock.a --directory build/ram-block --subset",
+  # payload 的 native-ufs-root 硬门要求内核里有 _sheng_pmgr_run。
+  "build-platform-power.py",
+  # 双卷（OS + SystemOS）verified-root policy bundle，喂给
+  # CONFIG_XNU_VERIFIED_ROOT_ARCHIVE。
+  # libVerifiedRootProbe.a 按官方形状自备进构建树（docs/guide/build-kernel.md:108「an archive that no
+  # builder makes must be supplied in the build tree」），官方 sheng/alioth 的 archives 里也没有这一步，
+  # 只在 configs/sheng_defconfig:20 引用产物。官方命令逐字留着：
+  #   "build-verified-root-probe.py --component os --include-systemos",
+  # 它在这台机器上跑不动：build-verified-root-probe.py:136 原样复用 bsd_init.o 的编译记录，记录里是
+  # -Weverything 且没有 -Wno-unsafe-buffer-usage，官方钉住的 clang-24 因此把 kits/VerifiedRoot/src/
+  # verified_root.c 判成 39 个 -Werror；而官方 build-arm-driver.py:66-79 的做法是先剥掉记录里所有 -W
+  # 再自带警告集。components.toml:437-453 给 VerifiedRoot 的规格是 build_stage=embedded、build=[]、
+  # outputs=[]，core 没有 Linux 侧配方。产物来源：format-1 用同一份 policy（manifest/anchor 的 sha256
+  # 已在本脚本对拍）编同一份官方 kit C，那份内核是上过硬件、到过锁屏的。
+  # libBootProgress.a：BOOT_PROGRESS 走全局 EXTRA_CFLAGS，同时是屏幕上有
+  # 阶段带/pulse 条的开关。它引用的 sheng 专属计数器由下面的 link-stubs 给零值定义。
+  "build-boot-progress.py",
+  # CPU 频率探针（官方 CpuFreqProbe 的本板移植，源为 alioth 的 SM8250 版）。产
+  # build/cpufreq/libCpuFreqProbe.a，由 defconfig 的 CONFIG_XNU_EXTRA_LD_ARCHIVES 以
+  # -Wl,-force_load 送进链接：LinkStubs.c:96-99 有 sheng_cpufreq_probe 的 weak 空桩且
+  # libLinkStubs.a 排在前面，普通归档路径永远不会被拉取，探针会静默不运行。
+  # 缺省（不传 sheng-cpufreq=）是只读普查：映射三个 EPSS 窗口、打印 enable/domain_state/LUT 解码，
+  # 不写任何寄存器。依据 work/tracks/cpu-freq/SPEC.md。
+  # 最小 GPU SMMU 探针：**只读两三个寄存器**，清掉 GPU 的入场门（G-1）。
+  # 当时（2026-11-03）完整 A650 驱动在本树编不出来，原因后来查明是两个缺失类型让
+  # RecordDecl 无效、clang-24 的错误恢复断言崩在 NativeAdrenoService.cpp:95（不是编译器
+  # 缺陷；2026-11-05 已修好，见下面 build-adreno650.py 那条）。G-1 仍值得单独读一次：
+  # input_bits ≤ 32 时驱动 publish 会拒绝所有非内核客户端（e00002be）。
+  # 默认不动作，只有传 dby-gpu-smmu=1 才读（SMMU 背后的 GPUCC 时钟可能没开，未应答读会 SError）。
+  # 阶梯探针：默认不动作，只有传 dby-gpu-smmu=1 / dby-gpu-power=N 才跑那段只读寄存器序列。
+  # 2026-11-06 起它不再自带 ArmSmmu4K/AdrenoFirmware/AdrenoPM4 的 12 个 TU（那些在
+  # build/adreno-kits/libAdrenoKits.a 里，见上面 --kits-only 那条）；否则它与 A650 归档
+  # 同时 force_load 会重现 41 个重复符号。
+  "build-gpu-smmu-probe.py", "build-gpu-power-probe.py",
+  "build-link-stubs.py",
+  "build-libpthread-kernel.py",
+  "component:ShengHidInput",
+  "component:AppleKeyStoreState",
+  # legacy 显示后端：NativeLegacyDisplay + NativeGOPPresenter + 板级 probe。
+  # 必须在驱动配方之后，因为它读它们的编译记录。
+  # GPU（A650）：产 {tree}/build/adreno740/libAdreno740.a，只有在
+  # CONFIG_XNU_NATIVE_ADRENO=y 时 build-xnu-4k-baseline.sh:644-650 才 force_load 它。
+  # 名字是 libAdreno740 而不是 libAdreno650，因为那个脚本把路径写死成
+  # build/adreno740/libAdreno740.a，不读 CONFIG_XNU_NATIVE_ADRENO_ARCHIVE。
+  # 2026-11-05 复查推翻了 2026-11-03 的“编译器级阻塞”结论：clang-24 在
+  # drivers/Adreno740/NativeAdrenoService.cpp:95 的断言是**错误恢复**——两个缺失的类型
+  # （NativeAdrenoGmuConfig.h:6 的 ShengGmu.h、NativeAdrenoSmmuMemory.h:16 的
+  # ArmSmmu4KTablePages）让 RecordDecl 变成 invalid，XNU 的 type-signature 补丁在无效
+  # decl 上求 layout 才崩（RecordLayoutBuilder.cpp:3439），与 flag 无关。
+  # 真正的卡点是 kits/ArmSmmu4K 子模块落后 4 个提交（3ba9245 -> 目录 pin 83969cd，含
+  # "feat(smmu): allocate page tables on demand"）；切过去后 28 个对象归档成功，
+  # 1672432 字节，sha256 85a7bfee9bff615ed50fec095eb0f6cdda022cbd11dfb80c34f345cefe58c116
+  # （evidence/gpu-archive-r1/build-report.json）。work/verify/verify-h1.py 复现
+  # w0/w1 崩、w2 不崩。接线与三轮计划见 work/tracks/adreno-build-path/REPORT.md。
+  # G0 只链接：命令行不带 pipa-gpu，本板也还没有调用方，所以这份归档进内核不改变一次启动。
+  # GPU kit 归档（2026-11-06）：ArmSmmu4K / AdrenoFirmware / AdrenoHfi / AdrenoPM4 的 13 个
+  # TU 编成 build/adreno-kits/libAdrenoKits.a，**不 force_load**，放在
+  # CONFIG_XNU_EXTRA_LD_ARCHIVES 的最末尾：ld64 按顺序解析归档，A650 驱动归档在
+  # build-xnu-4k-baseline.sh:626 先被 force_load 并引入这些 kit 符号，随后这个普通归档
+  # 满足它们，于是驱动和阶梯探针共用同一份 kit（否则 41 个重复符号）。
+  "build-adreno650.py --kits-only",
+  "build-adreno650.py",
+  "build-adreno650-accelerator.py",
+        # 暂存 AGXAccelerator（NativeAdrenoAccelerator.cpp）。必须排在上面那条之后：
+        # build-adreno650.py 会 unlink 整个归档再只写入自己的对象，先加进去的成员会被删掉。
+        # 缺归档时这个配方直接失败（不静默跳过），因为探针非弱引用它导出的三个符号。
+        # 触摸生产者：真机验证过的 DbyTouch（同一型号机子上跑通的实现），产出 build/dby-touch/libDbyTouch.a。
+  # 它走 defconfig 的 CONFIG_XNU_EXTRA_LD_ARCHIVES 普通路径，不是 force_load：BootProgress.c 里
+  # dby_touch_probe_entry() 是强引用，链接器按未定义符号一定会把它拉进来。
+  # 调用点是板级 package/BootProgress.c 的 boot_progress_poll()（一次性守卫，失败可重试）；
+  # 驱动自身由内核参数 dby-touch=<stage> 门控，缺省 0 = 在 mapWindows() 之前直接返回。
+  "build-dby-touch.py",
+  # 手电筒生产者：DbyTorch（PM8150L flash-v2，SM8250 v5 SPMI arbiter），产出 build/dby-torch/libDbyTorch.a。
+  # 同样走 defconfig 的 CONFIG_XNU_EXTRA_LD_ARCHIVES 普通路径：BootProgress.c 里 dby_torch_start() 是强引用。
+  "build-dby-torch.py",
+  # 相机被动半 + 阶段 2 阶梯：package/DbyCamera/ 三份源，产 build/dby-camera/libDbyCamera.a。
+  # defconfig 的 CONFIG_XNU_EXTRA_LD_ARCHIVES 里按普通归档路径列出；BootProgress.c 的 dby_camera_start()
+  # 是强引用，链接器一定会把整包拉进来，所以阶梯不再依赖任何启动参数开关。
+  "build-dby-camera.py",
+  # 无线 bring-up 第一级（M1）：package/DbyPcie.cpp 产出 build/dbypcie/libDbyPcie.a，只读普查 PCIe0 与
+  # WLAN_EN/PERST# 焊盘。与上面几个不同，它在 defconfig 里是 **force_load**：BootProgress.c 对
+  # dby_pcie_probe 只有 weak_import 引用，普通归档路径下没有未定义符号可拉，归档不进链接、探针静默不跑
+  # （scripts/build-gpu-smmu-probe.py:29-34 记录过同一个缺陷）。2026-11-20 首次构建时这里缺这一行，
+  # 内核链接直接报 "ld: file not found: .../build/dbypcie/libDbyPcie.a" —— 配方必须同时出现在 archives
+  # 里，只写 defconfig 的归档路径不够。
+  # 回退 = 删掉这一行 + defconfig 里那一个 -force_load 词。
+  "build-dby-pcie.py",
+  # 本机 core 没有 -linux 变体，沿用官方的 build-gop-legacy-display.py
+  "build-gop-legacy-display.py",
+  # CDC-ACM 控制台归档：目录组件位（components.toml 的 QcomXnuUsbDebug spec）调模块自己的
+  # scripts/build.py，读 bootstrap pass 留下的 pe_kprintf.o.json，写 {tree}/.cache/qcom-usb-debug，
+  # 由 build-xnu-4k-baseline.sh:769 以 -Wl,-force_load 链进去。位置就是原来设备层脚本位的位置：
+  # 整个 archives 段在内核第一次（bootstrap）pass 之后运行。
+  "component:QcomXnuUsbDebug",
+]
+
+# ---------------------------------------------------------------------------
+# 设备树：format 2 的硬件描述。板级 DTS 只写硬件（内存、启用的 CPU、外设开关），
+# Apple 平台属性在 OS profile 里，板级差异写在下面 [adt.*]。
+# dtc 编译与 ADT 生成都由 scripts/unixnu/devicetree.py + scripts/make-adt.py 完成，
+# format 1 的自制 scripts/make-dby_w09-adt.py 已退役。
+# ---------------------------------------------------------------------------
+[device_tree]
+source = "device:dts/dby_w09.dts"
+include_dirs = ["soc:dts"]
+
+# ---------------------------------------------------------------------------
+# firmware：uefi-sheng/UniXNUPkg 派生的 Mu-Silicium 移植（Platforms/Huawei/dby_w09Pkg）。
+# 我们的 UEFI 编译链目前在 VM 里手动跑，所以 [firmware] 只是把产物路径写对，
+# unixnu build firmware 还不是本板的构建入口——这一点记在 porting.toml 里。
+#
+# patches 必须与作者 canonical 路径一致：build_uefi.py:489/510 固定应用 5 个 Mu_Basecore
+# 补丁（AsmMacroLib / Auth-Service / Boot-Manager / Timer / Usb-Bus），本板另有第 6 个
+# Gic-Spurious（该文件在 Resources/MuPatches，但不在 build_uefi.py 的清单里）。此前这里只
+# 列了 Gic-Spurious，导致 unixnu build firmware 产出比作者少 5 个补丁的 FD 且不报错。
+# 顺序照 build_uefi.py 的 5 个在前、板级的 Gic 在后。
+# ---------------------------------------------------------------------------
+[firmware]
+config = "dby_w09"                 # Resources/Configs/dby_w09.toml
+dsc = "Platforms/Huawei/dby_w09Pkg/dby_w09.dsc"
+fd = "Build/dby_w09Pkg/{target}_CLANGPDB/FV/SILICIUM_UEFI.fd"
+preflight = ["scripts/check-dby_w09.py"]
+patches = [
+  "Resources/MuPatches/AsmMacroLib.patch",
+  "Resources/MuPatches/Auth-Service.patch",
+  "Resources/MuPatches/Boot-Manager.patch",
+  "Resources/MuPatches/Timer.patch",
+  "Resources/MuPatches/Usb-Bus.patch",
+  "Resources/MuPatches/Gic-Spurious.patch",
+]
+packages = [
+  "{uefi}",
+  "{uefi}/Platforms/Huawei",
+  "{tree}/package",
+  "{tree}/drivers/DarwinBoot",
+  "{edk2}",
+  "{uefi}/Common/Mu",
+  "{uefi}/Common/Mu_OEM_Sample",
+  "{uefi}/Silicon/Qualcomm",
+  "{uefi}/Silicon/Silicium",
+  "{uefi}/Silicium-ACPI",
+  "{uefi}/Silicium-ACPI/Platforms/Huawei",
+  "{uefi}/Silicium-ACPI/Silicon/Qualcomm",
+]
+
+[firmware.defines]
+ENABLE_SECUREBOOT = "1"
+DEVICE_MODEL = "dby_w09"
+MEMORY_PROTECTION = "TRUE"
+SHIP_MODE = "FALSE"
+BUILDID_STRING = "dby_w09-research"
+
+# ---------------------------------------------------------------------------
+# payload：每个 kernel_arg 旁边的注释写它对应哪一条官方门或哪个补丁代码，删参数前先读那条注释。
+# trust_cache_sha256 / text_fixups 不在这里——profile 的两枚原始 bundle 哈希与我们用的完全一致。
+# ---------------------------------------------------------------------------
+[payload]
+volume = "DBYW09ESP"
+size_mib = 208       # 带完整 AMFI 闭包的预链接内核放不进 cache 分区
+                     # （实测 partition-size:cache = 0x6800000 = 104 MiB），
+                     # 所以负载卷刷 preload（0x57800000 = 1368 MiB）。
+loader = "firmware"
+title = "dby_w09 first boot: source 4K XNU to console"
+dram_size = "0x180000000"   # 本机 6 GiB；同型号另有 8 GiB 版本，换机要连同 dts 的
+                            # memory reg 一起改。它必须等于 dts/dby_w09.dts 的 memory reg，
+                            # 否则 devicetree.py:306 直接报错
+skip_setup_tool = "scripts/seed-data-skip-setup.py"
+panic_screen = true
+kernel_args = [
+  # 命名规范（2026-11-06）：本板新增的 kernel_arg 一律用 dby-<缩写>，不带
+  # sheng- / offline- 这类来自其他板或框架的长前缀。预算上限 1000 字节
+  # （payload.py:35），硬顶是 DarwinBoot.c:542 的 1024 字节命令行缓冲。
+  # 每个新增参数必须有真读者，并在旁边写明读取点；没有读者的参数不加。
+  "-v",
+  "serial=3",
+  "debug=0x14e",
+  # 2026-11-06 放回 -enable_kprintf_spam（21 字节），并撤销当天为它写的这段归因：
+  #   「掉的只是详细行，不是日志面」——错。本板内核是 DEVELOPMENT，QUD 的 ported
+  #   pexpert/arm/pe_kprintf.c:83-96 先把 disable_kprintf_output 的清除挂在
+  #   PE_parse_boot_argn("-enable_kprintf_spam") 上，再把 qcom_usb_debug_kprintf_requested 设成
+  #   !disable_kprintf_output 并强制 disable_kprintf_output=true。也就是说没有这条参数时
+  #   kprintf 一行都不发，只剩 printf 走 _cnputs 的那条 tee；本文件里所有 DbyBattery/DbyTouch/PA
+  #   的行都是 kprintf。今天三次 3844 字节、62 行、止于 lockdown_mode 的抓取抓不到电池行，
+  # 就是这个原因，不是 drain 时机。官方 device-records/alioth.toml:243 与
+  #  QcomXnuUsbDebug/docs/integration.md:85 写的是同一件事。
+  # 字节从下面 boot-ui-focus4=SpringBoard 那条重复采样还（998 - 27 + 21 = 992/1000）。
+  "-enable_kprintf_spam",
+  # 2026-11-16 14:50 从 sheng-smp=1 改成 smp=1：树里那只 ArmCpu（core 子模块 d90e457）读的是
+  # "smp"（ArmCpu.cpp:561，从核启动的 opt-in），没有任何地方解析 sheng-smp——所以 SMP req 一直是 0，
+  # 系统只在 cpu0 上跑。feeds.toml 里 xVanTuring/ArmCpu@a9c4585 确实解析 sheng-smp，但那是 feed 源，
+  # 优先级低于树内子模块，所以它对这次启动没有作用。
+  # 2026-11-18: SMP is dropped for this round, and the reason is that it is the only setting
+  # that differs between every configuration where touch worked and every one where it did not.
+  # uke on iOS 17 (docs/TOUCH-PORT.md: 'hid7004 rpt7004 r0', touch confirmed) passes
+  # sheng-smp=1, which nothing parses, so it runs on cpu0 alone; this board on 2026-11-04
+  # (commit e61237a, record evidence[0] 'contacts follow the finger') did the same. Since
+  # 2026-11-16 this list passes smp=1, which ArmCpu does parse, so the system really is
+  # multicore - and touch has not worked since. NativeHidInput::touchSend() is the suspect:
+  # it publishes a snapshot behind a seqlock (if(native_touch_seq!=before) return) that cannot
+  # tear on one core and can on many. Restore smp=1 once multi-core touch is understood; the
+  # frame rate work needs the cores back.
+  # 2026-11-20 放回 smp=1（6 字节），这次有硬件证据：八核全起来（cpu0-3 cluster0、cpu4-7 cluster1），
+  # 并且触摸照常工作，于是把上面 2026-11-18 的归因推翻。touchSend() 读的是带 dmb 的标准 seqlock
+  # （feeds/ShengHidInput 的 NativeHidInput.cpp:279-292），多核正是它该工作的场景——"单核不会撕裂、
+  # 多核会"对它不成立。2026-11-16 之后触摸失效另有原因（中断/线程归属那类），不是这段逻辑的必然。
+  # 字节从 dby-ti=1 还（9 字节出、6 字节入）：986 - 9 + 6 = 983/1000。
+  # 触摸驱动阶段梯（package/DbyTouch/DbyTouch.cpp 读 dby-touch=）：8 = 取帧+接触点提取+发布，
+  # 并且跑厂商固件下载——这颗 N9Z 是无闪存 THP，主机每次开机不上传 0x30000 镜像就永远不上报。
+  # dby-touch-se=1 是单独一道门：本驱动从不做时钟投票，未上电读 SE 会挂死总线（2026-10-31 实测）。
+  # 2026-11-16 00:10 花屏定位（已确认）：8 -> 1。DBY-W09-触摸包-检测与修复指南-2026-11-03.md §1/S1
+  # 与 §5 的阶段梯说得很明确：stage 6 会给 GPIO98 一个 reset 脉冲，这个脚和面板共用一条 TDDI 复位线，
+  # 驱动它就把面板复位成未初始化态——那正是"白色横线"（指南排名 2）。实测：8 花屏，1 正常进主界面。
+  # stage 1 在任何映射之前返回，12 类 MMIO 写全部关掉，只留只读探针。
+  # 记录与后续见 docs/display-white-lines-2026-11-16.md；要回触摸必须先做那篇 §4 的复位门
+  # （dby-touch-reset=1），不能直接把 8 加回来。
+  # 2026-11-16 00:30 触摸固件不匹配：本机 oeminfo 被擦成全 0xff，厂商那套"按面板项目号选图"因此没有输入，
+  # 驱动只能落到表里的默认 W2599Z2700——而所有者报告"固件触摸不匹配就会花屏"。实测：2700 下芯片一页不变
+  # （new=1 same=2048），1100 下每帧都在变（new=N same=0）。
+  # 00:55 复位脉冲改成默认关（要 dby-touch-reset=1 才驱动 GPIO98），因为那个脚和面板共用复位线。
+  # 11:20 驱动里的自动选图探测（dby-touch-probe=1 才启用）会自己跑完整 enable 轮、看芯片是否产帧。
+  # 14:30 但探测默认关：开启后能选对图却导致触摸完全不响应（原因未查清），而 oeminfo 又是空的，
+  # 所以这张图必须留在这里——它就是本机的兜底图，也是默认路径实际会上传的那张。
+  # 探测打开时，这个值同时是它的第一个候选。
+  "dby-touch=8",
+  "dby-touch-fw=W2599Z1100",
+
+  "dby-touch-se=1",
+  # CPU 频率投票（package/CpuFreqProbe.cpp 读 sheng-cpufreq=，来自官方同 SoC 板 alioth）。
+  # 2 -> 3 之前先把历史写清楚：这一项从 uit1 起就在参数里，但本树从来没有链进读它的代码，
+  # 调用点 LegacyDisplayProbe.cpp:922 命中的是 LinkStubs.c:99 的 weak 空桩——也就是说八个核
+  # 一直停在 EPSS 复位默认档，一次投票都没发过。现在探针进来了（走 build-gop-legacy-display.py
+  # 的 late 归档，和 KeyStoreProbe 同一层），mode 3 = 每个读到 enable 的域都投最高非 turbo 档；
+  # alioth 在同款 kona 上跑的就是 3。本板 EPSS 没有 L3 窗口，mode 3 的 L3 半边在这份 kona 源里
+  # 本来就不存在。屏幕上第 39 行（BootProgress.c:342，native_cpufreq_stage>=2 才画）是判读行。
+  "sheng-cpufreq=3",
+  # DriverKit 必须让开：不加 dk=0 时 AppleUserHIDEventDriver 抢走匹配，然后卡在
+  # "user server timeout"（机器上没有 AppleUserHIDDrivers 进程），事件根本出不了内核；
+  # 加上它才由内核内的 IOHIDEventDriver 接管这份 collection。
+  "dk=0",
+  # 2026-11-05 撤 sheng-log=1。写 userdata 尾部那条链要再 fastboot boot 一个 reader 镜像
+  # （package/linux-log）才能把窗口读回来，历史实测没兑现，owner 判定写进 data 没用。
+  # 现在改走内核自己的 kprintf 详细输出（-enable_kprintf_spam，见上方 debug=0x14e 之后）：
+  # QUD 的 _cnputs tee 把它直接送进 USB CDC-ACM，不需要第二块镜像、也不碰 userdata。
+  "sheng-touch-hid=1",
+  # 2026-11-18: the split digitizer, and the device it creates is the one whose descriptor
+  # carries Digitizer/Touch Screen. The pair published on the keyboard device reads back
+  # correct (BI:T PP:0xd PU:0x4) and backboardd still drops the events, because its filter
+  # reads DeviceUsagePage/DeviceUsage from the descriptor rather than the runtime property.
+  # native_touch_set_sink() is single-slot and the split device starts last, so the reports
+  # come from it; HidInputProbe now keeps that object and publishes the pair on it.
+  # 实体按键：PM8150 PON 的 KPDPWR(电源) / RESIN(音量减) + GPIO6(音量加)，
+  # 由 DbyTouch.cpp 的按键轮询线程读 RT_STS 后经 report 2 上报。
+  "sheng-buttons=1",
+  # Separate digitizer service (primary usage Digitizer/Touch Screen, Built-In). Without it the touch
+  # collection only rides at the tail of the keyboard descriptor, which backboardd does not consume.
+  # This used to be off, for a reason that no longer applies: the split device starts after the merged
+  # one, so the single touch sink (TouchProbe.cpp:435-439) ends on it, while the pair was patched onto
+  # the first device only - which then had nothing to send. The 2026-11-18 round patches the split
+  # device itself (HidInputProbe.cpp stores the object and publishes on it), which is what makes the
+  # split worth turning on. The merged device keeps the button reports, so the power and volume keys
+  # are unaffected.
+  "offline-legacy-register=1",
+  "offline-legacy-gop=1",
+  "offline-legacy-validate=1",
+  "boot-progress=2",
+  # banner 保持关：769d8ef 接上 USB 控制台后，屏幕交给系统，不再画字。
+  # 2026-11-05 更正归因。此前把 3844 字节 / 65 行（末行 lockdown_mode）记成「只有 printf 走串口、
+  # BootLog 的行只进 UFS 窗」，那只是现象。真因在 QUD 的 ported pe_kprintf.c：DEVELOPMENT 内核
+  # 默认 disable_kprintf_output=true，补丁把它改成 qcom_usb_debug_kprintf_requested =
+  # !disable_kprintf_output，没有 -enable_kprintf_spam 时该值为 false，于是 kprintf 全程被吞，
+  # 只剩 _cnputs 里 printf 那条 tee。官方 docs/.vitepress/device-records/alioth.toml:243 早已写明
+  # printf 和 kprintf 都到不了 GENI console，qcom_usb_debug_write() 才是唯一能用入口。
+  # Read-only DWC3 inheritance probe (2026-11-04), panel rows 43..46.  It prints the
+  # GCC USB branches, the USB30 power domain, the block reset and the DWC3 mode,
+  # version, DSTS and address width, so one boot answers whether the firmware
+  # handover leaves the controller takeable.  It stores nothing: removing this line
+  # makes the payload byte-identical to the previous build.
+  # The CDC-ACM kernel console over this board's DWC3 (QcomXnuUsbDebug, the same channel the
+  # hardware-verified alioth board uses; docs/devices/alioth.md records it as the SM8250 debug
+  # route). It tees printf, kprintf, IOLog and the panic drain onto a USB serial port that
+  # enumerates as 1209:316d "QcomXnuUsbDebug", so the touch rows and stage counters arrive as
+  # text on the host instead of as a photograph of the diagnostic page.
+  # REMOVED 2026-11-01. This was the only USB-related difference between the current payload and
+  # f2-payload-461538fa (the format-2 payload that never hung when the cable was pulled), and the
+  # official hazard note spells out the failure mode: qcom_usb_debug_write() polls the DWC3
+  # (poll_owned(), plus a 1 ms flush window in diag mode). The console never enumerated on the
+  # host either (no 1209:316d), so every tee'd printf/kprintf/IOLog has been polling a controller
+  # that never came back -- and when the cable is pulled the poll has no owner left to find.
+  # Evidence: community-components/alioth-qud/docs/evidence/2026-10-27-boot-diagnostics.md
+  # sheng-build-tag removed here: it is the panel session label, and package/BootProgress.c:213
+  # states its purpose as "so a photograph says which image it is". The USB console now carries
+  # the record itself, and each run is named by the kernel sha256 that payload.json records, so
+  # this row had no reader left. Its 21 bytes are also the reserve for qcom-usb-ctl=1, which is
+  # the documented next step and would otherwise not fit under the 1000-byte gate
+  # (payload.py:35, DarwinBoot's 1024-byte command-line buffer).
+  # Mode 26 again, now with dby-gpu-zap=1: the secure-mode exit on the path that actually publishes the GPU and runs the
+  # Turnip test. evidence/edl-log-s126 proved this board can do the exit at all (mode 15: GPU ZAP st=0 step=7
+  # init/mem/auth 0/0 sec=0 tr=1 - PAS 13 through qcom_scm, the device's own a650_zap.elf, and CP_SET_SECURE_MODE(0)
+  # returning 0), but every boot that published the GPU so far ran without it, because dbyGpuZapStart() is reachable only from mode 15 (mode 16 returns earlier) and was never on the mode-26 path
+  # 15. The reference board of this project runs the exit at its mode 10, before its Metal/Turnip mode 12
+  # (research/repos/UniXNU-alioth/package/GpuProbe.cpp mode ladder). a6xx powers on in secure mode, which restricts what
+  # memory it can write to - the shape of our evidence exactly: CP (a privileged client) stores land, every engine store
+  # is refused with UCHE_OOB_ACCESS, and the CP reports no error. Verdict is [gpu zap] plus [gpu latch] bit 24 plus
+  # [metal gpu8]: v1024 c1024 g512/0 would be the engine writing.
+  # 2026-11-10 rebase: dby-gpu-zap is NOT passed any more -- the secure-mode exit now runs unconditionally, so the
+  # 'now with dby-gpu-zap=1' clause above describes the pre-rebase boot; mode 26 and the rest of the evidence stand.
+  "dby-gpu-power=26",
+  # dropped 2026-11-10 to fit the 1000-byte cap: sheng-autoreset
+  "offline-apfs-load=1",
+  "offline-mobile-graphics-load=1",
+  "-apfs_shared_datavolume",
+  "native-ufs-stream=0xe0",
+  "native-ufs-stream2=0x4e0",
+  "native-ufs-root=1",
+  # Renamed from sheng-pmgr on 2026-11-14: upstream's scripts/unixnu/payload.py (commit 47ec6a5, which
+  # dropped the prefix from every boot argument) refuses the native-UFS-root payload unless the command
+  # line carries exactly one pmgr=2. Nothing in this tree reads the argument - the kernel calls
+  # sheng_pmgr_run() from patches/xnu/sheng-platform-power.patch when CONFIG_XNU_SHENG_PMGR is set, and
+  # the component publishes no argument of its own - so it is a marker for the payload check, and it now
+  # carries the name that check looks for. The other twelve sheng- arguments keep the prefix because this
+  # board's own drivers parse them (CpuFreqProbe.cpp, DbyTouch.cpp, KeyStoreProbe.cpp, BootLog.c,
+  # LinkStubs.c, Adreno740, GopFramebuffer); renaming those is a coordinated change across those files
+  # and is not part of a payload unblock.
+  "pmgr=2",
+  # 2026-11-15 补回 sheng-pmgr=2（含分隔符 13 字节，927 + 13 = 940/1000）。上面那条注释说"没有读者"
+  # 是错的：component:ShengPlatformPower 的 sheng_pmgr_run() 第一行就是
+  # `if (!PE_parse_boot_argn("sheng-pmgr", &mode, sizeof mode) || !mode) return;`
+  # （drivers/ShengPlatformPower/ShengPlatformPower.cpp:71），2026-11-14 把它改名成 pmgr=2 之后替身
+  # 一次都没跑过，AMFI 在 ConfigurationSettings.cpp:235 找不到 ApplePMGR 就 panic "AMFI: No PMGR?"
+  # ——2026-11-15 13:20 那次 boot 的 panic 文本正是这一条（由内核里新加的 panic 落盘路径读回）。
+  # 两条同时传：payload.py 只要求命令行里恰好一个 pmgr=2（这条继续满足），组件要的是 sheng-pmgr。
+  # 组件的正确修法是让它改读 pmgr（组件仓 + feeds.toml 的 pin），在那之前这条是让它工作的最小改动。
+  "sheng-pmgr=2",
+  "panic_on_crash_disabled=1",
+  "kt_fixed_zones=120",
+  # offline-legacy-unit-scale=1 发布 /chosen display-scale，SpringBoard 的
+  # -[FBSDisplayMode _initWithWidth:height:preferredScale:] 读的就是它。缺它 preferredScale=0，
+  # 合法性检查在 FBS+0xf744 触发 brk #0，SpringBoard 永远起不完。上游限定态是
+  # unit_scale_calls==chosen_scale==1、unit_scale_status==0；本板早先传 2 时对拍门没过，
+  # DISPLAY 停在 8，1 才是官方 GOP 1:1 值。
+  # 2026-11-04 00:30: 1 -> 2. At 1 the OS lays out on 1600 x 2560 logical points, so a 10.8" panel
+  # renders iPad UI at half size ("UI 太小了", owner report after the touch fix). 2 = 800 x 1280 pt,
+  # iPad Pro 11 territory. Touch is published in real pixels and does not depend on this number.
+  # 2026-11-08 回到 2。1 是我为了让闪屏先消失退回官方 1:1 的，当天判定：UI 变成特别小的一档，
+  # 而闪屏与缩放无关——2 才是这台板子的正常大小。
+  "offline-legacy-unit-scale=2",
+  "offline-legacy-pm=1",
+  "offline-legacy-transfer=1",
+  "offline-legacy-cpu-present=1",
+  "offline-legacy-phase=4",
+  "offline-mobile-graphics-client=1",
+  "offline-hid-home=1",
+  "offline-hid-input=1",
+  "offline-key-events=1",
+  "sheng-aks=1",
+  # 2026-11-06 删 boot-ui-focus=launchd 与 boot-ui-focus4=SpringBoard（共 47 字节）。
+  # 两条都是重复采样：BootProcessProbe.c:36 的默认表已经是
+  # {"launchd","backboardd","SpringBoard","PreBoard","runningboardd",...}，
+  # 配 trace_slot={0,1,1}。boot-ui-focus=launchd 把 targets[1] 从 backboardd
+  # 改成 launchd（launchd 本来就在槽 0）；boot-ui-focus4=SpringBoard 把
+  # targets[4] 从 runningboardd 改成 SpringBoard（本就在槽 2 且已追踪）。
+  # 删掉后采样表回到默认分配，面板不再重复列这两行，运行行为不变。
+  # 2026-11-06 删 sheng-data-reset=1（18 字节）。唯一读者是 BootWatchdogPolicy.c:50，
+  # 那里只有 if (reset==2) setup=1; 会动，传 1 进不了任何分支，reset 变量之后
+  # 不再被引用 —— 传 1 与不传完全等价。persist=2 才是真正生效的那条。
+  # 2026-11-06 恢复 sheng-data-reset=1，撤销我今天的删除。
+  # 我当时写的原因是"唯一读者是 BootWatchdogPolicy.c:50 的 if (reset==2)"—— 那是只读了一半：
+  # 内核侧 NativeRamBlock.cpp:79 discardRequested() 也读这条，并在 :47 把它传给 overlay.open()。
+  # 官方 docs/xnu/boot-arguments.md:74 的语义是 1 = 丢弃 Data overlay（旧页丢掉、不再 apply），
+  # 2 = 同时要求 Setup。传 1 与不传绝不等价。删掉它以后，之前几十次开机攒下的 overlay 被重新
+  # apply；persist=2 的 direct 模式里一次 store 写失败就永久停止所有写入（NativeRamBlock.cpp:11-13），
+  # 用户态再也写不成任何东西，面板永远停在苹果标，而内核照常只剩 timer 行。
+  # sheng-data-reset=1 is NOT passed by default: every successful boot of this device so far ran
+  # with sheng-data-persist=2 alone, and a Data-writing argument is the last variable to add to a
+  # stability measurement. Upstream keeps it for their own Data state.
+  #
+  # 2026-11-18: passed for ONE boot, as that round's single variable. The patched seed is foreign to
+  # the persistent store, so open() returns Kept - state 7, overlay.active = false - and the disk
+  # reads from the new seed while every write is refused. The preferences still took effect (the
+  # compositor submits 8-bit and the CPU copy runs: [swapok] stride=6400 alloc=16384000, then
+  # DbyDisplay copy=1..4 fmt=42475241), but userspace stops at launchd with 'disk1: device is not
+  # ready' repeating, so backboardd and SpringBoard never start and every frame copied is opaque
+  # black. A Fresh overlay starts empty and still reads the seed, so this neither undoes the
+  # preferences nor reverts anything else; it gives Data a store it can write, which is what
+  # everything after launchd needs. Bytes: re-measured 2026-11-20 with the gate's own rule (arguments
+  # joined by single spaces, refuse above 1000) the line ships at 983 bytes / 55 arguments, 17 free -
+  # the "997 / 3 free" figure was the state before smp=1 replaced dby-ti=1 on 2026-11-20.
+  #
+  # This argument is NOT one-shot in the code: leaving it in resets every boot, so Data is
+  # cleared each time and the DATA row would read st=3 forever. To see the resumed state
+  # (st=2 hdr=0 pres=1 ld>0) the next round must flash a payload WITHOUT it. So the rule is:
+  # remove it before the boot after the one that measures it.
+  #
+  # Judges for that boot, and why they are not the obvious ones: the DATA row and the
+  # backboardd/SpringBoard/[metal askers] rows are window and panel lines (BootLog.c:379,
+  # BootProgress.c:946), not kprintf, so they do not appear in a serial capture of the boot
+  # that produces them - they are read from the NEXT boot's [prev] replay. What this boot
+  # shows directly is: 'disk1: device is not ready' / 'executeRequest: request failed to
+  # start' falling from 28611 to zero (those come only from the write-refusal path,
+  # NativeRamBlock.cpp:270-296), the two IOLog lines staying absent, and whether
+  # 'DbyDisplay: copy=' still carries src=ff000000. If the not-ready rows stop and
+  # obj_checksum_verify keeps reporting all-zero blocks, the fault is the seed itself
+  # (this capture already shows 'Cannot find extent ... (.db-wal)' on the write path and
+  # 'Container corruption detected by obj_checksum_verify' - the first is the refusal, the
+  # second needs the writable case to be told apart), and the next variable is a new seed,
+  # not another boot argument. st=5 or er>0 would instead mean the store write failed and
+  # directFailed stopped all writes for that boot (NativeRamBlock.cpp:315-322).
+  # 2026-11-06 这四条是我自己今天删的（和这位维护者无关）：为了给 armcpu-self-ipi=1 与
+  # qcom-usb-debug=1 挤进 DarwinBoot.c:542 的 1024 字节命令行缓冲而删掉了本来就有的参数。
+  # 现在原样加回来，字节改从我自己新加的那条还（见下面 armcpu-self-ipi 的撤销）。
+  "sheng-log=1",
+  # 2026-11-15 sheng-log-replay=1（含分隔符 20 字节，914 + 20 = 934/1000）：上一次运行死在
+  # 控制台能读之前，这次开机把它留在日志窗里的文本从同一个窗口读回来，再走这次的控制台打出来，
+  # 不写介质。读取点是 package/BootLog.c 的 boot_log_tick（PE_parse_boot_argn("sheng-log-replay")），
+  # 它在 writer 打开窗口之后、第一次写之前先把旧 header / 消息区 / 最新文本槽取进内存，等 6 秒让
+  # USB CDC 起来再以 "[prev]" 前缀打印。前缀保留 sheng-：读它的就是本板的 BootLog.c，和上面
+  # sheng-log=1 同一个读者、同一份窗口布局（payload.py:35 的 1000 字节门内还有 66 字节余量）。
+  "sheng-log-replay=1",
+  "offline-legacy-retire=1",
+  # 2026-11-07 sheng-gpu-addon=1 顶掉 boot-ui-focus=launchd：它腾 22 字节（含分隔空格），这条花 18，实测 992/1000。
+  # boot-ui-focus 的唯一读者是 package/BootProcessProbe.c:105，作用是把 targets[1] 从默认的 backboardd 换成 launchd，
+  # 而 launchd 本来就在槽 0（BootProcessProbe.c:35-36 的默认表 + trace_slot={0,1,1}），删掉只是采样表回到默认分配，
+  # 没有任何运行行为跟着走。全树 grep 过 core/ 与 upstream/：除本板与 alioth 的注释外没有别的读者。
+  # 2026-11-15 改名回裸名 gpu-addon=1。上游 47ec6a5 去掉了所有 boot arg 的 sheng- 前缀，kern_exec.c:7661
+  # 的 native_gpu_addon_prepare() 读的是 "gpu-addon"，而本板一直传 "sheng-gpu-addon=1"——这条参数因此
+  # 静默失效了整轮：函数第一行就 return，后面的 native_gpu_addon_install、五个 native_gpu_addon_mount、
+  # native_cryptex_os_view、native_gestalt_cache_drop 和 native_ls_store_drop 全部不执行。没有 addon blob 时
+  # install 会自己提前返回，但 cryptex 的 OS 视图正是由这里创建，缺了它 dyld 共享缓存在用户态不可见，
+  # 每次 exec 都报 shared_region: vm_shared_region_start_address() failed（诊断页 [cryptex os] stage=0）。
+  # 少 7 字节（19 -> 12），字节账同时受益。
+  "gpu-addon=1",
+  # 2026-11-06 boot-ui-focus4=SpringBoard 让位给 -enable_kprintf_spam（27 换 21，仍进 1000 门）。
+  # 唯一读者 package/BootProcessProbe.c:116-118：它把 targets[4] 从默认的 runningboardd 改成
+  # SpringBoard 并给槽 4 打开 trace。SpringBoard 本来就在默认表的槽 2 且 trace_slot[2] 已经是 1
+  # （BootProcessProbe.c:35-36），所以这条只是同一进程的第二次采样；core/ 与 upstream/ 里没有
+  # 任何其它读者（2026-11-06 全树 grep 过：只有本板与 alioth 的 BootProcessProbe/BootUiTraceProbe
+  # 注释提到它）。可读的日志优先于面板上重复的一行，这条次序是 owner 在 2026-11-05 就定下的。
+  "sheng-data-persist=2",
+  # 2026-11-18: kept on purpose for this round. Removing it is a second variable, not a
+  # restoration - the previous payload ran with it, so dropping it would change Data from
+  # "fresh overlay every boot" to "resume the last boot's store" in the same flash that
+  # changes the HID code. NOT one-shot either: leave it in and Data resets every boot.
+  "sheng-data-reset=1",
+  # 2026-11-18, see the note above: lets the foreign seed's overlay start over so Data is
+  # writable again. NOT one-shot - remove it before the next boot or Data resets every time.
+  "sheng-disable-watchdogd=1",
+  # dropped 2026-11-10 to fit the 1000-byte cap: sheng-disable-jobs
+  # UCHE_GMEM_RANGE_MIN/MAX read 0:0 on this unit (evidence/edl-log-s125) while the UCHE raises UCHE_OOB_ACCESS (bit 24
+  # of RBBM_INT_0_STATUS) and every engine store is lost. A window experiment was built and WITHDRAWN: Linux guards the
+  # pair with `if (!(adreno_is_a650_family(...) || a702 || a730))`, so upstream programs no GMEM range on this chip at
+  # all, and the value the vendor tree does write is 1 MiB (`a6xx_gpu.c:359-365`, `0x00100000 + gmem - 1`) - not 0, not
+  # 16 MiB, which is the a740/a722 base. The 1 MiB window [0x100000, 0x11FFFF] also encloses this port's own SQE
+  # (DbyGpuFirmware.h puts it at 0x100000, 0x13000 bytes), which the vendor avoids by starting driver IOVAs at SZ_16M
+  # (adreno_gpu.c:718); a CP fetch inside the window would hang that boot with no way back, and the restart hook is not
+  # installed. So the pair is left untouched until the kernel buffers move out of the first 16 MiB or a source shows the
+  # window cannot shadow them. DBY_GPU_GMEM_BASE stays DBY_GPU_TODO_MEASURE in DbyGpuRegs.h.
+  # The keep-wait control (pipa-gpu-keep-wait=1) is OUT: both control boots that used it died at 40 s, 21 rounds, before
+  # the self-test ever ran (evidence/edl-log-s120, s121; work/tracks/gpu-presentation/CONTROL-2026-11-09.md), so it cannot
+  # answer "is the drop's stale query value what makes metal2vulkan believe work completed". This boot is s116's
+  # configuration plus the [gpu tgt] readback, and s116 survived to run the self-test (evidence/edl-log-s116).
+  "sheng-adsp=2",
+  # boot-diag-resume dropped 2026-11-05: with the live banner off by default the panel is never
+  # painted after the hand-off, so there is nothing left to take back. The argument being absent
+  # means resume_after=0 (BootProgress.c:551 clamps <5 to 0) = never reclaim the panel. Its 22
+  # bytes are now spent on armcpu-self-ipi=1 below; qcom-usb-ctl=1 (15 bytes) stays queued.
+  "armcpu-spi-ipi=1",
+  # 官方同 SoC 板 alioth 的 cpu 记录逐字列出的四项之一（sheng-smp / armcpu-spi-ipi /
+  # armcpu-self-ipi / armcpu-diagnostics）。ArmCpu.cpp:34 记着原因：这颗芯的 SGI 到不了从核，
+  # IPI 是软件挂起的 SPI，而 XNU 只在一个核真正发过一次 IPI 之后才给它开 IPI——所以每个核要在
+  # initCPU 里给自己发一次。读取点在本板钉住的那支 ArmCpu 里（feeds.toml 把 ArmCpu 换到
+  # xVanTuring/ArmCpu@a9c4585：目录钉的 9066b53 把八个核全报成启动簇类型，且从不调
+  # ml_cpu_init_completed，大小核标签因此进不了调度器），本板一直没传这个参数。
+  # 2026-11-06 放回 armcpu-self-ipi=1：它本来就在 HEAD 的参数表里，我不该把它当"我自己加的"扣掉。
+  # 2026-11-06 暂缓 armcpu-self-ipi=1（18 字节）。官方 1000 字节命令行硬门（不是 board.toml 早先
+  # 注释写的 1024；payload 阶段实际报 the limit is 1000）下，HEAD 的 45 条 966 字节 + 我这轮三个
+  # 在修的功能门（dby-bl/dby-pa/dby-battery，32 字节）= 998，只剩 2 字节；cpufreq=3 与 =2 等字节。
+  # 所以还字节的只能是我自己最新加的这条 AMP 探针：它不在 HEAD 里，也不参与锁屏那几次成功启动。
+  # 任务 #156 的 AMP 半边因此推迟，等命令行有真实余量再开。
+  # 2026-11-09 手电筒档换入、SLTO 参数换出（同一处 hunk，字节账一眼可见）。
+  # dby-torch 是本板 DbyTorch 唯一的启用开关（package/DbyTorch/DbyTorch.cpp:183 读它），
+  # 2 = 干跑：映射 SPMI 的三个窗口、读 v5 仲裁器与 PM8150L flash 块的寄存器身份，一个字节也不写。
+  # 命令行是 1000 字节硬门（payload 阶段实际报 the limit is 1000），HEAD 的 992 再加这条 12 字节
+  # 会到 1004，所以必须先还一条。全树读者穷举（feeds/xnu、upstream/core、本仓 package+scripts、
+  # uefi-sheng、sm8250 SoC 仓）里只有 -no_slto_panic 没有活的读者：它唯一的读者是
+  # osfmk/kern/startup.c:473 把 spinlock_timeout_panic 置 FALSE，而本机每次成功启动的串口记录里
+  # 没有任何 spinlock timeout，scripts/check-regression.py 的 CRITICAL_ARGS 也不含它。其余候选
+  # （offline-legacy-*、kt_fixed_zones、sheng-data-persist、native-ufs-stream*、sheng-disable-jobs、
+  # sheng-disable-watchdogd、panic_on_crash_disabled）都查到活的读者，一条不动。
+  # 删它同时改 scripts/regression-baseline.json 的 args：那次提交里写明原因，"丢参数"这条继续守剩下 48 条。
+  # 账：49 项、989 字节、余 11。开机自测（dby-torch=1 配 dby-torch-test=NNNN）要 31 字节，现在付不起，
+  # 所以看得见的亮灯走原生 API 那一半：mode 1 起来挂起，等 IOService 侧调用。
+  "dby-torch=1",
+  # 2026-11-20 dby-ti=1 这一轮让位给上面的 smp=1（这条 9 字节里还 6 字节给八核）。读者是
+  # package/DbyTorch/DbyTorchIos.cpp 的 dby_torch_ios_plan/commit 与 zze-dby-torch-media-mount.patch，
+  # 关掉只是手电筒在 iOS 那一侧不出现，硬件探针（dby-torch=1）仍在。要恢复它得先腾出 9 字节。
+  # 2026-11-09 dby-ti=1（8 字节）：iOS 手电筒原生面的开关，读者是 package/DbyTorch/DbyTorchIos.cpp 的
+  # dby_torch_ios_plan/commit 与本板钉住的 patches/xnu/zze-dby-torch-media-mount.patch 那一行。母本写作
+  # pagani-torch-ios，按本板短名规范（dby-bl、dby-pa 同法）改拼成 dby-ti：原名连分隔符 16 字节，989+16=1005
+  # 越不过 payload.py:35 的 1000 字节硬门，而 49 条参数的读取点逐条穷举后没有一条能删——offline-legacy-*
+  # 全是 NativeLegacyDisplay.cpp 的显示活门，kt_fixed_zones=120 把 XNU 默认 260 压到 120，dk=0 关掉默认开的
+  # DriverKit 调试，panic_on_crash_disabled=1 让守护进程崩了还能读串口，-enable_kprintf_spam 是 kprintf
+  # 到串口的唯一通路。换名后 50 条、998 字节、余 2，一条功能参数也没少。
+  "smp=1",
+  # port-sm8250.md §7.7：qcom-usb-debug=1 单独加、加在最后，一次刷写只回答一个问题。
+  # 这是 QcomXnuUsbDebug 唯一的启用开关（kernel/QcomXnuUsbDebug.c 读它）；不加它归档虽然
+  # force_load 进来，六个单元的补丁调用点全部保持关闭。qcom-usb-ctl=1（Mac 反向控制）这次
+  # 不加：971 + len(" qcom-usb-debug=1") = 988，再加 ctl 是 1003，越过 DarwinBoot 的 1000 字节门
+  # （payload.py:35）。主机侧证据是枚举 1209:316d serial=QcomXnuUsbDebug；拒绝也会由
+  # boot-progress 把同一行画在面板上（§8），所以一次刷写两边都能读。
+  # 2026-11-06 dby-bl=1（8 字节）：面板背光 LP8556 @ 0x2c，挂在 qupv3_se11（i2c@a8c000）。
+  # 读者是 package/BacklightProbe.cpp，由 LegacyDisplayProbe.cpp:929 的 sheng_backlight_probe()
+  # 调进来（LinkStubs.c:134 是它的弱空桩）。不传则整条背光服务不启动，亮度停在引导
+  # 器留下的值。命名按本板 dby- 短名规范，不用 sheng-backlight=1（后者 18 字节）。
+  # 2026-11-08 恢复 dby-bl=1。它是亮度滑杆唯一的启用开关（读者 package/BacklightProbe.cpp），
+  # 撤下它的代价当天就看到了：亮度调节整个消失。面板抖动的嫌疑不在这道门里，不能拿一个
+  # 已验收的功能去换一个未证实的猜测。功放与它无关：dby_smartpa_probe() 在 dby-bl 判断之前调用
+  # （BacklightProbe.cpp:22-24）。
+  "dby-bl=1",
+  # 2026-11-06 dby-pa=3（8 字节）：四颗 smartpa 的固件套选择。读者是 package/DbySmartPA.cpp
+  # （dby_smartpa_probe，由 BacklightProbe.cpp 调进）。本板厂商 dts（kona/DBY/W09_VA/huawei-audio.dtsi）
+  # 在同一根 qupv3_se3_i2c（@0x98c000）上写了三套 BOM 各四颗：0x30..0x33 AW88262、0x34..0x37 TFA9874、
+  # 0x50..0x53 CS35L36（8/16、8/16、32/32 三种寄存器宽度，共用复位 GPIO109）。哪一套在机上不由这里猜，
+  # 由 I2C 探测回答（厂商的存活判据：version_regs 读得到且非零）。0/1/2 = 先试那一套，其它值 = 全试；
+  # 无论先从哪套开始，三套 × 两种复位末端电平都会试到，每套一行判词。
+  "dby-pa=3",
+  # 2026-11-06 dby-battery=1（13 字节）：电池/充电这条路的开关，读者是 package/BatteryProbe.cpp
+  # （它导出 sheng_battery_probe，由 LegacyDisplayProbe.cpp:926 调进来；LinkStubs.c:118-119 是它今天的
+  # 弱空桩，所以这个参数不传时连服务对象都不会被创建）。
+  # =1 起 DbyBattery 服务：先读 SPMI arbiter 的 APID 表（0x900+4n）与 ownership 表（0x700+4n）确认
+  # USID 2 的电量计/充电器对本 EE 有没有通道，再用观察者引擎（0x0e600000，DbyTouch 在本板跑通的同一条
+  # 通道）读 gen4 的 MSOC/VBAT/IBAT 和 SMB5 的充电状态、USBIN 在位、电池在位，然后发布
+  # IOPMPowerSource 并填官方那 16 格 native_battery_stats。原先这里写的『BootLog.c:833-845 的
+  # [battery] 行是唯一现成读者』经查不成立：BootLog.c 不参与本树任何归档构建（libBootProgress.a 只有
+  # 五个成员、没有 builder 提它、内核里没有它的 boot_log_export_put/diag_flush/copy_msgbuf），那行
+  # 从镜像里就不存在。能看到电池读数的是本服务自己的 kprintf 行——本机 COM4 只镜像 kprintf，
+  # IOLog 一行都上不来（2026-11-06 745 行实测）。
+  # =1 仍然是构造性只读：写出去的每个字都是带读操作码的观察者命令字，写通道窗口 chnls
+  # （kona.dtsi:3526，0x0c600000 + 0x2000000）一个都不映射。
+  # 2026-11-06 改 dby-battery=2（0 字节）：owner 明确批准动 PMIC 充电配置——
+  # 「输入限流要动 PMIC 充电配置你确定就改呗，我说不改的是你不要自己乱改，不要自己造轮子」。
+  # 所以这一层写的每一个寄存器、位、值、顺序和回退态都逐行抄自本机 Android 源码
+  # kernel/drivers/power/supply/qcom/（本机 Android 内核树）：APSD_STATUS/APSD_RESULT（smb5-reg.h:207/:217）只读
+  # 不改；USBIN_CURRENT_LIMIT_CFG 0x1370 = ua/50000（qpnp-smb5.c:143-149 + smb5-lib.c:754）；
+  # 三条 override 写按 smblib_icl_override() 的 Huawei 第三方形状（smb5-lib.c:189-196，
+  # 由 kona/DBY/common/huawei_charger.dtsi:147 的 usb-thd-bc-12 决定）；解除输入悬挂
+  # 0x1340 bit0（:775-777）；回退态是厂商自己的 HW_AUTO_MODE（:203-207）。
+  # BC1P2_SRC_DETECT 位不碰——同一个 flag 下 smblib_apsd_enable() 强制关掉 PMIC 自检测
+  # （:1005-1010），本机的问题类型由 FSA9685 回答；900 mA 不试，本板 DWC3 钉死 HIGHSPEED
+  # （package/QcomXnuUsbDebug/usb/Dwc3.c:533-534），厂商给 USB2 主机端口的就是 500 mA；
+  # HVDCP 3000 mA 不试，那要先用 reglit 向适配器要 9 V/12 V，本启动里没有那条协商。
+  # 写面有界：最多映射两条 chnls 通道（USBIN 与 MISC 各一），且每条先查 ownership 表的
+  # write_ee 是否等于本 EE——不等就是 spmi-pmic-arb.c:1007-1011 的 -EPERM，这里连通道都不映射。
+  # 阶梯只在实时状态确认上一档没让输入崩溃（USBIN RT_STS 的 COLLAPSE bit0 / UV bit2，
+  # smb5-reg.h:236-239）之后才往上走，塌了退回一档，连 500 mA 都塌就恢复 HW_AUTO 并整轮锁死。
+  # 温度在纯读路径上拿不到（gen4 只有 SRAM+IMA 写握手那一条路，qpnp-fg-gen4.c:705-720），
+  # 所以那一格仍然是 -1、属性键缺席，不是猜一个数——读不到永远是 unknown，不是 0。
+  # 「在不在充电」不由这里发明：本板内核编进去的是华为分支的 smblib_get_prop_batt_status()
+  # （smb5-lib.c:2111-2162；merge_kona_defconfig:5912 开了 CONFIG_HUAWEI_POWER_EMBEDDED_
+  # ISOLATION=y）= 直充 stage 窗口 / 无线适配器类型 / （usb_present 且 ICL 变化中断未开 且
+  # input_suspend 未置位）三者相或，再被 COLD、OVERHEAT、OVERVOLTAGE 改写回不充电，里面没有
+  # SMB5 那 3 位调节 stage。原先用的 stage∈[Trickle..Taper] 一遇负载台阶（滑亮度）就被走到
+  # INHIBIT/PAUSE 一个采样，图标于是灭了而电芯还在吃电流；现在照厂商那几个输入读，stage 只
+  # 留官方给它的用途：说电充满了。
+  # 命名按本板 dby- 短名规范（同 dby-bl=1、dby-pa=2），不用官方的 sheng-battery=1（15 字节）。
+  # 字节预算：本次改动前实测 44 个参数拼接 919 字节，加这个 933/1000（payload.py:35 的 DarwinBoot 门）。
+  "dby-battery=2",
+  # 2026-11-07 dby-audio=2（12 字节）：本机 legacy APR 播放阶梯的开关，读取点是 package/DbyAudio.cpp:445
+  # 的 sheng_audio_probe（同一条链上 dby-apr 只截阶梯深度，默认 3 = AFE/ADM/ASM 全跑，这次不占字节）。
+  # 2 是 initiator：由我们打开 apr_audio_svc 通道并先问 AVCS 版本；1 只被动监听，本机要主动拉起。
+  # 不用 SM8550 AudioProbe.cpp 读的 sheng-audio：那是另一台机器的硅，本板不编译它（上面 216-219 行的
+  # 命名规范同一规则）。字节预算：加这条前实测 48 个参数拼接 984 字节，加完 996/1000（payload.py:35）。
+  "dby-audio=2",
+  "qcom-usb-debug=1",
+  # Metal path switch (official boot-arguments: sheng-gpu-metal=1 enables it). The accelerator archive
+  # IS in the image and in use: the kernel carries AGXAccelerator / NativeAdrenoMetal / MetalPluginName,
+  # and a boot that reaches the desktop shows five [metal askers], five [gpu clients], 1063 [gpu ibs]
+  # submissions and [fence wait] timeouts=0 (2026-11-20). The earlier note here - "its plugin needs the
+  # AdrenoMetal archive, which is blocked by the clang-24 ICE at NativeAdrenoService.cpp:95" - described
+  # the A740 service personality, which scripts/build-adreno650.py:108-125 excludes on purpose the same
+  # way the reference recipe does; it is not what feeds Metal. What that exclusion costs is the service
+  # layer (NativeAdrenoService, GmuService, Gpu/Pwrup/Firmware), not the accelerator path.
+  "sheng-gpu-metal=1",
+  # sheng-dpu-scanout is deliberately absent: this is the pre-scanout argument table (54 args / 971
+  # bytes, the same table the sheng-fb-gpu=0 round ran), and it is also what the official dby-w09 port
+  # ships - UniXNU-src docs/devices/dby-w09.md:348, "no vsync-driven swap accounting and no
+  # DPU-specific timing on this SoC: the path is a GOP-backed legacy scanout". The panel did show the
+  # userspace UI on this table (porting.toml:146), and the record already names the 8-bit CPU copy as
+  # what presents the desktop (porting.toml:342).
+  #
+  # What the three scanout rounds measured, separated because they are not the same evidence:
+  #  - =1: the ShengUfs window really installed, [direct scanout] state=80000004 (context bank 4),
+  #    flips=0, surfaces=0, mapfail=0 - stage-1 on, nothing flipping (porting.toml:345, read from the
+  #    next boot's [prev]).
+  #  - =2: the last window sample read swap accepted=0 rejected=0 r0..r5=0 with prepare calls=0
+  #    (tools/console-histogram.log:2576 and :4845). That is not proof the producer was silent: the
+  #    same capture carries one live [swapok] at :4295, so a swap did reach validateSwap late in that
+  #    boot. What does support "nothing was offered" is that the capture has no verify_swap failed
+  #    line and no [scanout wait] line at all (the point porting.toml:172 already makes about
+  #    accepted=0 being ambiguous on its own).
+  #  - =3: only the window row is available, state=80000004 flips=0 surfaces=0
+  #    (tools/console-scanout2-repro.log:657, inside that boot's [prev] block); DbyDisplay copy= was
+  #    0, but there is no readable [scanout prepare] row for it.
+  #
+  # Replacement is cheap (one payload rebuild, the kernel does not change), so direct scanout can be
+  # revisited - but only from a state where the copy path is confirmed first, and with a same-SoC
+  # reference that actually flipped. alioth reached the other side of this: dpu-scanout=2 drew the
+  # desktop and then stopped updating it once touched, and its table went back to 0 (porting.toml:306
+  # and its own evidence).
+  # Restored to 0 on 2026-11-19. The working tree carried "1" after 16:05 while neither payload did: both
+  # the booted image 9d9b615e and the last good boot ff2ddd10 carry sheng-fb-gpu=0 in their ESP
+  # unixnu.toml (read back with mcopy from /root/fbgpu0-payload.img and /root/payloads/scanout1.img), and
+  # the byte gate cannot see the difference because both spellings are 971 bytes / 54 arguments. A GPU
+  # offer replaces the CPU copy and returns before it (NativeLegacyDisplay.cpp:525-537), and that path has
+  # never presented a frame on this board, so the tree must not carry 1 into the next build.
+  # sheng-fb-gpu is ABSENT this round: its reader treats absence as 0, the same behaviour the
+  # explicit 0 carried, and the 15 bytes pay for sheng-dpu-scanout below (981 - 15 + 20 = 986).
+  # Read-only display-controller snapshot (package/LegacyDisplayProbe.cpp, prints [dpu] rows): what the boot
+  # loader left in VIG0/VIG1/CTL0/CTL1, plus the MDSS power and clock gate it reads before touching the
+  # block. It answers the one question the stuck logo leaves open - whether the controller still fetches
+  # 0x9c000000 - and it writes no register. 971 + 10 = 981 of the 1000-byte gate.
+  # 2026-11-20 dby-dpu=2（同样 10 字节，1 -> 2 不增字节）：快照之后多做一次 DSI 主机软重启
+  # （dsiVideoKick()）。两路 CTRL 整字写 0、2 ms 后写回加载器留下的原值，同关同开，因为这块面板在
+  # DSI0/DSI1 共享一个 PLL 上分屏，一路一路来会留半屏在跑。判词靠读回 mid：mid 的 bit0 清 + after==before
+  # 才算真翻过；mid==before 是写被吞（secure 世界或硬件），这时不判面板；STATUS0 bit3 从“忙”变“不忙”
+  # 是 engine-lost，回退镜像不进下一发；FIFO_STATUS 与 VID_CFG0 指第三种因（host 使能着但在挨饿，或
+  # 格式不对）。只读快照永远用 =1 —— =2 会写寄存器，而且它不发 [dby-dpu] t= 时序行（timeline 仍只认
+  # ==1，读不到那几行不是故障）。这一轮 payload 9a181e72 / kernel ff068187，是在构建树的 board.toml 上
+  # 临时设 2 并去掉 dby-pcie=1 构建的；仓库这一行保持 1，免得别的区域 rebuild 时把这笔写继承过去。
+  "dby-dpu=1",
+  # 2026-11-20 direct scanout, first round after fixing flip(): kCtlFlush 0x15018 -> 0x1018 and the
+  # flush value 0x3 -> 0x20003. Both were wrong for kona, and the 0x15018 store is what stopped the
+  # earlier =2 round. With this the two VIG pipes should latch the compositor surface (a 1600x2560
+  # BGRA buffer with stride 6400, i.e. exactly the geometry the firmware left: two 800-wide halves)
+  # instead of copying it. Judges, from the NEXT boot [prev]: [direct scanout] flips climbing with
+  # mapfail=0, latch time a few ms, fallback=0, and DbyDisplay copy= rows disappearing.
+  "sheng-dpu-scanout=2",
+  # 2026-11-21 dby-pcie=10（11 字节）：无线 bring-up 的板级探针，当前停在第十级 M6c
+  # （docs/wireless-spec-2026-11-20.md §4.2 阶梯、§4.5 寄存器表、§5 判读）。读者只有一个——
+  # package/DbyPcie.cpp 的 dby_pcie_probe()，由 package/BootProgress.c 在 now>=26 且上一轮 UFS 日志
+  # 写成功后经 weak_import 调用；参数不传时它在第一行 return，两级都等于不存在。
+  #
+  # 两级都在这一个参数里，靠数值区分（同一份代码、同一个镜像，只换数字）：
+  #   =1 M1 只读普查：GCC（0x00100000，常开域）的 PCIE_0_GDSCR / WIFI_CLKREF / PHY_REFGEN + 六个 halt、
+  #      M2 的 before 面（0x52008 投票、TBU/PHY-AUX/DDRSS 使能、三个复位寄存器）、三块 TLMM tile 的
+  #      GPIO20/GPIO79 CFG+IN；只有 GDSCR bit31 说已上电才读 PARF/ELBI，只有 ELBI 报 LINK_UP 才读 DBI。
+  #      这一级一个寄存器都不写。2026-11-20 已在机上跑完：gdscr=0022f001（完全下电）、clkref 关、
+  #      refgen 本来就开、六个 halt 与 alioth 同型，端点正确地没有被碰。
+  #   =2 M2a 上电：先投 0x52008 的六位 + 0x6F004/0x6F02C/0x8C004/0x9000C/0x8D058 各 bit0，再对 0x6B004
+  #      做"读-改-写"清 SW_COLLAPSE 并轮询 PWR_ON ≤2 ms，**只有上电成功**才清 0x6B000/0x6C01C 的 bit0
+  #      释放两个复位。刻意不投 RPMh 电源：一次启动回答"GDSC 是否必须靠电源投票"；若 pwron=0，六项投票
+  #      与 GDSCR 本体全部写回，并打印 m2 power refused，这次启动回到原点，下一次刷写只多一个变量（M2b）。
+  #      这一级**会写寄存器**，这是本板第一次让无线探针动硬件状态。
+  #
+  # 因此：别的区域要 rebuild 时，必须把这一行改回 1 或整条删掉，否则那版镜像会带上 M2a 的写。同一天
+  # display 那轮把 dby-dpu 临时设 2 时也是这么处理的（见 :788 那条注释）。
+  # 字节账：加入本参数那一刻 997 字节（986 + 11）；2026-11-20 22:40 另一 round 把 dby-ti=1 换成 smp=1
+  # 之后实测 56 条 994 字节、余 6（:366 那行有账）。刷写前一律用 gate 自己的规则重算，命令行必须留在
+  # payload 的 1000 字节硬门下（核心 scripts/unixnu/payload.py 的 check_args）。
+  # 2026-11-21 从 2 改成 3：M2a（只靠 GCC 把 PCIe0 上电）已在机上跑通并记录 —— pwron=1、waited=0us、
+  # gdscr 变 f822f000、parf sys 读到 2000361c（与 alioth 同值），所以 M2b 的电源投票本板不需要。
+  # 现在要的是 M3：写 NORTH tile 的 WLAN_EN(GPIO20)/PERST#(GPIO79)、重放板子自己 DT 里的 99 组
+  # qcom,phy-sequence、再开 LTSSM 轮询 ELBI；链路起来就读 DBI 0x00 —— SKU（1101/1103）在那里定论。
+  # 这一级同样会写（焊盘 + PHY + PARF），别的区域 rebuild 时仍须改回 1 或删掉整行。
+  # 2026-11-21 从 3 改成 4：M3b 已在机上把链路训起来（ELBI 0x11401、10.1 ms、DLLLA=1、DBI id 0x010b17cb），
+  # 所以现在要的是 M4 —— 编程 iATU 出窗（MEM 覆盖 BAR0、CFG0 把 conf 窗变成端点配置空间），然后读真正的
+  # 身份：vendor/device（QCA6390 应为 17cb:1101）、class code、以及 BAR0 的 TCSR_SOC_HW_VERSION（major 必须 2）。
+  # 这一级也会写（iATU 寄存器），别的区域 rebuild 时仍须改回 1 或删掉整行。
+  # 2026-11-21 从 4 改成 5：M4 已在机上成功 —— 端点自己的配置空间读出 id=110117cb（QCA6390）、class 0280、
+  # TCSR major=2、BAR0 可达，且发现了真正的卡点：0x350 必须写 0x60000000（DBI 物理地址）unrolled iATU 才应答。
+  # 现在要的是 M5：给 SID 0x1c01 建 SMMU 流映射（复用 package/SmmuBypass.h 的规划器：TYPE=TRANSLATE 指向
+  # 最后一个 CB，因为本固件上 TYPE=BYPASS 会读回 FAULT），并分配 32 MiB 物理连续 DMA 竞技场（MHI 环要用）。
+  # 这一级会写（SMMU 寄存器 + 分配内存），别的区域 rebuild 时仍须改回 1 或删掉整行。
+  # 2026-11-21 从 5 改成 6：M5 已在机上通过（arena 32 MiB @e5e44000；SID 0x1c01 落在 slot 7 / bank 73、
+  # smr=80001c01、s2cr type=0=TRANSLATE），现在要的是 M6a：只读普查端点 BAR0 里的 MHI 寄存器块
+  # （reglen/BHIOFF/BHIEOFF/MHI_CTRL/MHI_STATUS + state/EE 解码），给 M6b 的下固件建立一个"设备此刻在 PBL"的基线。
+  # 这一级不写寄存器，但它跟在 M2a..M5 的写之后，别的区域 rebuild 时仍须改回 1 或删掉整行。
+  # 2026-11-21 从 6 改成 7：M6a 已上机确认端点停在 PBL（reglen=0x100/bhi=0x100/bhie=0x224、ee=0、无 SYSERR）。
+  # M7a 不刷任何东西也不用 EDL：用本板已有的只读 FAT 读取器 + ShengUfs 的 native_ufs_part_find/read
+  # （package/AdspFirmware.c 取 ADSP 固件走的就是这条路）挂载固件分区，列出根目录与 /image，
+  # 把"这台机器到底带哪些 qca6390 固件"变成读数 —— 这是 M6b 下固件唯一还缺的输入。
+  # 这一级只读（不装、不拷、不写任何卷），但它仍在 M2a..M6a 的写之后，别的区域 rebuild 须改回 1 或删掉。
+  # 2026-11-21 从 7 改成 8：M7a 只读普查已写好（固定固件分区清单），M6b 也已写好（把 SBL 读进竞技场
+  # 并按 BHI 交给端点）。=8 时同一 boot 先列清单（只读），再尝试 BHI 握手；M6b 的候选文件名就是
+  # 按厂商布局列的 image/qca6390/m3.bin 等，清单会告诉我们真实名字，下一版据此收窄。
+  # 两级都在 M2a..M5 的写之后，别的区域 rebuild 须改回 1 或删掉整行。
+  # 2026-11-21 从 8 改成 9：M7a 在机上给出关键否定答案 —— 本机没有 firmware/firmware_a/firmware_b 分区，
+  # 只找到 modem（LUN 4、first=1286、48128 块），且它不是 FAT（fat mount rc=-2）。所以固件在哪个分区
+  # 目前谁也没读过。M7b 直接读 GPT（native_ufs_abs_read，只读两块）把分区名打出来，把这件事变成读数。
+  # =9 时同一 boot 依次跑 M7a（清单）、M7b（GPT 名）、M6b（BHI 握手；没有镜像时只记一条不成功的行）。
+  # 2026-11-21 从 9 改成 10：M7d 的递归遍历把固件位置定到了文件 —— modem(LUN 4)/image/qca6390/ 里有
+  # amss20.bin、Data.msc 与 bdwlan.e01..e0e（30 项），bluetooth/image 里是 *_htnv20.bin/htbtfw*.tlv。
+  # M6c 用探针自己的 FAT16 读取器（FatVolume.h 拒收这个 4Kn 小卷）把 image/qca6390/amss20.bin 读进
+  # 32 MiB 竞技场、清 cache，再走 BHI：地址/大小/清中断向量/叩门铃，然后轮询 EE 是否离开 PBL。
+  # 这是第一次把设备自带固件真正交给硬件；只读卷、只写 BHI 寄存器。
+  "dby-pcie=10",
+  # Boot arguments that are deliberately NOT passed, so a later reader does not add them back blindly.
+  # Dropped by this rebase to fit the 1000-byte cap (scripts/unixnu/payload.py:34-36); the merged list
+  # had reached 1067 bytes with 54 arguments and the owner chose these two:
+  #   sheng-autoreset=60      this board's boot loader ignores the reset marker, so it never took effect;
+  #   sheng-disable-jobs=...  upstream's own list carried it, but it is the only single argument large
+  #                           enough (109 B) to pay for the GPU arguments the panel path needs.
+  # Already deleted upstream before this rebase, with their reasons in the blocks above; recorded here
+  # because our line still carried them and their absence changes behaviour:
+  #   boot-ui-focus=launchd / boot-ui-focus4=SpringBoard  upstream removed the whole boot-ui-focus block;
+  #   armcpu-diagnostics=1, boot-diag-resume=3600, -no_slto_panic  upstream removed these with the
+  #   diagnostics notes they left in their place.
+]
+
+# ---------------------------------------------------------------------------
+# 运行时输入在 macOS 上准备：Data seed 的校验、owner trust bundle，以及**从源码构建的 GPU
+# addon**。这一段是这台机器一直没有 addon 的原因——没有 [payload.runtime] 时
+# `unixnu build payload` 不会去要 addon，于是本树打出来的 payload.json 里
+# gpu_addon_sha256 一直是 null（门禁的基线还记着 2026-11-08 那次验收启动的 a267725c…，
+# 那是另一棵树带 addon 打出来的，两边不要混）。addon 只能在 macOS 上产出：Turnip 和 Metal
+# 插件要 Xcode 的 clang 与 iOS SDK。仓库的 .github/workflows/package.yml 已经跑在 macos-26 上
+# 并调用 scripts/package.sh，打开这一段那条流水线就会把 addon 一起做出来，产物落在
+# out/<device>/<profile>/<config>/runtime/{gpuaddon.bin,owner-trust.bundle}。
+#
+# 代价（2026-11-16 审核指出）：只要这张表存在，任何 `unixnu build payload` 都会先跑运行时
+# 步骤，而在 Linux 上它只能拿到现成的两份输入——所以本机构建 payload 必须成对传
+# `--gpu-addon <gpuaddon.bin> --owner-trust-cache <owner-trust.bundle>`（来自同一次 macOS 运行），
+# 否则运行时会停在 "Pass both --gpu-addon and its --owner-trust-cache"。只 `unixnu build kernel`
+# 不受影响。还没有那对文件时，按 README 的说明把这一段临时注释掉再构建。
+# ---------------------------------------------------------------------------
+[payload.runtime]
+tool = "scripts/build-boot-runtime.py"
+target = "ios"                 # iPadOS 17；ios27 是 arm64e 的 27 代目标
+build = "21H461"               # 本 profile 的 OS build
+# data_gib 和 skip_setup 只在新种子（--init-data）时生效；本板用保留的 8 GiB seed，
+# 容量与 Setup-done 状态见 docs/build-2026-11-15-first-boot-image.md 的输入表。
+data_gib = 8
+skip_setup = true
+trust_components = ["StaticTrustCache", "Cryptex1,SystemTrustCache"]
+# gpu_addon 缺省为 true：不写就是构建 addon。
+
+# ---------------------------------------------------------------------------
+# DarwinBoot 交接开关（devicetree.py 的 options = config['payload']['adt']）：
+# 只有这五个键属于这里，设备身份和平台默认值写在下面的 [adt.*]。
+# ---------------------------------------------------------------------------
+[payload.adt]
+chip_id = "207"                       # 按 16 位读（devicetree.py:312），与 format 1 同值
+owned_memory_size = "0x100000000"     # 4 GiB DarwinBoot 连续窗口；不写就是 256 MiB 默认窗口，
+                                      # XNU 只能拿到 256 MiB。同 SM8250 的官方 alioth 取值。
+root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"   # OS 窗口自己的卷 UUID
+unique_chip_id = "required"           # 真值由 --unique-chip-id HEX 传入（每次出镜像的板级种子）
+# 内核开了 CONFIG_XNU_NATIVE_RAM_BLOCK，交付的是稀疏 DBRDISK1 种子，ADT 必须写
+# PackedRAMDisk；写 RAMDisk 时 DarwinBoot 在 DarwinBoot.c:558 以 EFI_COMPROMISED_DATA 拒收。
+packed_data_ramdisk = true
+# 可写 Data 卷是本机 userdata 里的持久卷，不是易失夹具 → 不发布 ephemeral-storage。
+# persistent_data  deliberately NOT set: the hardware-proven ADT (payload-reset.img,
+# adt_sha256 d92b0972) publishes /chosen/ephemeral-storage=1, and devicetree.py:333
+# emits it whenever --data-ramdisk is passed and persistent_data is absent. Reproducing
+# that boot must not silently change the Data-volume semantics.
+# # persistent_data  deliberately NOT set: the hardware-proven ADT (payload-reset.img,
+# adt_sha256 d92b0972) publishes /chosen/ephemeral-storage=1, and devicetree.py:333
+# emits it whenever --data-ramdisk is passed and persistent_data is absent. Reproducing
+# that boot must not silently change the Data-volume semantics.
+# persistent_data = true
+
+# ---------------------------------------------------------------------------
+# 板级 ADT 覆盖：顶层 [adt.*]（devicetree.py 的 platform = config['adt']），
+# 不是 [payload.adt.*]。profiles.merge() 是递归字典合并，逐键盖住 profile 的值。
+# 这里只留三组本板实测值，其余身份/安全状态/maxvnodes 全部沿用 profile。
+# ---------------------------------------------------------------------------
+
+# /product：机型串按本板；artwork-device-subtype 用本机面板长边 2160，
+# 不是 donor iPad Pro 12.9 的 2732；thin-bezel 是 format 1 已验证链上的值。
+[adt.product.string]
+model = "huawei,dby_w09"
+
+[adt.product.u32]
+artwork-device-subtype = 2160
+thin-bezel = 1
+
+# /product/camera 的 flash：手电筒开关的原生判据。docs/guide/mobilegestalt.md:14-32 把 /product 的属性列为构建期 ADT
+# 输入，devicetree.py:280-287 把 [adt.*] 表里任何非属性键做成同一形式的子节点，所以这里写 [adt.product.camera.u32]；
+# refer/PaganiDrivers/drivers/PaganiTorch/README.md:76 说的就是 [AVFlashlight hasFlashlight] 读
+# IODeviceTree:/product/camera 的 flash 存在与否。u32 1 与内核 package/DbyTorch/DbyTorchIos.cpp 的 putFlash 同形。
+[adt.product.camera.u32]
+flash = 1
+
+# 本板没实现 suspend/resume：用原始根域策略输入，而不是让 CPU 永久停车。
+[adt.defaults.u32]
+sleep-disabled = 1
+
+# /buttons：DBY-W09 没有 Home 键，所以 button-names 不带 menu，
+# home-button-type = 2（纯手势），锁屏给滑动解锁并画 home indicator。
+[adt.buttons.string]
+compatible = "buttons"
+device_type = "buttons"
+
+[adt.buttons.strings]
+button-names = ["hold", "voldown", "volup"]
+
+[adt.buttons.u32]
+home-button-type = 2
+
+# 已知上游缺口（记录，不绕过）：format 2 的公共生成器不产 /pram 节点，也不写
+# /chosen/embedded-panic-log-size，所以 pexpert check_for_panic_log() 在
+# CONFIG_XNU_DT_PANIC_REGION=y（defconfig 里开着）下走设备树分支、找不到 pram 就直接返回，
+# 不映射任何内存。官方 alioth 记的是同一件事（board.toml:196-198、configs/alioth_defconfig:12-19）。
+# 本板的 panic 证据通道因此是 panic_screen=true 的屏上文本 + boot_progress_panic_text，
+# 不是 RAM 里的 embedded-panic-log。

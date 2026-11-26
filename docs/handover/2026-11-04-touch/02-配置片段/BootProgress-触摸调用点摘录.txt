@@ -1,0 +1,63 @@
+BootProgress.c 里与触摸相关的两处（摘录，行号为原文件行号）
+================================================================================
+
+【1】驱动启动点：第一个用户进程出现后调用一次 dby_touch_probe_entry()，失败可重试 3 次
+     （BootProgress.c:803-816）
+ 803:   extern int dby_touch_probe_entry(void);
+ 804:   static int dby_touch_probe_done = 0;
+ 805:   dby_touch_poll_calls++;
+ 806:   if (!__atomic_load_n(&dby_touch_probe_done, __ATOMIC_RELAXED) &&
+ 807:       !ml_at_interrupt_context() && nprocs > 0 && dby_touch_hook_runs < 3) {
+ 808:     if (__atomic_exchange_n(&dby_touch_probe_done, 1, __ATOMIC_ACQ_REL) == 0) {
+ 809:       dby_touch_hook_runs++;
+ 810:       dby_touch_hook_nprocs = (unsigned)nprocs;
+ 811:       dby_touch_hook_ret = dby_touch_probe_entry();
+ 812:       if (dby_touch_hook_ret != 0) {
+ 813:         __atomic_store_n(&dby_touch_probe_done, 0, __ATOMIC_RELEASE);
+ 814:       }
+ 815:     }
+ 816:   }
+
+【2】诊断页的点阵覆盖层：读 native_touch_seq/count/xs/ys，翻回"上→下"绘制
+     （BootProgress.c touch_overlay_locked，约 1175-1215）
+1175:   static const uint32_t palette[4]={0xffff4040,0xff40ff40,0xff4080ff,0xffffff40};
+1176:   static unsigned frame_drawn;
+1177:   unsigned textEnd=(BP_COLS)*6*display.scale+8;
+1178:   unsigned padX=textEnd,padW=display.width>textEnd+40?display.width-textEnd-24:0;
+1179:   touch_pad_w=padW;
+1180:   if(padW<200)return;
+1181:   unsigned padH=(unsigned)((uint64_t)padW*20320/30480),padY=display.height*45/100;
+1182:   if(padY+padH+8>=display.height)return;
+1183:   // Frame, corner markers and heartbeat about once a second (they are tens of thousands of uncached stores, far too much
+1184:   // for every 30 ms pass); dots are never erased, so the trail persists in between.
+1185:   static unsigned decor_pass;
+1186:   if((decor_pass++&31)==0) {
+1187:   touch_fill(padX-4,padY-4,padX+padW+3,padY-1,0xffffffff);touch_fill(padX-4,padY+padH,padX+padW+3,padY+padH+3,0xffffffff);
+1188:   touch_fill(padX-4,padY,padX-1,padY+padH-1,0xffffffff);touch_fill(padX+padW,padY,padX+padW+3,padY+padH-1,0xffffffff);
+1189:   touch_fill(padX,padY,padX+30,padY+30,palette[0]);touch_fill(padX+padW-31,padY,padX+padW-1,padY+30,palette[1]);
+1190:   touch_fill(padX,padY+padH-31,padX+30,padY+padH-1,palette[2]);touch_fill(padX+padW-31,padY+padH-31,padX+padW-1,padY+padH-1,palette[3]);
+1191:   (void)frame_drawn;
+1192:   touch_fill(padX,padY-30,padX+19,padY-11,(decor_pass>>5)&1?0xff00ff00:0xffff00ff);   // heartbeat: the overlay thread is running
+1193:   }
+1194:   uint32_t seq=__atomic_load_n(&native_touch_seq,__ATOMIC_ACQUIRE);
+1195:   if(seq&1)return;
+1196:   unsigned n=native_touch_count;if(n>12)n=12;
+1197:   int xs[12],ys[12];
+1198:   for(unsigned i=0;i<n;++i){xs[i]=native_touch_xs[i];ys[i]=native_touch_ys[i];}
+1199:   __asm__ volatile("dmb ish" ::: "memory");
+1200:   if(__atomic_load_n(&native_touch_seq,__ATOMIC_ACQUIRE)!=seq)return;
+1201:   for(unsigned i=0;i<n;++i) {
+1202:     if(xs[i]<0||ys[i]<0)continue;
+1203:     // ys carries the digitizer's bottom-up axis (DbyTouch.cpp dbyTouchPublishContact, fixed 2026-11-03),
+1204:     // while this pad is drawn top-down like the screen: reverse it back so the dot lands under the finger.
+1205:     unsigned px=padX+(unsigned)((uint64_t)xs[i]*padW/30480),py=padY+(unsigned)((uint64_t)(20319u-(unsigned)ys[i])*padH/20320);
+1206:     if(px<padX+4||py<padY+4||px+4>=padX+padW||py+4>=padY+padH)continue;
+1207:     // One colour per contact slot; the newest dot gets a white centre so the direction of a swipe is visible.
+1208:     touch_fill(px-4,py-4,px+4,py+4,i<4?palette[i]:0xffffffff);
+1209:     touch_fill(px-1,py-1,px+1,py+1,0xffffffff);
+1210:     __atomic_fetch_add(&touch_dots,1,__ATOMIC_RELAXED);
+1211:   }
+1212: }
+1213: // Scheduler/timer latency probe: the 30 ms sleep of this thread, measured with the architectural counter. A sleep that returns
+1214: // much later than asked means timers or wakeups reach an idle core late, which looks like a slow system with idle CPUs.
+1215: static void touch_monitor(void *arg, wait_result_t result) {

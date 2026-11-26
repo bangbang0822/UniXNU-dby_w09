@@ -1,0 +1,34 @@
+# Device patch paths, one per line in application order.
+#
+# One core patch is named by neither the ARM64 nor the OS series, and the official
+# records say it must still be present: docs/xnu/patch-reference.md lists
+# sheng-platform-power under the platform series, and
+# docs/.vitepress/device-records/sirius.toml records for sdm710 that "the ARM64 and
+# OS series assume the two files they omit are present". The board layer supplies
+# it here through the same arch: prefix the OS series uses for
+# zzz-boot-progress.patch; nothing here is a device-local rewrite of XNU.
+#
+# native-smp-secondary and native-smp-type-clusters used to be carried here the
+# same way, because UniXNU-sm8250-common@6bb9b025 shipped an empty
+# patches/xnu/series. The feed is now pinned at a6e7e36 (the pin the official
+# SM8250 board alioth uses), whose SoC series applies both, so they are gone from
+# this file: the SoC owns them, and the two are only valid as a pair - the
+# cluster-type tags in dts/dby_w09.dts need native-smp-type-clusters.patch, which
+# is what raises MAX_CPU_CLUSTERS to 2 and defines __ARM_AMP__.
+# scripts/check-smp-topology.py is the gate that refuses the unpaired form.
+#
+# sheng-platform-power: the sheng_pmgr_run() call site in bsd_init.c that
+# CONFIG_XNU_SHENG_PMGR=y needs, and the block zzz-boot-progress.patch quotes as
+# unchanged context at its @@ -773,7 +775,9 @@ hunk.
+#
+# Order in [kernel] patch_series: this file is still listed before os: rather than
+# last. git apply runs the resolved sequence literally (scripts/unixnu/patches.py
+# prepare), and the OS series' zzz-boot-progress.patch hunk only applies once the
+# block above already exists, so the canonical arch/soc/os/device order cannot be
+# satisfied while sheng-platform-power has no series of its own.
+# sheng-platform-power is NOT named here any more: the OS profile series that this board selects
+# (profiles/os/ipados-17.7.11-21H461/patches/xnu/series:5) carries the same line, so naming it here made
+# plan() stop with 'patch appears twice in the selected series' (2026-11-14, measured). On a core without
+# that line the port would need its own copy, which is the upstream-main case already recorded in
+# porting.toml's limits.
+restore-omitted-public-headers.patch

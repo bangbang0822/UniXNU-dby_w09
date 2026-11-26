@@ -1,0 +1,27 @@
+#!/bin/sh
+# Reject a commit whose subject does not follow the UniXNU convention.
+#
+# Install once per clone:   git config core.hooksPath .githooks
+# Bypass for one commit:    git commit --no-verify
+#
+# The rule itself lives in scripts/check-commit-messages.py so that this hook, the pre-push
+# hook and anyone reading the repository all refer to one implementation.
+
+root=$(git rev-parse --show-toplevel) || exit 1
+
+# `python3` is the right name on a build host, but Windows only ships `python`, and a
+# WindowsApps shim answers `command -v` while failing to run -- so prove it works.
+python=
+for candidate in python3 python; do
+    if "$candidate" -c 'import sys' >/dev/null 2>&1; then
+        python=$candidate
+        break
+    fi
+done
+if [ -z "$python" ]; then
+    echo "commit-msg: no working python found; subject not checked." >&2
+    echo "commit-msg: run scripts/check-commit-messages.py by hand, or install python3." >&2
+    exit 0
+fi
+
+exec "$python" "$root/scripts/check-commit-messages.py" --device "$root" --message-file "$1"
