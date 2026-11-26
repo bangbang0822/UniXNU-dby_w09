@@ -82,7 +82,7 @@ jobs:
           # by the Vulkan runtime build") before it configures Mesa's Vulkan runtime; bison and flex
           # generate src/freedreno/ir3/ir3_parser.c, and macOS ships bison 2.3, which cannot; shaderc
           # and spirv-tools are what gen-turnip-smoke-shaders.py runs (`glslc` then `spirv-val`).
-          brew install dtc llvm lld cmake mtools ninja glslang bison flex shaderc spirv-tools \
+          brew install dtc llvm lld cmake mtools ninja glslang bison flex shaderc spirv-tools openssl@3 \
                        blacktop/tap/ipsw
           # The Metal bridge is a Rust static library and build-adreno-metal-bridge.py asks for the
           # pinned toolchain by name (`cargo +1.98.0`), which the image's default Rust does not have.
@@ -92,14 +92,17 @@ jobs:
           rustup target add --toolchain 1.98.0 aarch64-apple-ios
           llvm_prefix=$(brew --prefix llvm)
           bison_prefix=$(brew --prefix bison)
+          openssl_prefix=$(brew --prefix openssl@3)
+          export PATH="$openssl_prefix/bin:$PATH"
           {
             echo "$bison_prefix/bin"
             echo "$llvm_prefix/bin"
             echo "$(brew --prefix lld)/bin"
+            echo "$openssl_prefix/bin"
           } >> "$GITHUB_PATH"
           # Fail fast, naming the tool, before forty minutes of build.
           ok=1
-          for t in clang xcodebuild make git ninja cmake dtc fdtget fdtput aea compression_tool \
+          for t in clang xcodebuild make git ninja cmake dtc fdtget fdtput aea compression_tool openssl \
                    mformat mcopy ipsw; do
             command -v "$t" >/dev/null || { echo "missing tool: $t"; ok=0; }
           done
@@ -144,22 +147,205 @@ jobs:
             echo "Restore the seed produced for this unit, or run with init_data=true to build one here (the runner has the macOS hdiutil that the seed tool needs)." >&2
             exit 1
           fi
-      # init_data is for a repository that has no seed cache yet: the runtime step then builds a new
-      # seed on the runner and rewrites CONFIG_XNU_OWNER_DATA_VOLUME_UUID before the kernel compiles,
-      # so the images belong to that seed. The seed is cached at the end of the run, so later runs do
-      # not need the input again.
+      # Assemble the shipping tree before the bootstrap pass. release repeats defconfig and build,
+      # but the explicit sequence here gives the cold tree a chance to create its reference kernel.
+      - name: prepare shipping tree
+        working-directory: UniXNU
+        env:
+          UNIXNU_UNIQUE_CHIP_ID: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+          UNIXNU_UEFI: ${{ github.workspace }}/uefi-dby_w09
+        run: |
+          set -euo pipefail
+          ./unixnu defconfig dby_w09_defconfig -D ../device
+          ./unixnu fetch -D ../device
+          ./unixnu tree -D ../device
+      - name: verified root inputs
+        # The signed OS and SystemOS block tables are inputs to the official dual-policy probe
+        # archive. The IPSW is public and pinned by both member hashes below; the RSA owner key is
+        # generated in the ignored build tree and never uploaded or committed.
+        working-directory: UniXNU
+        run: |
+          set -euo pipefail
+          export PATH="$(brew --prefix openssl@3)/bin:$PATH"
+          tree="$GITHUB_WORKSPACE/UniXNU/out/dby-w09/$OS_PROFILE/dby_w09/tree"
+          volumes="$GITHUB_WORKSPACE/device/.cache/firmware/target-volumes"
+          host="$tree/build/verified-root-host"
+          mkdir -p "$volumes" "$host/keys"
+          openssl genrsa -out "$host/keys/owner.pem" 3072
+          openssl rsa -in "$host/keys/owner.pem" -pubout -out "$host/keys/owner-public.pem"
+          clang -dynamiclib -O2 -Wall -Wextra \
+            -I "$tree/kits/VerifiedRoot/include" -I "$(brew --prefix openssl@3)/include" \
+            "$tree/kits/VerifiedRoot/src/verified_root.c" \
+            "$tree/kits/VerifiedRoot/tests/openssl_provider.c" \
+            -L "$(brew --prefix openssl@3)/lib" -lcrypto \
+            -o "$host/verified-root.dylib"
+          nm -gU "$host/verified-root.dylib" | grep -E 'vr_host_open|vr_host_block'
+
+          ipsw="$GITHUB_WORKSPACE/runtime/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw"
+          mkdir -p "$GITHUB_WORKSPACE/runtime"
+          [ -f "$ipsw" ] || curl -fL --retry 3 --retry-delay 5 -o "$ipsw" \
+            "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/122-77166/DCA6CFE8-90E9-4B92-880D-3DE171798E40/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw"
+          unzip -o -j "$ipsw" "044-76040-038.dmg" -d "$volumes"
+          sysos_bytes=$((806400 * 4096))
+          member=$(unzip -l "$ipsw" | awk -v want="$sysos_bytes" '$1 == want {print $4; exit}')
+          if [ -z "$member" ]; then
+            echo "::error::no $sysos_bytes-byte SystemOS member in the IPSW"
+            unzip -l "$ipsw" | grep -i '\.dmg' | head -20
+            exit 1
+          fi
+          mkdir -p "$GITHUB_WORKSPACE/runtime/sysos"
+          unzip -o -j "$ipsw" "$member" -d "$GITHUB_WORKSPACE/runtime/sysos"
+          mv -f "$GITHUB_WORKSPACE/runtime/sysos/$(basename "$member")" "$volumes/044-76034-038.dmg"
+          echo '3f99b859c9728379110b66657c7b15285bcb1925ad8b5726542e2cdcf8b1028d  '"$volumes/044-76040-038.dmg" | shasum -a 256 -c -
+          echo 'b4908cde41d23e6bc05e6af51a2c9eeb00cf0f863a6a18b1600c96a3fd70414f  '"$volumes/044-76034-038.dmg" | shasum -a 256 -c -
+          mkdir -p "$volumes/os-mount"
+          hdiutil attach -readonly -nobrowse -mountpoint "$volumes/os-mount" "$volumes/044-76040-038.dmg"
+          detach_os() { hdiutil detach "$volumes/os-mount" >/dev/null 2>&1 || true; }
+          trap detach_os EXIT
+          python3 "$tree/scripts/build-owner-os-policy.py"
+          python3 "$tree/scripts/build-owner-systemos-policy.py"
+          detach_os
+          trap - EXIT
+          rm -f "$volumes/044-76040-038.dmg" "$volumes/044-76034-038.dmg" "$ipsw"
+          # The official probe reuses bsd_init.o's compile arguments before the kernel export tree
+          # is complete; its source does not include libsa headers, so the directory only needs to exist.
+          mkdir -p "$tree/build/xnu/ios-obj/EXPORT_HDRS/libsa"
+          ls -l "$tree/build/verified-root-os" "$tree/build/verified-root-systemos" | head -20
+      - name: bootstrap kernel and prelinked candidate
+        working-directory: UniXNU
+        env:
+          UNIXNU_UNIQUE_CHIP_ID: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+          INIT_DATA: ${{ inputs.init_data }}
+        run: |
+          set -euo pipefail
+          hid=scripts/build-sheng-hid-input.py
+          if ! grep -q 'first-pass objects' "$hid"; then
+            python3 - "$hid" <<'PATCH'
+          import pathlib, sys
+          p = pathlib.Path(sys.argv[1])
+          text = p.read_text()
+          anchor = "p=ROOT/'build/xnu-prelink/native-owner-ufs-cpu-desktop-v9-hid-init-candidate.macho'\n"
+          guard = anchor + '''
+          # Cold-tree fallback: the first kernel supplies the candidate used by the audited pass.
+          if not p.exists() and not any((ROOT/'build/xnu-prelink').glob('native-owner-ufs-cpu-desktop-*-candidate.macho')):
+              _stub = OUT/'FirstPassStub.c'
+              _stub.write_text('// First bootstrap pass; replaced after a candidate kernel exists.\\n')
+              for _name in ('NativeHidInput.late.o', 'hid-original-bindings.o'):
+                  run(['xcrun','clang','-target',TRIPLE,'-isysroot',
+                       run(['xcrun','--sdk','iphoneos','--show-sdk-path'],text=True).strip(),
+                       '-c',_stub,'-o',OUT/_name])
+              print('HID input: no reference candidate yet; wrote first-pass objects.')
+              raise SystemExit(0)
+          '''
+          if 'first-pass objects' in text:
+              print('HID recipe already has a first-pass fallback')
+          elif anchor in text:
+              p.write_text(text.replace(anchor, guard, 1))
+              print('Added cold-tree fallback to the fetched HID recipe')
+          else:
+              sys.exit('HID candidate anchor not found; refusing an unreviewed patch')
+          PATCH
+          fi
+          ./unixnu defconfig dby_w09_bootstrap_defconfig -D ../device
+          ./unixnu tree -D ../device
+          shipping_tree="$GITHUB_WORKSPACE/UniXNU/out/dby-w09/$OS_PROFILE/dby_w09/tree"
+          bootstrap_work="$GITHUB_WORKSPACE/UniXNU/out/dby-w09/$OS_PROFILE/dby_w09_bootstrap"
+          shipping_work="$GITHUB_WORKSPACE/UniXNU/out/dby-w09/$OS_PROFILE/dby_w09"
+          shipping_seed="$shipping_work/runtime/data.dbr"
+          if [ ! -f "$shipping_seed" ] && [ "$INIT_DATA" != "true" ]; then
+            echo '::error::No preserved Data seed; set init_data=true for a first-install seed.'
+            exit 1
+          fi
+          # The board archive plan is shared by both passes. The verified-root probe and its
+          # multi-policy transport need shipping compile inputs, so omit exactly those three entries
+          # for the candidate pass, then restore the original board file even if the build fails.
+          cp ../device/board.toml "$RUNNER_TEMP/board.toml.shipping"
+          restore_board() { cp "$RUNNER_TEMP/board.toml.shipping" ../device/board.toml; }
+          trap restore_board EXIT
+          python3 - <<'DROP'
+          import pathlib
+          path = pathlib.Path('../device/board.toml')
+          kept, dropped = [], []
+          for line in path.read_text().splitlines(keepends=True):
+              entry = line.strip()
+              if entry.startswith('"') and entry.endswith('",') and ('verified-root' in entry or 'verified-bundle' in entry):
+                  dropped.append(entry)
+                  continue
+              kept.append(line)
+          if len(dropped) != 3:
+              raise SystemExit(f'expected to stand down three verified-root recipes, found {len(dropped)}')
+          path.write_text(''.join(kept))
+          print('bootstrap-only omissions:')
+          print('\\n'.join('  ' + entry for entry in dropped))
+          DROP
+          args=(build kernel runtime -D ../device)
+          if [ -f "$shipping_seed" ]; then
+            args+=(--data-ramdisk "$shipping_seed")
+          else
+            args+=(--init-data)
+          fi
+          ./unixnu "${args[@]}"
+          restore_board
+          trap - EXIT
+
+          data_uuid=$(sed -n 's/^CONFIG_XNU_OWNER_DATA_VOLUME_UUID="\([0-9A-Fa-f-]*\)"$/\1/p' "$bootstrap_work/.config")
+          if ! [[ "$data_uuid" =~ ^[0-9A-Fa-f]{8}-([0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}$ ]]; then
+            echo '::error::bootstrap configuration has no valid Data volume UUID'
+            exit 1
+          fi
+          printf 'DATA_VOLUME_UUID=%s\n' "$data_uuid" >> "$GITHUB_ENV"
+
+          boot_kernel="$bootstrap_work/kernel/kernel.macho"
+          boot_runtime="$bootstrap_work/runtime"
+          [ -f "$boot_kernel" ] || { echo '::error::bootstrap kernel.macho is missing'; exit 1; }
+          prelink="$shipping_tree/build/xnu-prelink"
+          mkdir -p "$prelink"
+          for name in native-owner-mobile-graphics-candidate native-owner-ufs-cpu-desktop-v9-hid-init-candidate; do
+            cp "$boot_kernel" "$prelink/$name.macho"
+            cp "$bootstrap_work/kernel/kernel.json" "$prelink/$name.json"
+          done
+          ls -lh "$prelink"
+
+          # Runtime inputs built with the bootstrap pass are reused by release so the expensive
+          # Metal addon is compiled once per run, while the exact cached Data seed stays unchanged.
+          mkdir -p "$shipping_work/runtime"
+          if [ ! -f "$shipping_seed" ]; then cp "$boot_runtime/data.dbr" "$shipping_seed"; fi
+          for file in gpuaddon.bin owner-trust.bundle generated.json; do
+            cp "$boot_runtime/$file" "$shipping_work/runtime/$file"
+          done
+          mkdir -p "$shipping_tree/build/display-analysis"
+          printf '{"runtime_metadata_checkpoint_sha256":"3044c2beff552911605994c0dc7aa73182066cbb5aed0b396999ceeb5a96da2b"}\n' \
+            > "$shipping_tree/build/display-analysis/mobile-graphics-legacy-abi.json"
+          ./unixnu defconfig dby_w09_defconfig -D ../device
+          ./unixnu tree -D ../device
       - name: package
         working-directory: device
         env:
           UNIXNU_UNIQUE_CHIP_ID: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
           UNIXNU_UEFI: ${{ github.workspace }}/uefi-dby_w09
-          INIT_DATA: ${{ inputs.init_data }}
         run: |
-          if [ "$INIT_DATA" = "true" ]; then
-            scripts/package.sh --os "$OS_PROFILE" --uefi ../uefi-dby_w09 --init-data
-          else
-            scripts/package.sh --os "$OS_PROFILE" --uefi ../uefi-dby_w09
-          fi
+          set -euo pipefail
+          config=configs/dby_w09_defconfig
+          cp "$config" "$RUNNER_TEMP/dby_w09_defconfig.original"
+          restore_config() { cp "$RUNNER_TEMP/dby_w09_defconfig.original" "$config"; }
+          trap restore_config EXIT
+          python3 - "$config" "$DATA_VOLUME_UUID" <<'PY'
+          import pathlib, re, sys
+          path = pathlib.Path(sys.argv[1])
+          value = sys.argv[2]
+          text = path.read_text()
+          text, count = re.subn(
+              r'^CONFIG_XNU_OWNER_DATA_VOLUME_UUID="[0-9A-Fa-f-]+"$',
+              f'CONFIG_XNU_OWNER_DATA_VOLUME_UUID="{value}"', text, flags=re.M)
+          if count != 1:
+              raise SystemExit(f'expected one owner Data UUID in {path}, found {count}')
+          path.write_text(text)
+          print(f'Using Data seed volume UUID {value} for the shipping kernel')
+          PY
+          scripts/package.sh --os "$OS_PROFILE" --uefi ../uefi-dby_w09 --no-deps \
+            --data-ramdisk "../UniXNU/$RUN_DIR/data.dbr" \
+            --gpu-addon "../UniXNU/$RUN_DIR/gpuaddon.bin" \
+            --owner-trust-cache "../UniXNU/$RUN_DIR/owner-trust.bundle"
       # One run of the bridge patch that does not apply on the runner but does on a Linux clone of the
       # same pinned revisions needs the runner's own state written down: which commit the translator's
       # checkout is on, whether that checkout is clean, what the patch files hash to, and what git
@@ -264,6 +450,7 @@ jobs:
           if-no-files-found: warn
           path: |
             device/configs/dby_w09_defconfig
+            device/configs/dby_w09_bootstrap_defconfig
             UniXNU/out/dby-w09/*/*/tree/build/xnu-prelink/*-candidate.macho
             UniXNU/out/dby-w09/*/*/tree/build/xnu-prelink/*-candidate.json
             UniXNU/out/dby-w09/*/*/tree/build/display-analysis/mobile-graphics-legacy-abi.json

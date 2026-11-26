@@ -142,6 +142,10 @@ archives = [
   #   "build-virtio-mmio-bindings.py --component VirtioMmioBlock",
   # 它第 20 行无条件读设备自备的 build/storage-abi/interface-audit.json（docs/porting/migration.md:335 把它列为构建输入），第 27 行还要里面的活体标志；core 里没有任何脚本产它（scripts/unixnu/kernel.py:183 只把 IOStorageFamily 头拷进 build/storage-abi/include），本板活体审计从未跑完（format-1 的 build/storage-abi/ 只剩参考对象与 compile.log）。所以这两步先走设备层录制推导（format-1 硬件验证过的同一份 bindings）让 pass 通，官方活体审计作为发布前必补的门记在 porting.toml 的 storage 区。
   "build-storage-bindings.py --component NativeVirtioBlock --archive libVirtioMmioBlock.a --directory build/virtio-mmio-block --subset",
+  # This board supplies the two signed policy tables from the 21H461 IPSW in the macOS workflow.
+  # The official probe builder then consumes bsd_init.o's compile record from the kernel bootstrap
+  # pass and produces the dual-policy archive named by CONFIG_XNU_VERIFIED_ROOT_ARCHIVE.
+  "build-verified-root-probe.py --component os --include-systemos",
   # defconfig 把块驱动归档指向 verified bundle（和官方 sheng 的 configs/sheng_defconfig:19 同一形状），
   # 官方入口就是 build-arm-driver.py 的这两个开关（docs/concepts/security.md:57 按容量选择策略包），
   # 产物 build/virtio-mmio-block-verified-bundle/libVirtioMmioBlock.a 由 kernel.py:141 的 *_ARCHIVE 门校验。
@@ -160,18 +164,8 @@ archives = [
   "build-storage-bindings.py --component NativeRamBlock --archive libRamBlock.a --directory build/ram-block --subset",
   # payload 的 native-ufs-root 硬门要求内核里有 _sheng_pmgr_run。
   "build-platform-power.py",
-  # 双卷（OS + SystemOS）verified-root policy bundle，喂给
-  # CONFIG_XNU_VERIFIED_ROOT_ARCHIVE。
-  # libVerifiedRootProbe.a 按官方形状自备进构建树（docs/guide/build-kernel.md:108「an archive that no
-  # builder makes must be supplied in the build tree」），官方 sheng/alioth 的 archives 里也没有这一步，
-  # 只在 configs/sheng_defconfig:20 引用产物。官方命令逐字留着：
-  #   "build-verified-root-probe.py --component os --include-systemos",
-  # 它在这台机器上跑不动：build-verified-root-probe.py:136 原样复用 bsd_init.o 的编译记录，记录里是
-  # -Weverything 且没有 -Wno-unsafe-buffer-usage，官方钉住的 clang-24 因此把 kits/VerifiedRoot/src/
-  # verified_root.c 判成 39 个 -Werror；而官方 build-arm-driver.py:66-79 的做法是先剥掉记录里所有 -W
-  # 再自带警告集。components.toml:437-453 给 VerifiedRoot 的规格是 build_stage=embedded、build=[]、
-  # outputs=[]，core 没有 Linux 侧配方。产物来源：format-1 用同一份 policy（manifest/anchor 的 sha256
-  # 已在本脚本对拍）编同一份官方 kit C，那份内核是上过硬件、到过锁屏的。
+  # 双卷（OS + SystemOS）verified-root policies 来自 macOS workflow 对官方 21H461 IPSW 的校验与签名；
+  # 上面的官方 probe builder 用 bsd_init.o 编译记录生成 CONFIG_XNU_VERIFIED_ROOT_ARCHIVE。
   # libBootProgress.a：BOOT_PROGRESS 走全局 EXTRA_CFLAGS，同时是屏幕上有
   # 阶段带/pulse 条的开关。它引用的 sheng 专属计数器由下面的 link-stubs 给零值定义。
   "build-boot-progress.py",

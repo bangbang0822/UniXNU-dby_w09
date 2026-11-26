@@ -1,0 +1,41 @@
+# Intermediate cold-build configuration derived from dby_w09_defconfig.
+
+# Used only to generate a prelink candidate; this configuration is not for flashing.
+
+CONFIG_XNU_ARM_DT_PLATFORM=y
+CONFIG_XNU_ARMCPU=y
+CONFIG_XNU_NATIVE_ARCH_TIMER=y
+CONFIG_XNU_NATIVE_PAN=y
+CONFIG_XNU_NATIVE_UFS=y
+CONFIG_XNU_NATIVE_AES=y
+CONFIG_XNU_TRUST_CACHE_RUNTIME=y
+CONFIG_XNU_NATIVE_CS_HASH_CACHE=y
+CONFIG_XNU_SOURCE_CORECRYPTO14=y
+CONFIG_XNU_SOURCE_PTHREAD=y
+# CONFIG_XNU_VERIFIED_ROOT_PROBE is not set
+CONFIG_XNU_NATIVE_VIRTIO_BLOCK=y
+# CONFIG_XNU_OWNER_ROOT_AUDIT is not set
+# CONFIG_XNU_OWNER_ROOT_TRUST is not set
+# CONFIG_XNU_OWNER_CACHE_MOUNT is not set
+# CONFIG_XNU_OWNER_CACHE_STARTUP is not set
+# CONFIG_XNU_OWNER_BOOT_MANIFEST is not set
+# CONFIG_XNU_OWNER_UNION_SYSTEMOS is not set
+CONFIG_XNU_SHENG_PMGR=y
+CONFIG_XNU_NATIVE_RAM_BLOCK=y
+# CONFIG_XNU_OWNER_DATA_MOUNT is not set
+CONFIG_XNU_VERIFIED_ROOT_ARCHIVE=""
+CONFIG_XNU_NATIVE_VIRTIO_BLOCK_ARCHIVE="{tree}/build/virtio-mmio-block/libVirtioMmioBlock.a"
+CONFIG_XNU_BOOT_PROGRESS=y
+CONFIG_XNU_QCOM_USB_DEBUG=y
+CONFIG_XNU_DT_PANIC_REGION=y
+CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/link-stubs/libLinkStubs.a {tree}/build/dby-touch/libDbyTouch.a {tree}/build/dby-torch/libDbyTorch.a {tree}/build/dby-camera/libDbyCamera.a -Wl,-force_load,{tree}/build/gpusmmu/libDbyGpuSmmuProbe.a {tree}/build/gpupower/libDbyGpuPowerProbe.a {tree}/build/adreno-kits/libAdrenoKits.a {tree}/build/adreno740/libAdreno740.a -Wl,-force_load,{tree}/build/dbypcie/libDbyPcie.a"
+CONFIG_XNU_CRYPTO_BOOTSTRAP="prelinked"
+CONFIG_XNU_OWNER_DATA_VOLUME_UUID="2138CDAC-F86A-4DED-9EF1-09F27363DB2A"
+# CONFIG_XNU_ARMVIRT_PLATFORM is not set
+# CONFIG_XNU_NATIVE_MOBILE_DISPLAY is not set
+CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y
+CONFIG_XNU_NATIVE_ADRENO=y
+CONFIG_XNU_NATIVE_ADRENO_ARCHIVE="{tree}/build/adreno740/libAdreno740.a"
+# CONFIG_XNU_SOURCE_MOCKFS is not set
+
+# The dual-policy archive and authenticated root transport are generated only in the shipping pass.

@@ -27,6 +27,29 @@ def owner_data_uuid():
 def require(v,why):
     if not v:raise SystemExit(why)
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+# A clean build has no prior prelinked candidate. Emit a temporary archive so the first
+# kernel can link and become that candidate; the next build runs the audited path below.
+candidate=ROOT/'build/xnu-prelink/native-owner-mobile-graphics-candidate.macho'
+if not candidate.exists() and not any((ROOT/'build/xnu-prelink').glob('native-owner-ufs-cpu-desktop-*-candidate.macho')):
+    OUT.mkdir(parents=True,exist_ok=True)
+    stub=OUT/'FirstPassStub.c'
+    stub.write_text('// First cold-build pass; replaced after the candidate kernel is available.\n'
+                    'void native_legacy_count_exec(void);\n'
+                    'void native_legacy_note_exit(void);\n'
+                    'void native_legacy_paint_userspace_band(void);\n'
+                    'void native_legacy_count_exec(void) {}\n'
+                    'void native_legacy_note_exit(void) {}\n'
+                    'void native_legacy_paint_userspace_band(void) {}\n')
+    run(['xcrun','--sdk','iphoneos','clang','-arch','arm64','-mkernel',
+         '-miphoneos-version-min=17.0','-Os','-c',stub,'-o',OUT/'FirstPassStub.o'])
+    for archive in ('libNativeLegacyDisplay.late.a','libNativeLegacyDisplay.a'):
+        path=OUT/archive
+        path.unlink(missing_ok=True)
+        run(['xcrun','ar','rcs',path,OUT/'FirstPassStub.o'])
+    print('legacy display: no reference candidate yet; linked first-pass stubs; rebuild to bind the audited backend.')
+    raise SystemExit(0)
+
 print(run(['python3',ROOT/'scripts/audit-mobile-graphics-legacy.py'],text=True),end='')
 audit=json.loads((ROOT/'build/display-analysis/mobile-graphics-legacy-abi.json').read_text())
 pure=audit['abstract_slots'];methods=audit['methods']

@@ -6,6 +6,30 @@ commit = "933f9360f1b70dfbda5548386a3d65e0358b4f7d"
 [source."IOStorageFamily"]
 commit = "e45fbe30a7879e0b16e26dddb78538f1b00e0bff"
 
+[source."QcomGeniI2c"]
+commit = "b1dd9852af5f8a17eed1f73dba0e852546afe67d"
+
+[source."QcomXnuUsbDebug"]
+commit = "62b2888c5fe57c35ebb8427802c78ac5c7fe4f7b"
+
+[source."ShengAudioReach"]
+commit = "abb1f0323a74bb33a5b7018edf71cebd914279f5"
+
+[source."ShengCs35l43"]
+commit = "cbb9877c0b859d2d58affe5838d07e6d21bad672"
+
+[source."ShengGpr"]
+commit = "479e1b2d6cb58f0a2c77702ce26f631fcdb4dd19"
+
+[source."ShengHidInput"]
+commit = "71a40e76daeae1bb4127546f96ffa7339c7a06ff"
+
+[source."ShengNovatekTouch"]
+commit = "3b44b1b7603eaadae942ea44ddc51bdcc48ad060"
+
+[source."ShengPlatformPower"]
+commit = "2132395588cfbf42ed11ac0e11b41c7e1bbe7656"
+
 [source."ShengUfs"]
 commit = "ab5405905a1892da03a9a53e0fa3dcd255d04055"
 
