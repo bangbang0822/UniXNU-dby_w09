@@ -44,10 +44,11 @@ the IPSW extraction and verified the OS and SystemOS image hashes, then stopped 
 core did not contain `build-owner-systemos-policy.py`; it produced no kernel or payload. The pinned
 helper is now supplied from the reviewed upstream commit above. The local repository check passes
 all 469 checks after the recovery record was added. Corrected runs `45829828436`, `45832346714`,
-`45834952200`, `45838105298`, `45840910709`, and `45843837616` ended before any workflow step
-started because GitHub did not assign a hosted runner; each job has an empty runner name and no
-step output. The Actions status page reported operational during the earlier checks. No kernel or
-payload was produced by these attempts; a hosted runner is still required to continue.
+`45834952200`, `45838105298`, `45840910709`, `45843837616`, and `45848510902` ended before any
+workflow step started because GitHub did not assign a hosted runner; each job has an empty runner
+name and no step output. Run `45848510902` waited about 15 minutes before ending as failure. The
+Actions status page reported operational during the earlier checks. No kernel or payload was
+produced by these attempts; a hosted runner is still required to continue.
 
 Before its one-day expiry, installation-seed artifact `15107593055` from run `45796042471` was
 saved under the Git-ignored `.cache/unit-recovery/run-457960/`. Its `data.dbr` is 1,073,280 bytes,
