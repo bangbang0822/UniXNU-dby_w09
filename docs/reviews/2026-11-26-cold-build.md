@@ -62,6 +62,18 @@ produced by these attempts; a hosted runner is still required to continue. Stand
 run `45851278112` (`macos-14`) was cancelled within seconds before a runner was assigned or any
 workflow step ran; it also produced no kernel or payload.
 
+On 2026-11-27, run `45871772311` (`macos-15`) reached the runner but stopped at the preserved-seed
+gate because the per-device Data cache was absent. The supported first-install input is
+`init_data=true`. Runs `45873226889`, `45875423398`, and `45879601288` then waited about 15 minutes
+without runner allocation; runs `45875337853` and `45879572617` (`macos-14`) were cancelled before a
+runner or workflow step appeared. Run `45881593042` (`macos-15`, `init_data=true`) passed checkout,
+tool installation, source verification, and root-input preparation, then failed while
+`prepare-xnu-source.py` queried the GitHub API: HTTP 403, rate limit exceeded. The bootstrap kernel
+was not produced and no Data seed was cached. The script already accepts `GITHUB_TOKEN`; the
+packaging workflow now passes the built-in read-only token to its bootstrap step, matching the core
+macOS workflow. The corrected run still needs to verify the authenticated fetch and complete the
+kernel and image builds.
+
 On 2026-11-27, the WSL continuation used the saved bootstrap tree and the Linux `llvm-objcopy`
 shim documented in the GPU handover. The DbyTorch archive completed at 524,888 bytes with SHA-256
 `c09522a7f6a6811e77dea62e8028f39c7fd7e6be33b29ac912c914529b91c307`. The display first-pass
