@@ -8,7 +8,9 @@ legacy-display binding steps. The workflow then restores the shipping board conf
 builds the dual-policy inputs from the checksum-pinned iPadOS 17.7.11 / 21H461 IPSW. The display
 builder emits only three temporary callback stubs while no candidate exists; the shipping build
 replaces them with the audited backend. The bootstrap image is retained as build evidence and is
-never packaged or flashed.
+never packaged or flashed. The pinned dby-w09 core lacks the SystemOS policy signer, so the workflow
+fetches that official UniXNU helper from a fixed upstream commit, checks its SHA-256, and places it
+in the assembled tree before signing the SystemOS volume with the same per-run owner key as OS.
 
 ## What can break
 
@@ -25,7 +27,11 @@ the shipping defconfig for the build and restores the tracked defconfig on exit.
 assembler preserves `build/` while refreshing its module links and copied scripts, so the candidate
 and generated policy inputs survive the subsequent `tree` and `release` preparations. The display
 ABI record carries the previously recorded QEMU checkpoint hash; this workflow does not remeasure
-that observation.
+that observation. The new signer validates the exact SystemOS size, UUID and image hash, then
+verifies every block through the same VerifiedRoot C library. A missing source, hash mismatch,
+or policy verification failure stops before the kernel build. Its download is pinned to commit
+`e0ee2ad9a2654309480c8b0cc725d0dc09186cd4` and checked against SHA-256
+`a29a653da6812ed092bb548eb37c645b34677c57326047e19369d3bc46e7d700`.
 
 ## Checks without the tablet
 
@@ -33,8 +39,11 @@ Before accepting a run, parse the workflow and TOML files, run `python3 check-re
 inspect the macOS run's bootstrap and shipping kernel outputs, the Data UUID recorded in the final
 kernel configuration and restored source defconfig, candidate hashes, VerifiedRoot
 `archive.json` (`verified_root_policy_count` must be 2), and package manifest. Keep the run logs and
-one-day build-input artifacts with the resulting hashes. The repository check and a successful
-macOS workflow run are still pending for this change.
+one-day build-input artifacts with the resulting hashes. Run `45822828154` on `macos-15` reached
+the IPSW extraction and verified the OS and SystemOS image hashes, then stopped because the pinned
+core did not contain `build-owner-systemos-policy.py`; it produced no kernel or payload. The pinned
+helper is now supplied from the reviewed upstream commit above. The local repository check passes
+all 467 checks; a successful macOS retry remains pending.
 
 ## What to observe on the tablet
 
