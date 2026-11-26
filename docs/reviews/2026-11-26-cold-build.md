@@ -43,11 +43,12 @@ one-day build-input artifacts with the resulting hashes. Run `45822828154` on `m
 the IPSW extraction and verified the OS and SystemOS image hashes, then stopped because the pinned
 core did not contain `build-owner-systemos-policy.py`; it produced no kernel or payload. The pinned
 helper is now supplied from the reviewed upstream commit above. The local repository check passes
-all 471 checks after the latest runner record was added. Corrected runs `45829828436`, `45832346714`,
-`45834952200`, `45838105298`, `45840910709`, `45843837616`, and `45848510902` ended before any
-workflow step started because GitHub did not assign a hosted runner; each job has an empty runner
-name and no step output. Run `45848510902` waited about 15 minutes before ending as failure. The
-Actions status page reported operational during the earlier checks. No kernel or payload was
+all 472 checks after the latest runner record was added. Corrected runs `45829828436`,
+`45832346714`, `45834952200`, `45838105298`, `45840910709`, `45843837616`, `45848510902`, and
+`45851668299` ended before any workflow step started because GitHub did not assign a hosted runner;
+each job has an empty runner name and no step output. Runs `45848510902` and `45851668299` each
+waited about 15 minutes before ending as failure. The Actions status page reported operational
+during the earlier checks. No kernel or payload was
 produced by these attempts; a hosted runner is still required to continue. Standalone fallback
 run `45851278112` (`macos-14`) was cancelled within seconds before a runner was assigned or any
 workflow step ran; it also produced no kernel or payload.
