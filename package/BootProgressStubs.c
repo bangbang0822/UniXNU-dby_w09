@@ -1,0 +1,375 @@
+
+// BootProgress.c and BootLog.c reference sheng-only diagnostics as weak_import. A static kernel
+// link refuses to leave a weak_import undefined, so CONFIG_XNU_BOOT_PROGRESS cannot be enabled
+// until every one of them resolves. Each is a plain zero-initialised global: the progress code
+// only reads them, so a zero reads as "that component did nothing", which is the truth on this
+// board. Generated from the extern declarations in package/BootProgress.c; if that file gains a
+// diagnostic, this list has to gain the same name or the link fails loudly.
+#include <stddef.h>
+#include <stdint.h>
+
+__attribute__((weak)) uint64_t armcpu_ipi_interrupts;
+__attribute__((weak)) uint64_t armcpu_timer_interrupts;
+__attribute__((weak)) unsigned boot_process_attempts;
+__attribute__((weak)) unsigned boot_process_busy;
+__attribute__((weak)) unsigned boot_process_seen;
+__attribute__((weak)) unsigned boot_ui_trace_index;
+__attribute__((weak)) unsigned boot_ui_trace_phase;
+__attribute__((weak)) unsigned boot_ui_trace_ready;
+__attribute__((weak)) uint32_t native_adreno_audit_attr;
+__attribute__((weak)) uint64_t native_adreno_audit_ticks;
+__attribute__((weak)) uint64_t native_adreno_reassert_ticks;
+__attribute__((weak)) uint32_t native_adreno_wc_distrusted;
+__attribute__((weak)) uint32_t native_cpufreq_stage;
+__attribute__((weak)) uint64_t native_data_persist_errors;
+__attribute__((weak)) uint64_t native_data_persist_first_lba;
+__attribute__((weak)) uint32_t native_data_persist_gpt;
+__attribute__((weak)) uint32_t native_data_persist_gpt_after;
+__attribute__((weak)) uint32_t native_data_persist_header;
+__attribute__((weak)) uint64_t native_data_persist_loaded;
+__attribute__((weak)) uint64_t native_data_persist_pages;
+__attribute__((weak)) uint64_t native_data_persist_present;
+__attribute__((weak)) uint32_t native_data_persist_state;
+__attribute__((weak)) uint64_t native_data_persist_syncs;
+__attribute__((weak)) uint64_t native_data_persist_writes;
+__attribute__((weak)) uint64_t native_gop_gpu_abandoned;
+__attribute__((weak)) uint64_t native_gop_gpu_completions;
+__attribute__((weak)) uint64_t native_gop_gpu_failures;
+__attribute__((weak)) uint64_t native_gop_gpu_offers;
+__attribute__((weak)) uint32_t native_legacy_client_calls;
+__attribute__((weak)) int native_legacy_client_pid;
+__attribute__((weak)) int native_legacy_client_status;
+__attribute__((weak)) uint32_t native_legacy_client_type;
+__attribute__((weak)) uint64_t native_legacy_copy_bytes_last;
+__attribute__((weak)) uint64_t native_legacy_copy_bytes_sum;
+__attribute__((weak)) uint64_t native_legacy_copy_last;
+__attribute__((weak)) uint64_t native_legacy_copy_max;
+__attribute__((weak)) uint64_t native_legacy_copy_n;
+__attribute__((weak)) uint64_t native_legacy_copy_sum;
+__attribute__((weak)) uint64_t native_legacy_early_failures;
+__attribute__((weak)) uint64_t native_legacy_early_retires;
+__attribute__((weak)) uint32_t native_legacy_frame_count;
+__attribute__((weak)) uint64_t native_legacy_gop_bytes;
+__attribute__((weak)) uint64_t native_legacy_gop_physical;
+__attribute__((weak)) uint64_t native_legacy_gop_virtual;
+__attribute__((weak)) uint32_t native_legacy_gpu_fallbacks;
+__attribute__((weak)) uint32_t native_legacy_gpu_last_status;
+__attribute__((weak)) uint32_t native_legacy_guard_slot;
+__attribute__((weak)) uint32_t native_legacy_pm_callbacks;
+__attribute__((weak)) uint32_t native_legacy_pm_calls;
+__attribute__((weak)) uint32_t native_legacy_pm_stage;
+__attribute__((weak)) uint32_t native_legacy_prepare_attempts;
+__attribute__((weak)) uint32_t native_legacy_prepare_calls;
+__attribute__((weak)) uint32_t native_legacy_prepare_reason;
+__attribute__((weak)) uint32_t native_legacy_rej_reason;
+__attribute__((weak)) uint32_t native_legacy_retirement_calls;
+__attribute__((weak)) uint32_t native_legacy_stage;
+__attribute__((weak)) uint32_t native_legacy_swap_accepted_count;
+__attribute__((weak)) uint32_t native_legacy_swap_rejected_count;
+__attribute__((weak)) uint32_t native_legacy_swap_validation_calls;
+__attribute__((weak)) uint32_t native_legacy_swap_validation_reason;
+__attribute__((weak)) uint32_t native_legacy_swap_validation_result;
+__attribute__((weak)) uint64_t native_legacy_transfer_bytes;
+__attribute__((weak)) uint32_t native_legacy_transfer_calls;
+__attribute__((weak)) int native_legacy_transfer_status;
+__attribute__((weak)) uint64_t native_ram_block_resident_bytes;
+__attribute__((weak)) uint32_t native_ram_block_sparse;
+// NativeHidInput.cpp externs this without weak_import and writes one per touch report, so it
+// needs a definition even on a board whose HID layer never reports.
+__attribute__((weak)) volatile uint32_t native_touch_hid_reports;
+__attribute__((weak)) volatile uint32_t native_touch_count;
+__attribute__((weak)) uint32_t native_touch_loop_step;
+__attribute__((weak)) volatile unsigned native_touch_stage_req;
+/* GPU power/clock probe (package/DbyGpuPowerProbe.cpp). Weak so the page renders even when its archive
+ * is not linked; BootLog.c and BootProgress.c weak-import both symbols. */
+__attribute__((weak)) char native_gpupower_rows[6][120];
+__attribute__((weak)) volatile uint32_t native_gpupower_stage;
+__attribute__((weak)) uint32_t native_ufs_matched;
+__attribute__((weak)) uint32_t native_ufs_probe_calls;
+__attribute__((weak)) uint64_t native_ufs_read_ticks;
+__attribute__((weak)) uint32_t native_ufs_root_step;
+__attribute__((weak)) uint64_t native_ufs_verify_ticks;
+__attribute__((weak)) unsigned native_wi_count;
+__attribute__((weak)) uint32_t boot_diag_errors;
+__attribute__((weak)) uint32_t boot_diag_files;
+__attribute__((weak)) uint32_t boot_diag_skipped;
+__attribute__((weak)) unsigned boot_progress_banner_rows;
+__attribute__((weak)) uint32_t cs_text_fixup_applied;
+__attribute__((weak)) uint32_t cs_text_fixup_parsed;
+__attribute__((weak)) uint64_t native_adreno_fence_phys;
+__attribute__((weak)) uint32_t native_adreno_ib_log_count;
+__attribute__((weak)) uint64_t native_adreno_import_fail_offset;
+__attribute__((weak)) uint64_t native_adreno_import_fail_pa;
+__attribute__((weak)) uint32_t native_adreno_import_stage;
+__attribute__((weak)) uint32_t native_adreno_io_coherent;
+__attribute__((weak)) uint32_t native_adreno_pool_status;
+__attribute__((weak)) uint32_t native_adreno_pool_wc;
+__attribute__((weak)) uint32_t native_adreno_ring_log_count;
+__attribute__((weak)) int native_cryptex_os_stage;
+__attribute__((weak)) int native_cryptex_os_status;
+__attribute__((weak)) int native_gestalt_cache_status;
+__attribute__((weak)) uint64_t native_gop_virtual;
+__attribute__((weak)) int native_gpu_addon2_stage;
+__attribute__((weak)) int native_gpu_addon2_status;
+__attribute__((weak)) int native_gpu_addon3_stage;
+__attribute__((weak)) int native_gpu_addon3_status;
+__attribute__((weak)) int native_gpu_addon4_stage;
+__attribute__((weak)) int native_gpu_addon4_status;
+__attribute__((weak)) int native_gpu_addon5_stage;
+__attribute__((weak)) int native_gpu_addon5_status;
+__attribute__((weak)) int native_gpu_addon_error;
+__attribute__((weak)) int native_gpu_addon_failed;
+__attribute__((weak)) int native_gpu_addon_files;
+__attribute__((weak)) int native_gpu_addon_same;
+__attribute__((weak)) int native_gpu_addon_stage;
+__attribute__((weak)) int native_gpu_addon_status;
+__attribute__((weak)) int native_gpu_addon_written;
+__attribute__((weak)) uint64_t native_gpu_idle_sleeps;
+__attribute__((weak)) uint64_t native_gpu_idle_spins;
+__attribute__((weak)) unsigned native_lookup_count;
+__attribute__((weak)) int native_ls_store_status;
+__attribute__((weak)) int native_staged_apps_dirs;
+__attribute__((weak)) int native_staged_apps_error;
+__attribute__((weak)) int native_staged_apps_failed;
+__attribute__((weak)) int native_staged_apps_files;
+__attribute__((weak)) int native_staged_apps_mib;
+__attribute__((weak)) int native_staged_apps_stage;
+__attribute__((weak)) uint32_t native_touch_stroke_count;
+__attribute__((weak)) uint32_t native_wifi_note_n;
+__attribute__((weak)) uint32_t native_wifi_text_n;
+
+// Array and function types the regex above cannot express, found by the linker rather than by
+// parsing: enabling CONFIG_XNU_BOOT_PROGRESS turned them into undefined symbols and the link
+// named them. Same rule as the scalars, a zero-filled definition the progress code only reads.
+__attribute__((weak)) char native_wifi_note[128][112];
+__attribute__((weak)) volatile uint32_t native_wifi_pmic[472];
+__attribute__((weak)) volatile uint32_t native_wifi_pon[12];
+__attribute__((weak)) volatile uint32_t native_wifi_stats[29];
+__attribute__((weak)) char native_wifi_text[512][112];
+__attribute__((weak)) struct { uint32_t stage, scans, frames, beacons, bss_seen; int last_err; } nw_wifi_stats;
+__attribute__((weak)) volatile uint64_t nw_wifi_where[4];
+__attribute__((weak)) void sheng_cpufreq_poll(void);
+__attribute__((weak)) void sheng_cpufreq_poll(void) { }
+
+// Remaining diagnostics, gathered by scanning every package source for weak_import instead of
+// by the linker one batch at a time. Scalars are uint64_t: the progress code only reads them
+// and a zero is the truthful value on a board with none of these components.
+__attribute__((weak)) uint64_t armcpu_boot_mpidr;
+__attribute__((weak)) uint64_t armcpu_boot_sys[5];
+__attribute__((weak)) uint64_t armcpu_gic_stride;
+__attribute__((weak)) uint64_t armcpu_gic_typer_probe[2];
+__attribute__((weak)) uint64_t armcpu_halt_calls;
+__attribute__((weak)) uint64_t armcpu_irq_id;
+__attribute__((weak)) uint64_t armcpu_irq_phase;
+__attribute__((weak)) uint64_t armcpu_quiesce_calls;
+__attribute__((weak)) uint64_t armcpu_smp_conduit;
+__attribute__((weak)) uint64_t armcpu_smp_fail[8];
+__attribute__((weak)) uint64_t armcpu_smp_psci_rc[8];
+__attribute__((weak)) uint64_t armcpu_smp_requested;
+__attribute__((weak)) uint64_t armcpu_smp_running;
+__attribute__((weak)) uint64_t armcpu_smp_seen_mpidr[8];
+__attribute__((weak)) uint64_t armcpu_smp_step[8];
+__attribute__((weak)) uint64_t armcpu_smp_sys[8][5];
+__attribute__((weak)) uint64_t boot_process_passes;
+__attribute__((weak)) uint64_t boot_process_rows[10][120];
+__attribute__((weak)) uint64_t boot_progress_banner_text[49][120];
+__attribute__((weak)) uint64_t boot_progress_ext[8][48];
+__attribute__((weak)) uint64_t boot_progress_ext_wide[2][112];
+__attribute__((weak)) uint64_t boot_progress_page_text[49][120];
+__attribute__((weak)) uint64_t boot_progress_panic_text[2048];
+__attribute__((weak)) uint64_t boot_progress_throw_text[330];
+__attribute__((weak)) uint64_t boot_ui_trace_label[120];
+__attribute__((weak)) uint64_t boot_ui_trace_rows[14][120];
+__attribute__((weak)) uint64_t debug_buf_base;
+__attribute__((weak)) uint64_t kernel_debugger_entry_count;
+__attribute__((weak)) uint64_t native_adreno_cache_stats[5];
+__attribute__((weak)) uint64_t native_adreno_client_log[8];
+__attribute__((weak)) uint64_t native_adreno_client_stats[5][8];   // eight words per row, as the writer defines it
+__attribute__((weak)) uint64_t native_adreno_client_text[4];
+__attribute__((weak)) uint64_t native_adreno_coherence[8];
+__attribute__((weak)) uint64_t native_adreno_coherent_skips[4];
+__attribute__((weak)) uint64_t native_adreno_export_stats[4];
+__attribute__((weak)) uint64_t native_adreno_fence_wait[8];
+__attribute__((weak)) uint64_t native_adreno_ib_log[4][4 + 28];
+__attribute__((weak)) uint64_t native_adreno_import_diag[10];
+__attribute__((weak)) uint64_t native_adreno_import_live[3 + 8 * 4];
+__attribute__((weak)) uint64_t native_adreno_import_persistent[2];
+__attribute__((weak)) uint64_t native_adreno_map_fail[7][2];
+__attribute__((weak)) uint64_t native_adreno_metal_askers[12];
+__attribute__((weak)) uint64_t native_adreno_metal_rows[48][96];
+__attribute__((weak)) uint64_t native_adreno_method_stats[20][4];
+__attribute__((weak)) uint64_t native_adreno_mount_fail[4];
+__attribute__((weak)) uint64_t native_adreno_pool_stats[8];
+__attribute__((weak)) uint64_t native_adreno_ring_log[4][4 + 112];
+__attribute__((weak)) uint64_t native_adreno_stall[28];   /* 2 + NativeAdrenoRingStallWords (26) uint32 = 112 B of this 224 B */
+__attribute__((weak)) uint64_t native_adreno_stall_mem[76];
+__attribute__((weak)) uint64_t native_adreno_submit_ibs[4];
+__attribute__((weak)) uint64_t native_adreno_unstick[15];
+__attribute__((weak)) uint64_t native_adreno_view_diag[6];
+__attribute__((weak)) uint64_t native_adreno_vm_phase_us[2][8];
+__attribute__((weak)) uint64_t native_adreno_wait_outer[4];
+__attribute__((weak)) uint64_t native_adreno_wc_audit[6];
+__attribute__((weak)) uint64_t native_adreno_window_overflow[4][3];
+__attribute__((weak)) uint64_t native_adsp_stats[16];
+__attribute__((weak)) uint64_t native_adsp_text[96];
+__attribute__((weak)) uint64_t native_audio_stats[16];
+__attribute__((weak)) uint64_t native_backlight_request[6];
+__attribute__((weak)) uint64_t native_backlight_stats[16];
+/* The three readers of this one declare it int32_t[16] and index it that way: DbyBattery.cpp:126,
+ * BatteryProbe.cpp:38 and BootLog.c:117 (THE battery ABI; DbyBattery.cpp calls it that in as many words).
+ * It was uint64_t[16] here until 2026-11-14, i.e. 128 bytes against a 64-byte contract, so any reader
+ * that trusted the definition's stride would halve every index - the same same-name mismatch
+ * native_cpufreq_row below had to repair. int32_t is authoritative. */
+__attribute__((weak)) int32_t native_battery_stats[16];
+__attribute__((weak)) uint64_t native_buttons_stats[10];
+/* Both readers declare this as char[120]: BootProgress.c:110/978 draw it as a string and BootLog.c:143
+ * archives it with %s.  It was uint64_t[120] until 2026-11-03 - 960 bytes, a stride eight times what the
+ * readers assume - a same-name type mismatch that only manifests once a real provider
+ * (package/CpuFreqProbe.cpp) is linked in. */
+__attribute__((weak)) char native_cpufreq_row[120];
+__attribute__((weak)) uint64_t native_dpu_pipes[54];
+__attribute__((weak)) uint64_t native_dpu_stats[20];
+__attribute__((weak)) uint64_t native_gop_wait_stats[7];
+__attribute__((weak)) uint64_t native_gpu_coherence_row[120];
+__attribute__((weak)) uint64_t native_gpu_perf_vote[2];
+__attribute__((weak)) uint64_t native_hid_input_events[8];
+__attribute__((weak)) uint64_t native_hid_input_results[8];
+__attribute__((weak)) uint64_t native_legacy_client_class[64];
+__attribute__((weak)) uint64_t native_legacy_frame_color_counts[8][4];
+__attribute__((weak)) uint64_t native_legacy_frame_color_other[8];
+__attribute__((weak)) uint64_t native_legacy_frame_colors[8][4];
+__attribute__((weak)) uint64_t native_legacy_frame_kind[32];
+__attribute__((weak)) uint64_t native_legacy_frame_stats[32][5];
+__attribute__((weak)) uint64_t native_legacy_frame_time[32];
+__attribute__((weak)) uint64_t native_legacy_rej_class[32];
+__attribute__((weak)) uint64_t native_legacy_rej_options[3];
+__attribute__((weak)) uint64_t native_legacy_rej_rects[2][4];
+__attribute__((weak)) uint64_t native_legacy_rej_size[2];
+__attribute__((weak)) uint64_t native_legacy_rej_state[3];
+__attribute__((weak)) uint64_t native_legacy_rej_surface[7];
+__attribute__((weak)) uint64_t native_legacy_rej_surfaces[4];
+__attribute__((weak)) uint64_t native_lookup_log[160][112];
+__attribute__((weak)) uint64_t native_ram_block_bytes;
+__attribute__((weak)) uint64_t native_staged_apps_path[96];
+__attribute__((weak)) uint64_t native_swipe_stats[16];
+__attribute__((weak)) uint64_t native_touch_edge_stats[4];
+__attribute__((weak)) uint64_t native_touch_extent[4];
+__attribute__((weak)) uint64_t native_touch_hid_multi[3];
+__attribute__((weak)) uint64_t native_touch_hold[14];
+/* Type matters: the ShengHidInput contract is `volatile int xs/ys/ids[12]` and
+ * `volatile uint32_t seq/count`.  These were uint64_t, which links without a word and makes
+ * the consumer read int[12] out of an 8x larger object - coordinates come out zero or every
+ * other entry shifted.  Keep the stub's type identical to the contract. */
+__attribute__((weak)) volatile int native_touch_ids[12];
+__attribute__((weak)) uint64_t native_touch_jitter[3];
+__attribute__((weak)) char native_touch_rows[8][120];
+__attribute__((weak)) volatile uint32_t native_touch_seq;
+__attribute__((weak)) uint64_t native_touch_strokes[16][7];
+__attribute__((weak)) volatile int native_touch_xs[12];
+__attribute__((weak)) volatile int native_touch_ys[12];
+__attribute__((weak)) uint64_t native_ufs_root_failure;
+__attribute__((weak)) uint64_t native_wi_log[4][100];
+__attribute__((weak)) uint64_t native_wifi_cfg[32];
+__attribute__((weak)) uint64_t native_wifi_chip[16];
+__attribute__((weak)) uint64_t native_wifi_dump[108];
+__attribute__((weak)) uint64_t native_wifi_ep[16];
+__attribute__((weak)) uint64_t native_wifi_ev[48];
+__attribute__((weak)) uint64_t native_wifi_ldo[24];
+__attribute__((weak)) uint64_t native_wifi_mhi[16];
+__attribute__((weak)) uint64_t native_wifi_mhi_ms[8];
+
+// Functions, not variables. The progress code calls these to collect diagnostics; on a board with
+// none of those components the truthful answer is "nothing to report", so the reporters write
+// nothing and return zero. They were found by the linker, one batch at a time, because a scan of
+// the declarations cannot tell a call target from a variable.
+__attribute__((weak)) void boot_process_capture(void) { }
+__attribute__((weak)) void boot_process_snapshot(void) { }
+__attribute__((weak)) unsigned boot_ui_trace_hot_rows(char rows[][120], unsigned capacity) { (void)rows; (void)capacity; return 0; }
+__attribute__((weak)) unsigned boot_ui_trace_role_rows(unsigned role, char rows[][120], unsigned capacity, unsigned limit) { (void)role; (void)rows; (void)capacity; (void)limit; return 0; }
+__attribute__((weak)) void boot_ui_trace_snapshot(unsigned phase) { (void)phase; }
+__attribute__((weak)) unsigned native_legacy_clients_dump(char *out, unsigned capacity) { (void)out; (void)capacity; return 0; }
+__attribute__((weak)) unsigned native_legacy_prepare_report(char *out, unsigned capacity) { (void)out; (void)capacity; return 0; }
+__attribute__((weak)) unsigned native_legacy_properties_now(char *out, unsigned capacity) { (void)out; (void)capacity; return 0; }
+__attribute__((weak)) unsigned native_legacy_state_words(char *out, unsigned capacity) { (void)out; (void)capacity; return 0; }
+__attribute__((weak)) unsigned native_legacy_swap_timeline(char *out, unsigned capacity) { (void)out; (void)capacity; return 0; }
+__attribute__((weak)) int native_ufs_extra_fault(uint32_t *out) { (void)out; return 0; }
+// These two are function pointers, not functions: the progress log calls through them only when
+// a GPU probe installed one.
+__attribute__((weak)) int (*native_adreno_cached_read32)(uint64_t, uint32_t *) = 0;
+__attribute__((weak)) int (*native_adreno_dram_read32)(uint64_t, uint32_t *) = 0;
+/* The USB status row in BootProgress.c calls this through weak_import, and a static kernel
+ * link refuses to leave such a symbol undefined. The real definition lives in
+ * libQcomXnuUsbDebug.a, which is force-loaded when CONFIG_XNU_QCOM_USB_DEBUG is on, and a
+ * strong definition wins over this one. The sentinel matters: a zero-filled struct would print
+ * phase=0 error=0, which is exactly what "the module never initialized" also prints. Writing
+ * 0xff says "this stub answered, not the module", so the row can never be misread as a real
+ * measurement. The struct's first two fields are phase and error, which is all this writes. */
+/* The console module pushes its own one-line status through this, declared weak_import there, so
+ * a board without the row still links. alioth gives it a real implementation that redraws row 42
+ * (package/BootProgress.c:655); our page has no spare row, so the note is dropped and the USB
+ * console carries the same bytes. */
+__attribute__((weak)) void boot_progress_persist(const char *text, unsigned color) { (void)text; (void)color; }
+
+__attribute__((weak)) void qcom_usb_debug_get_status(void *status)
+{
+  /* The real function copies 304 bytes; fill the same span so the caller's buffer is fully
+   * defined either way. */
+  volatile unsigned char *bytes = (volatile unsigned char *)status;
+  unsigned i;
+  if (!bytes) return;
+  for (i = 0; i < 304u; ++i) bytes[i] = 0xffu;
+}
+
+
+// ---------------------------------------------------------------------------
+// Official persistent-log writer (package/BootLog.c) dependencies.
+//
+// BootLog.c is compiled into libBootProgress.a, and that archive is -force_load'ed into the kernel,
+// so every weak_import it declares must have *some* definition or the static link fails with
+// "symbol(s) not found" (the same failure mode kernel-bootstrap.log records for
+// _native_ram_block_gpu_addon). This board selects none of the three providers, so the truthful
+// stub is "not implemented": the writer's own &fn guards then skip those optional paths.
+//
+//   boot_reset_*            kits/sheng BootReset.c: PMIC reset + hypervisor watchdog
+//   boot_diag_scan/stream   kits/sheng BootDiagExport.c: diagnostic snapshot export
+//   boot_progress_spawn_rows  the sheng progress row producer
+__attribute__((weak)) int boot_reset_probe(char *out, unsigned capacity) { (void)out; (void)capacity; return -1; }
+__attribute__((weak)) int boot_reset_bootloader(char *out, unsigned capacity) { (void)out; (void)capacity; return -1; }
+__attribute__((weak)) int boot_reset_mark_bootloader(char *out, unsigned capacity) { (void)out; (void)capacity; return -1; }
+__attribute__((weak)) int boot_reset_watchdog(uint32_t seconds, char *out, unsigned capacity) { (void)seconds; (void)out; (void)capacity; return -1; }
+__attribute__((weak)) uint64_t boot_diag_scan(uint64_t below) { (void)below; return 0; }
+__attribute__((weak)) int boot_diag_stream(int (*emit)(const void *, uint32_t, void *), void *context) { (void)emit; (void)context; return 0; }
+__attribute__((weak)) size_t boot_progress_spawn_rows(char *out, size_t capacity) { (void)out; (void)capacity; return 0; }
+
+// ---------------------------------------------------------------------------
+// Force-loaded GPU driver (build/adreno740/libAdreno740.a) dependencies.
+//
+// The driver declares both as weak_import, and a static kernel link refuses to leave a
+// weak_import undefined, so the force_load added for the A650 archive turns them into
+// hard errors (measured: kernel link, 2026-11-05, "_native_gpu_dcvs, referenced from
+// NativeAdrenoSubmit::submit" and "_native_pmap_user_mappings, referenced from
+// NativeAdrenoMemory::release"). Both uses are guarded in the driver:
+//
+//   native_gpu_dcvs         NativeAdrenoSubmit.cpp:90,397 -- the 15-entry DVFS level table
+//                           the submit record reads; all zeros means "no levels", which is
+//                           the truth until this board has a GPU DVFS table.
+//   native_pmap_user_mappings  NativeAdrenoMemory.cpp:317,338,344 -- names the process
+//                           mapping a page the driver is about to free. A weak *function*
+//                           returning 0 (not a pointer) is what the caller tests and calls;
+//                           0 means "no process maps that page".
+//
+// The reference board (alioth, same archive) answers both exactly this way.
+__attribute__((weak)) uint32_t native_gpu_dcvs[15];
+__attribute__((weak)) unsigned int native_pmap_user_mappings(unsigned int ppnum, void **pmap, uint64_t *va, char *name)
+{
+  (void)ppnum; (void)pmap; (void)va; (void)name;
+  return 0;
+}
+
+// R2 link proof: the ladder-probe symbols BootLog.c:148 and BootProgress.c:103 reference as
+// weak_import. A static link refuses to leave them undefined, and the probe archives cannot
+// be force_load'ed beside the A650 archive (both embed the same kits -- 41 duplicate
+// symbols, measured). Six empty census rows read as "no census", which is the truth when
+// the probe is not in the image; the probe function does nothing.
+__attribute__((weak)) char native_gpusmmu_census[6][120];
+__attribute__((weak)) void sheng_gpu_smmu_probe(void) {}

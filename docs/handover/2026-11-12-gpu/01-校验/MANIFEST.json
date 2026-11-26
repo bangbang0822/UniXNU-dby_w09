@@ -1,0 +1,2702 @@
+[
+ {
+  "path": "00-先读我.md",
+  "bytes": 27369,
+  "sha256": "166e5b0b45314186ec5a412407b85ad8353331ef2499acb8c580971523f42821"
+ },
+ {
+  "path": "01-校验/args-check.py",
+  "bytes": 1106,
+  "sha256": "201639b946507b0e257974f825d7bd310d4bd37336af0832c881bc971d8de0bf"
+ },
+ {
+  "path": "01-校验/args-diff.py",
+  "bytes": 964,
+  "sha256": "eba0709a38a710868f835b67b3ef0c2a0cc1bc4338140456a20d3b0285f68040"
+ },
+ {
+  "path": "01-校验/make-s151-excerpt.py",
+  "bytes": 3056,
+  "sha256": "db6004e783cc4a22dcd78e1bf44f70f930c6e924ad8022423f6f0fcf653f2b16"
+ },
+ {
+  "path": "01-校验/make-stage179-toml.py",
+  "bytes": 2355,
+  "sha256": "d259a06d7b5818dd7579747a042ba6f497e80b24c8ed37b3d947d4544032ed77"
+ },
+ {
+  "path": "01-校验/verify-package.py",
+  "bytes": 19621,
+  "sha256": "80f52785b1ee364381ac7ff0253d66bc05c8e1de86a6440761aed956ca579cbb"
+ },
+ {
+  "path": "02-UEFI/SILICIUM_UEFI.fd",
+  "bytes": 8388608,
+  "sha256": "9d4d3c95e2de08e83b10f1d0db47ee188a2131f8bf23edacf868763b62359193"
+ },
+ {
+  "path": "02-UEFI/uefi-dby_w09-改动.patch",
+  "bytes": 19633,
+  "sha256": "b92bdc3bd520a26b57c3e1cdeba7f36500dccbbef4a3ad0e42d71dbfadb001ea"
+ },
+ {
+  "path": "02-UEFI/说明-如何重建UEFI.md",
+  "bytes": 7079,
+  "sha256": "ff6f1617009e2553a09295c29eadba8bdf38ec821da6bd3da9c53e470bf330ba"
+ },
+ {
+  "path": "03-payload/payload-stage179-touch-gpu.img",
+  "bytes": 218103808,
+  "sha256": "193831b7ef732ee22df7955981516511bc7ac7876fc24034fcef0670510db293"
+ },
+ {
+  "path": "03-payload/说明-payload与换机重打.md",
+  "bytes": 6077,
+  "sha256": "3abcb4428303547e4cf58a82a8592df00d20fbe669471acaf7eee03c011a0db0"
+ },
+ {
+  "path": "04-GPU插件/NativeAdrenoMetal.bundle/Info.plist",
+  "bytes": 622,
+  "sha256": "fcc04e4436cf7b0d1400b6f3867e61d334870fe28622124ccfbcfbff41c0a046"
+ },
+ {
+  "path": "04-GPU插件/NativeAdrenoMetal.bundle/NativeAdrenoMetal",
+  "bytes": 21727584,
+  "sha256": "c37b27ef57e8de6ac21d7b3f2a2da84c6197c5ce7e371c12b8194909424b0ff3"
+ },
+ {
+  "path": "04-GPU插件/NativeAdrenoMetal.bundle/_CodeSignature/CodeResources",
+  "bytes": 2042,
+  "sha256": "5d9dd75163f5d1e7e9e0e451aa28a4422caefcc14adadca4b97d5aa749a2fff4"
+ },
+ {
+  "path": "04-GPU插件/NativeAdrenoMetal.bundle/libvulkan_freedreno.dylib",
+  "bytes": 17276752,
+  "sha256": "55e8b8bc20bf1ce0bf25d72fe5a70c67354b2684a128995a6a0b9c418c99dbcf"
+ },
+ {
+  "path": "04-GPU插件/gpu-addon.bin",
+  "bytes": 12154024,
+  "sha256": "5c09eed29f020ff70ec63042b66fee806620db03cf442f258ce3610fc8a8976a"
+ },
+ {
+  "path": "04-GPU插件/owner-trust.bundle",
+  "bytes": 61456,
+  "sha256": "604067b4842f14981678a9236f9728299e36ddd6c80228516548c827b1a6c1c6"
+ },
+ {
+  "path": "04-GPU插件/owner-trust.json",
+  "bytes": 407,
+  "sha256": "4b7459afd18f07fe223bde3ed1aa4bc032b5dfecd7abfdb82340da4cc823e081"
+ },
+ {
+  "path": "04-GPU插件/trust.json",
+  "bytes": 359,
+  "sha256": "ed30cb1f709683135e1f507a24c4c6dd214d02c26070c2a4cb40c8c33e0d7635"
+ },
+ {
+  "path": "05-源码/00-源码说明.md",
+  "bytes": 7392,
+  "sha256": "507d84378fa937f8a8b558da16804405b6e4d0cb3baa8b907de6058856f3be73"
+ },
+ {
+  "path": "05-源码/src/.gitattributes",
+  "bytes": 294,
+  "sha256": "2e128849f9d06d80efa1b57a28006b956709133ac281e4315df4c46182333d37"
+ },
+ {
+  "path": "05-源码/src/.github/workflows/porting-record.yml",
+  "bytes": 175,
+  "sha256": "2900852711675895fdcdd985ff531e6ddc1d2c2bde3c49df1c1f5a60edb7b2d0"
+ },
+ {
+  "path": "05-源码/src/.gitignore",
+  "bytes": 501,
+  "sha256": "9ad54d09757dd7fef9544ca92e1525237533d5e6f50a78574d982fd192e6bc60"
+ },
+ {
+  "path": "05-源码/src/AGENTS.md",
+  "bytes": 6001,
+  "sha256": "f23b6e140e34da8f4f3259b3c06dff1c8138b33a5798171d8708da6e2012e5ac"
+ },
+ {
+  "path": "05-源码/src/LICENSE",
+  "bytes": 2620,
+  "sha256": "779804753c53393b582878d8bcb86595a52f5110ba6fed4421364e891ef0e393"
+ },
+ {
+  "path": "05-源码/src/README.md",
+  "bytes": 11185,
+  "sha256": "3be4138714927de782b8a91d3c2cc40cedb7d2f41700a5e53e34eb3c912ddbcc"
+ },
+ {
+  "path": "05-源码/src/TOUCH-PLAN.md",
+  "bytes": 5865,
+  "sha256": "b35682a3a951202ca9c74e2f1e54639933b2648c723c865b3e72587a9bff5923"
+ },
+ {
+  "path": "05-源码/src/board-stage179.toml",
+  "bytes": 28800,
+  "sha256": "0c33afaabf1dfb24d54a74c4aee2cf6ae6f24b230bbde5de86fb8f3fa9bc0b49"
+ },
+ {
+  "path": "05-源码/src/board.toml",
+  "bytes": 59113,
+  "sha256": "f18ad0c60db2eab8475ee32dc5dbb1239c72219731c13fd2a7e53c86def601d1"
+ },
+ {
+  "path": "05-源码/src/configs/dby_w09_abiaudit_defconfig",
+  "bytes": 1015,
+  "sha256": "9caeeba72d3c72386215003c9d4a3edc6807fdbd3717914ce9de5f7765b0a665"
+ },
+ {
+  "path": "05-源码/src/configs/dby_w09_defconfig",
+  "bytes": 14438,
+  "sha256": "397a70913a36059e6f7ce896137b995ae7d352e712f9d259d81d8ddd00836913"
+ },
+ {
+  "path": "05-源码/src/drivers/.gitkeep",
+  "bytes": 0,
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/AGENTS.md",
+  "bytes": 2116,
+  "sha256": "2063abace53b730fcc153c683de78e29a46654c071e6942e9511564d754bf800"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/Info.plist",
+  "bytes": 1258,
+  "sha256": "e3257a9697d6bae4a435e73b53f5eb48a1a4c156c375bc194cd1c4dd1258b6f4"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/LICENSE",
+  "bytes": 1082,
+  "sha256": "16fbc0170994a48f60938d9f0d992d3bad113383cf90882f75c206e079c2a2dc"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoA740HwInit.h",
+  "bytes": 6721,
+  "sha256": "4b6a7f357b9bb8b99a2b5f4f503696c1f7f2e8ce1c55cd0b6d0d74c6f126ba19"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoABI.h",
+  "bytes": 7965,
+  "sha256": "58d0509ae84c83fec0bc69c3b1dade014af379272be9f6f6f67ac7b621ab90c9"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoAccelerator.cpp",
+  "bytes": 3140,
+  "sha256": "34610bd428bf152f83aa9b546a8d423d393d2b0bd58ee2b5ab7530667f5e7b7e"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoBoard.cpp",
+  "bytes": 2435,
+  "sha256": "273fedfdc89c64abab3195fadd27045f606bdd7868920842117a323c193cbd66"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoBoard.h",
+  "bytes": 1502,
+  "sha256": "648fefb774118d174bf5ef42ab89579edaf781c4f4f08bce393ee7100e54e19b"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoClient.cpp",
+  "bytes": 8200,
+  "sha256": "305812e022fd8b0c113f07d78591c76579b9d0cff23cb3f2f2a5e9c4d9db717d"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoClient.h",
+  "bytes": 2506,
+  "sha256": "ac6a35c5b2e3080655cdf41870f0d0551d0961b773192f7adf2effe283f5e7aa"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoCpInit.cpp",
+  "bytes": 4034,
+  "sha256": "50da9ad893a07a1efb86c14ac27816cb5c00c67dc22c48a01c912b830d8eb8df"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoCpInit.h",
+  "bytes": 2720,
+  "sha256": "672688af133201cd067c09a38a6b204b5b8f36099739b07a67ac5a6883a8b522"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoCpu.cpp",
+  "bytes": 10242,
+  "sha256": "b6bb0dc6643a9e580fb0ab8d45d3239827a86f7b576ebadb1fe5fa65b80ee965"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoFirmware.cpp",
+  "bytes": 722,
+  "sha256": "87606cac2ded872d3f904decdaa47177192a019d3c365a49e138353a42279233"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoFirmware.h",
+  "bytes": 961,
+  "sha256": "78d42a674a06aed96a5b206b927964772222eda33f93ae6d6509b6a5e9aba75b"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoFirmwareDefaults.cpp",
+  "bytes": 788,
+  "sha256": "3a7dd96fbf51582f993aca45ab65c7bd6c8dd6712ee72698630cf342e63174db"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGmuConfig.cpp",
+  "bytes": 1730,
+  "sha256": "b9ba364145169828cf4c743ea8807f536213878f655ae1351334681e35ddf458"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGmuConfig.h",
+  "bytes": 866,
+  "sha256": "e07d205c1fa429c1e1d4966e50a7de9bfe7d591027c54d15e11562421a421a1c"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGmuContext.cpp",
+  "bytes": 7141,
+  "sha256": "0982ca61eaf86789e6ab61c0b03694ed340a53b0a54d5d733b2fd8c1fc10acc2"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGmuContext.h",
+  "bytes": 4412,
+  "sha256": "4c88af6df4433e12e27745d14aa594b477f9f2614e056bf275663755fb76f72c"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGmuMemory.cpp",
+  "bytes": 4169,
+  "sha256": "54cc3b8749ea157a3918711a386756385f1594036e67094ac14ff4367b9da17b"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGmuMemory.h",
+  "bytes": 3445,
+  "sha256": "1503c70ce53d097ff1b58dc9e529afb8a25c4a9d0d37add454365672d7527fa3"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGmuPlatform.cpp",
+  "bytes": 2503,
+  "sha256": "1a9263b1a48df626a0e3ab4c3145d3450d34082aa9230cb4dbca7f8f97c7f2e0"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGmuPlatform.h",
+  "bytes": 1426,
+  "sha256": "5634adbedceac94f0bb75b2207caeff256115b5d9dcebf38fd88efba4d979d1d"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGmuService.cpp",
+  "bytes": 3897,
+  "sha256": "431c6709c95053a9033e3ec68d9788231fa8b7b892f5650a48e504a4288a6eaa"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGmuService.h",
+  "bytes": 1165,
+  "sha256": "69eb1d457b8bb4798cbc739b13ae86e2eb500e89ed13720deb8ed0728d55e04d"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGpu.cpp",
+  "bytes": 2908,
+  "sha256": "2c3e0238a4fd1be2f5a5224b7ad33b385987b437d27f28e8166406948e48f589"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGpu.h",
+  "bytes": 3337,
+  "sha256": "340259bbb2261da3cf4c0c0c0c8b96278de4980ab997286e7acd35a0f92d5dcf"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGpuContext.cpp",
+  "bytes": 15377,
+  "sha256": "8fe0b0c1b980c0b6a1f7f7725b61f137a94b0d7ffa8c5245cded8d5c3642413d"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoGpuContext.h",
+  "bytes": 7803,
+  "sha256": "dbc41c5c2cef2864b6844bc10ab226bb0a6aae2cfb075d8db2f70af67bda3c92"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoHandleIndex.h",
+  "bytes": 3694,
+  "sha256": "62327f040b564bbeebc4d42f9148699cc69338282f23306253c9f4b5cebdac09"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoIrq.cpp",
+  "bytes": 6063,
+  "sha256": "920184bff903ec52521e0d1ac36f431101cbb9cb92ce9d7a639410de88c670a6"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoIrq.h",
+  "bytes": 3248,
+  "sha256": "589f909052587ea6a3690e4427f6d5dfe11857ac2020028a7deb5ea825e5dc52"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoKernelTime.cpp",
+  "bytes": 503,
+  "sha256": "ef6288b1cab7ff77998d9e6b53388714a3ff65022aef0b29697613d80dcc9bd1"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoKernelTime.h",
+  "bytes": 482,
+  "sha256": "c7fcd3e339984278c3c5af98b0de87a72471e04c9855f42ff5934c271d71ec06"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoMemory.cpp",
+  "bytes": 26894,
+  "sha256": "59f8696f07f015f4f73def4304a3a4aa421311be3dd5a9a40bd454681e5caebb"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoMemory.h",
+  "bytes": 11487,
+  "sha256": "8cf705d9896ce44e7fc976a52baff525a4a2b2935e9fb4421adf380bf69f24f4"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoPublish.cpp",
+  "bytes": 74600,
+  "sha256": "3486c8b19f3a5c281ca23bbe0ff3e665b04667f7d349d49c337e327dc0e70203"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoPwrup.cpp",
+  "bytes": 2670,
+  "sha256": "625935493062e63f18d87a691436b4f53cce22969509501e77cbd58d27e398c4"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoPwrup.h",
+  "bytes": 1864,
+  "sha256": "708830fae4f6a5cea765992d44135126d7a034a239adece94f094d862819e889"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoPwrupRegs.h",
+  "bytes": 745,
+  "sha256": "8067d9625e922173912eea09e6a504d9c1b31234d4656f8dd4148855882918e1"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoRing.cpp",
+  "bytes": 37210,
+  "sha256": "2b4ccee7ee6f29976e3927c73cffc68558bd5e5876c277e27b6eaafd7e734608"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoRing.h",
+  "bytes": 12671,
+  "sha256": "bcfcc8e0c425feff277cf8e4df2bab81ba7b72bedb5c612360fd93e7fd4e9f3d"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoService.cpp",
+  "bytes": 36643,
+  "sha256": "419a90de1049cb359b116a25220a5fc93a5c0dac7f13935d72f060881f22a73c"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoSha256.cpp",
+  "bytes": 2950,
+  "sha256": "ee624a483a075b8ca44f1dff2efd66acee38c5ccd784192c23614cdb6605db1f"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoSha256.h",
+  "bytes": 531,
+  "sha256": "4c4f1a23f146c1370615ee52912b9bb0c2a3b919ccf14e07314460ffcdb34a74"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoSmmuContext.cpp",
+  "bytes": 2921,
+  "sha256": "183df8450e60c355f90eef689f85bd44061f5a36e42920819420fa5d447a3039"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoSmmuContext.h",
+  "bytes": 3720,
+  "sha256": "e901a6c357c7dc9807e8ddd40c8487c8264655af1cbc815f0aa3527ed0a4b5d1"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoSmmuMemory.cpp",
+  "bytes": 7785,
+  "sha256": "0318a5ab2710aa64c5d885d76a18c8eecca00e58a0de7d6cb34264960e275040"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoSmmuMemory.h",
+  "bytes": 3623,
+  "sha256": "ca2d91e3b4d8a4ff1f7da16419761b6588d34f044fdb16bb535276b811de8713"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoSmmuService.cpp",
+  "bytes": 3941,
+  "sha256": "7f0b5d3883ffd520ce8631c1d7e1764cde5cad6727a6b86fb5b8aba10e881cab"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoSmmuService.h",
+  "bytes": 1090,
+  "sha256": "6e5a666a4c6b28c9dc3ae6c59ce4c55ccb1ef63ac49901cf56759f0dd5a905df"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoStatus.h",
+  "bytes": 1146,
+  "sha256": "7305cce3eefbf63176fd08f3d6eb92aa4b874fffb37bda94666fea53d62a2a34"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoSubmit.cpp",
+  "bytes": 75083,
+  "sha256": "1fe6b7ac79127841997a1a1caede69bc13adc29f109cee62447e4e61c6a953a7"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoSubmit.h",
+  "bytes": 10296,
+  "sha256": "9f0544ef14462693b6f5021c79307071a30dea9b4528d10c75f56f917174afca"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoTimer.cpp",
+  "bytes": 2214,
+  "sha256": "281221b6fc5c1175b71d7c54fda8275bab1b08d7b9819f7c60e4e4b10026f22a"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoTimer.h",
+  "bytes": 1908,
+  "sha256": "41fd744b29cb12a107d86b6e74a0abe33fa877326e2471e2d534241b016341eb"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoUserClient.cpp",
+  "bytes": 37699,
+  "sha256": "90323139c49134b576177c7568c24a2271d67a296516996cab9a00b1910c0014"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoUserClient.h",
+  "bytes": 10147,
+  "sha256": "535b1f2ef822da8f122b16a79693164227a0dd921bf5558a03f0484dd4c2af6f"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoVm.cpp",
+  "bytes": 46649,
+  "sha256": "c25817f5905c6897f9e937c6bcac8db68b9a1daee212f84b0f743ce8265b95cc"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoVm.h",
+  "bytes": 15903,
+  "sha256": "9a95b65a270e315925abf4c7cd570e533cb114dbaf48a060f7abe4859a5083c0"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/NativeAdrenoVmAlias.h",
+  "bytes": 2240,
+  "sha256": "35fe908bd80389a18e395eb3bfdd5a40cb2c133fe6634dbead8d68cf2822eeea"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/README.md",
+  "bytes": 382,
+  "sha256": "95a05c970c32a07c4f75636f6ca2e3a81be818aab0b9120e8e8c4e2b947c1626"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/XnuMemoryFixture.h",
+  "bytes": 8601,
+  "sha256": "e316a1d4606c2fa52671fb15855f1d76e2cfd827f6d91f950aaf6452d596b04e"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/hostsim/builtin_cache.cpp",
+  "bytes": 6277,
+  "sha256": "0d41011413aa991e3b88436f3711f6549d527b3bd35d9d375e0a4b751d37ca6c"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/hostsim/deferred_bo.cpp",
+  "bytes": 10810,
+  "sha256": "35ba6f5e313ff21d14ba2884365181ebc871cfcf820e41567e8b1eaa11eb399e"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/hostsim/host_gpu_service.cpp",
+  "bytes": 11440,
+  "sha256": "4ef75c3cf644cdc3ead973e568a580124dfe3aaf0527c93770d5ac1c1cd7810b"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/hostsim/host_iokit_shim.cpp",
+  "bytes": 7279,
+  "sha256": "beab348859e2857fc68626ec058d40a4fed00089083acc58ac640371c12e7296"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/hostsim/pipeline_cache.cpp",
+  "bytes": 9443,
+  "sha256": "db530bfff4bb1a746c53bd1f534fdcec044f27da11060a34b9e3dda7dbbae6c2"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/hostsim/pipeline_cache_ios.cpp",
+  "bytes": 7078,
+  "sha256": "d00ddbcc8ca9d9c64f02b4ce6dbf6d8b2b35135a2cb0b1731bb6cbd5fe84a189"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/hostsim/plugin_smoke.cpp",
+  "bytes": 1819,
+  "sha256": "ad75b7db12d3ac14e37258d6ef045f185c405773284aa0346788cc886da4f212"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/hostsim/vulkan_smoke.c",
+  "bytes": 7407,
+  "sha256": "c5dfd26db68eb67708bcaeadcc0bba199c12572681d7abea9006962b720f4d28"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_board.cpp",
+  "bytes": 5939,
+  "sha256": "9c69e63a10fbeace5dbcfbd2658b0849d0988374633bf89b18130277b389422f"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_client.cpp",
+  "bytes": 14164,
+  "sha256": "9a83173a4f99467d561fc89cba7a364e26856256756dd6b4fb82f561085e7a1a"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_cpinit.cpp",
+  "bytes": 8342,
+  "sha256": "bb41c5379a6d007bf3428ac154ff7c5e2d22e238f25c4fe6e6d4aa41e774f3dd"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_gmuconfig.cpp",
+  "bytes": 3935,
+  "sha256": "31af794c65cd00a8540443f0da9848a1de48200fa1c8a0089cc8fe2eddd1ec68"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_gmuctx.cpp",
+  "bytes": 10453,
+  "sha256": "948e36d75a4e610da405f49ce757bc442a6349b391866182e7bc737228340b8c"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_gmumap.cpp",
+  "bytes": 5822,
+  "sha256": "207e1b26646d55f3450e09361189ecfede78ef307d14196d212faa85aa3b1308"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_gmumem.cpp",
+  "bytes": 3780,
+  "sha256": "bfc7d49193a0c505d6531d46047502e04b5bddab558f1342f6611e29ab0fdceb"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_gmuplatform.cpp",
+  "bytes": 4457,
+  "sha256": "ebd70f6d718a9f39b1eda075e187bf3b69509556730810a51d2c4bcecedfd969"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_gpu.cpp",
+  "bytes": 8453,
+  "sha256": "0a1f9c18555fccae1bed36731595d0b7cb3f5437c56e2bb3e572abbc3147f07a"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_irq.cpp",
+  "bytes": 7761,
+  "sha256": "4a125767844f29bd08bf23f44ba987adf553464b643f294f1243293543005800"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_memory.cpp",
+  "bytes": 9047,
+  "sha256": "fbbe51c50e21fd9d80ab077d214df6c1641ba894e5787f70ff6c178d41da36e1"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_pwrup.cpp",
+  "bytes": 3687,
+  "sha256": "f9d146bd0f57e4e74f3ad467eec09e8d020ce3d5789ae94825ed75c8945b7b1a"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_ring.cpp",
+  "bytes": 19243,
+  "sha256": "7151e61e9c0731b127b063df99130ba00b0513cceb8489bbcab2ac6934496507"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_sha256.cpp",
+  "bytes": 4126,
+  "sha256": "19d64203973452fbac152d7e1e5d3f620bc36ff48852dc62bee036d88db19468"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_smmu_memory.cpp",
+  "bytes": 4602,
+  "sha256": "eab1bb806b9503642f1d41946ef65ad48c03335c887253c8447a2d35c1da8396"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_smmuctx.cpp",
+  "bytes": 4233,
+  "sha256": "c2fca4e2a5a06108b1919ca8b7de2f925011c0ac45989a993705eb2660a8425e"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_submit.cpp",
+  "bytes": 18906,
+  "sha256": "c0210b19ad35eb2b0a8e9cab15d01fd44e4d612fcc23e71477d978de74d48b71"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_system_memory.cpp",
+  "bytes": 5737,
+  "sha256": "7118057842cfe84db708a03478aec34aa0ad4c2fc1297b3378e320fcdd2a87c3"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_timer.cpp",
+  "bytes": 4726,
+  "sha256": "95590914cc18f815ea2ef39571ea154b25e45a3b176dc9197d4379e9ff9ab08a"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_userclient.cpp",
+  "bytes": 43158,
+  "sha256": "0a611964f9940414763e03319611c777433d01e914e9a052ccf105813af6a5a0"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_vm.cpp",
+  "bytes": 18006,
+  "sha256": "a767c3f4c0cf2a45647c1d2cffd4632a2417e26966b4e4e5d9b8fbfd8382d11e"
+ },
+ {
+  "path": "05-源码/src/drivers/Adreno740/tests/test_vm_alias.cpp",
+  "bytes": 2725,
+  "sha256": "a98c1fe4b9a882bc16ec8003a9920945bbf4299e499969f4c9c8de5a962fd2e4"
+ },
+ {
+  "path": "05-源码/src/drivers/GopFramebuffer/AGENTS.md",
+  "bytes": 2184,
+  "sha256": "40b827fd2e2189138ead572dcc2f5387f8f440aec29749d54d28e66fb1144ffd"
+ },
+ {
+  "path": "05-源码/src/drivers/GopFramebuffer/LICENSE",
+  "bytes": 2733,
+  "sha256": "4e1f7091cbd25b42600ee9cfa9e69b2cb5af4225f3e495b602a03fbb3c02b706"
+ },
+ {
+  "path": "05-源码/src/drivers/GopFramebuffer/NativeGOPPresenter.cpp",
+  "bytes": 19552,
+  "sha256": "a39026c041958f77160540b04bb7e6a2ece3279f3aaa44a1fde593b04f65bbec"
+ },
+ {
+  "path": "05-源码/src/drivers/GopFramebuffer/NativeGOPWire.h",
+  "bytes": 1355,
+  "sha256": "04076c67e851968157ad948fbba23deda398aba2969b2d21fc35efae8f11bf72"
+ },
+ {
+  "path": "05-源码/src/drivers/GopFramebuffer/NativeLegacyDisplay.cpp",
+  "bytes": 44367,
+  "sha256": "9fa8b734a4acc997175bb924ff9d73c27279d73b0ed4cbf18df28507f20f8698"
+ },
+ {
+  "path": "05-源码/src/drivers/GopFramebuffer/NativeLegacyRequest.h",
+  "bytes": 10074,
+  "sha256": "211110f738ad6e9a40c152c34d6d3bddc5ba00a4b55add4d22ab12f4197025a2"
+ },
+ {
+  "path": "05-源码/src/drivers/GopFramebuffer/NativeMobileDisplay.cpp",
+  "bytes": 13873,
+  "sha256": "e3771fa685163b0f4b14cfceed77ec6eca2f46918b1c247009896e9eea60c4b1"
+ },
+ {
+  "path": "05-源码/src/drivers/GopFramebuffer/OriginalMobileFramebufferABI.h",
+  "bytes": 6861,
+  "sha256": "cd4acab60105f980f861ebfff307c486ffeeec02297a0830367d48c52d25de68"
+ },
+ {
+  "path": "05-源码/src/drivers/GopFramebuffer/README.md",
+  "bytes": 400,
+  "sha256": "4c5fa088894cf8e945bc8eba9df199fb56441aed44d310acddd56721212206df"
+ },
+ {
+  "path": "05-源码/src/drivers/GopFramebuffer/Test/request-state.c",
+  "bytes": 6130,
+  "sha256": "73f463e35faf999f7af3168a63b23ea63cb69f83145b9a308d914048ce8e8077"
+ },
+ {
+  "path": "05-源码/src/drivers/QcomGeniSpi/AGENTS.md",
+  "bytes": 2164,
+  "sha256": "e9e2be5ee7d2a16e3b5573ec7080911df36293f9b50899eb628fe86e71a0dc29"
+ },
+ {
+  "path": "05-源码/src/drivers/QcomGeniSpi/GeniSpi.c",
+  "bytes": 15884,
+  "sha256": "b115af92e4afd75edd9b7fd537f9fffc91a0caac6b1424736ac7a64f6a202f74"
+ },
+ {
+  "path": "05-源码/src/drivers/QcomGeniSpi/GeniSpi.h",
+  "bytes": 9375,
+  "sha256": "0b78d8a228f55c99d183a2739c4a7912cc9db7211de40d91b847f66a55d22106"
+ },
+ {
+  "path": "05-源码/src/drivers/QcomGeniSpi/LICENSE",
+  "bytes": 2679,
+  "sha256": "cb5d6ac6fdd3f0620dee3b1c70ea02c2fe0c33b98ef69a32eb18f5a92c83e974"
+ },
+ {
+  "path": "05-源码/src/drivers/QcomGeniSpi/README.md",
+  "bytes": 264,
+  "sha256": "ea1c7480c566c81f4c5f911f9061a8802e2bef9fa2f945a2cb49bdc719690c4f"
+ },
+ {
+  "path": "05-源码/src/drivers/QcomGeniSpi/Test/geni-spi.c",
+  "bytes": 16650,
+  "sha256": "1230d02a0dce58c0e7e6855ec4d4c611a214b93c45d6b5c19ccabffd7cdca906"
+ },
+ {
+  "path": "05-源码/src/dts/dby_w09.dts",
+  "bytes": 4112,
+  "sha256": "e33dc989b6640b7073beaa2e4d5695ba963253718c794a16f091f6125a34bffc"
+ },
+ {
+  "path": "05-源码/src/feeds.toml",
+  "bytes": 6102,
+  "sha256": "2b02f9267932fe18db4b3015a7501ab16a32b3def8d19a1ae588688268196796"
+ },
+ {
+  "path": "05-源码/src/hal/Info.plist",
+  "bytes": 1104,
+  "sha256": "da8a31bf33069059977c73f2f92d3cfca1e9161ee420049eba08b89377f4bbd8"
+ },
+ {
+  "path": "05-源码/src/hal/ShengAudioPlugIn.c",
+  "bytes": 44248,
+  "sha256": "39bb821f52daecfe64d1cfcef50d5a4333c62d3fff5f54f4928622b13e894e0d"
+ },
+ {
+  "path": "05-源码/src/kits/.gitkeep",
+  "bytes": 0,
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+ },
+ {
+  "path": "05-源码/src/kits/Sm8250Platform/A650Gmu.c",
+  "bytes": 26950,
+  "sha256": "be556a4c22f680d76efbf50fc9e1ad7e8da30f5601c64091a9a2408cd3a749b6"
+ },
+ {
+  "path": "05-源码/src/kits/Sm8250Platform/A650Gmu.h",
+  "bytes": 6023,
+  "sha256": "46058b85abe69d94500970826046897294a12de70e7d181ab0c616d858e9c8fd"
+ },
+ {
+  "path": "05-源码/src/kits/Sm8250Platform/A650GmuPower.c",
+  "bytes": 18468,
+  "sha256": "4fa9c7fc3065f4ed7e7d909b5a8d20c6fcc6df39990e1ccf643a3c453570f710"
+ },
+ {
+  "path": "05-源码/src/kits/Sm8250Platform/A650GmuPower.h",
+  "bytes": 10209,
+  "sha256": "1ca7e0162a82c07fbae5184cbdff67144f7ec306c1dc4494150e296c21a4e3ca"
+ },
+ {
+  "path": "05-源码/src/kits/Sm8250Platform/A650GmuPowerTests.c",
+  "bytes": 22058,
+  "sha256": "d2875e910a9b7cf6aabfe2982c350b45ddbdb7e4f5c9573f6462acc768ab02ba"
+ },
+ {
+  "path": "05-源码/src/kits/Sm8250Platform/A650GmuRegions.c",
+  "bytes": 2625,
+  "sha256": "89ea7bcb2014f445fd419311f1ae39d9560da90ed7a887f0faa31dac0ae14e6b"
+ },
+ {
+  "path": "05-源码/src/kits/Sm8250Platform/A650GmuRegions.h",
+  "bytes": 1712,
+  "sha256": "6fcd8fb2d339d489416404e8b9c2b195f89e411e73136f86108bbf73d1497c51"
+ },
+ {
+  "path": "05-源码/src/kits/Sm8250Platform/A650GmuRegionsTests.c",
+  "bytes": 4941,
+  "sha256": "e13cb87b573942b133f4edcfd8417b0a9c67340ce9402f37cc6e3f6d2b033767"
+ },
+ {
+  "path": "05-源码/src/kits/Sm8250Platform/A650GmuTests.c",
+  "bytes": 14474,
+  "sha256": "fe1c952025c72090b1fa96488cb424fd236ca370eec534881a917848034e0236"
+ },
+ {
+  "path": "05-源码/src/local.toml.example",
+  "bytes": 819,
+  "sha256": "4d7ac7babf4ea807410740e7a6f7514ed61eff140b46af1d27dd486167784866"
+ },
+ {
+  "path": "05-源码/src/package/AdspFirmware.c",
+  "bytes": 8688,
+  "sha256": "05125d35967d2f8e8838900a2587da14e90907f0a38fb0bc70cedf59a00c9146"
+ },
+ {
+  "path": "05-源码/src/package/AdspProbe.cpp",
+  "bytes": 38515,
+  "sha256": "58ab1b9f9a334a5b02847788f9c4811477524e4a3f8613d066ade3bb3f8ea1d2"
+ },
+ {
+  "path": "05-源码/src/package/AppleARMBacklight.cpp",
+  "bytes": 27641,
+  "sha256": "c9bf7a258fea78401c1890f64be98137295a02da5b1116a0559f78948288becd"
+ },
+ {
+  "path": "05-源码/src/package/AudioProbe.cpp",
+  "bytes": 64842,
+  "sha256": "ec0517be642301e51736de9a72abf7dd8da654b7275826ed5e0a5163f48783bd"
+ },
+ {
+  "path": "05-源码/src/package/BacklightProbe.cpp",
+  "bytes": 1855,
+  "sha256": "14577aad025fa7779fba8f293297f0efe0c85e1f78cb83ff4ccb71a42ca61a8a"
+ },
+ {
+  "path": "05-源码/src/package/BatteryProbe.cpp",
+  "bytes": 4045,
+  "sha256": "7c8ee7e020e92512fa405ac7c58c1cc72bcf2489f99481b5a59346495a75ee5f"
+ },
+ {
+  "path": "05-源码/src/package/BootFaultProbe.c",
+  "bytes": 8181,
+  "sha256": "64ab996a458265def45c81d53d7a209b60a01b3983f4a02ec35050fab6ee1b8a"
+ },
+ {
+  "path": "05-源码/src/package/BootLog.c",
+  "bytes": 109879,
+  "sha256": "ae3dd3cbe40f5f94e49fd10bbf9d615480d2401314effdad047f8b6ef1391d23"
+ },
+ {
+  "path": "05-源码/src/package/BootProcessProbe.c",
+  "bytes": 8333,
+  "sha256": "12560835924359f6f4462a0a43a217e647c6a582ff1ccafdbeec1fd413656bc1"
+ },
+ {
+  "path": "05-源码/src/package/BootProgress.c",
+  "bytes": 93520,
+  "sha256": "b3713e85422903cc1d3b48d5736f3f23481c3cabe63a03dd7ca056e4b6737f9c"
+ },
+ {
+  "path": "05-源码/src/package/BootProgressCore.h",
+  "bytes": 2305,
+  "sha256": "b336397b7aa1e903705ecc78f668f67dd31d7136e8a47acfc801322ada30ee04"
+ },
+ {
+  "path": "05-源码/src/package/BootProgressDisplay.h",
+  "bytes": 2799,
+  "sha256": "231f580758e4e98592fd7f41203be00ca5670b912508a520bf83fb82d3af10d9"
+ },
+ {
+  "path": "05-源码/src/package/BootProgressLifecycle.h",
+  "bytes": 985,
+  "sha256": "eaf777e5b71db7b5affaa9a64d0a2806277730b538d9aa96a457f425ccbada6a"
+ },
+ {
+  "path": "05-源码/src/package/BootProgressPulse.h",
+  "bytes": 1950,
+  "sha256": "25700a256b60329dc297c85f36f2397d21062536342affa42568e4cfef1adcd4"
+ },
+ {
+  "path": "05-源码/src/package/BootProgressStubs.c",
+  "bytes": 23329,
+  "sha256": "808960a4c25a6c97e28bc7fd4cb4dc602c438c0eed0828fa952af26aca305806"
+ },
+ {
+  "path": "05-源码/src/package/BootProgressTests.c",
+  "bytes": 3656,
+  "sha256": "f220024b2849072149454abc7158eac7dc6db04e93cb30c5ed27d420abecf415"
+ },
+ {
+  "path": "05-源码/src/package/BootResetDby.c",
+  "bytes": 12495,
+  "sha256": "899461f1b26ee237c4f63f3ee8e4a4b66b6d17ea4596931e4b15cfbc3925688f"
+ },
+ {
+  "path": "05-源码/src/package/BootResetSpmb.h",
+  "bytes": 435,
+  "sha256": "008e68fd3c66e7ca414e2a70986ca615cf86898ffce66164f82c21e02161c39d"
+ },
+ {
+  "path": "05-源码/src/package/BootUiTraceCore.h",
+  "bytes": 3429,
+  "sha256": "5b9bfc83e3d97beb35587e59ea06d6c0c35cfb7acbd008d459d76ab2cfb0082c"
+ },
+ {
+  "path": "05-源码/src/package/BootUiTraceDetails.h",
+  "bytes": 1612,
+  "sha256": "b9c0d9afbc80359a08f2aabb87cf6ee94c5227e64212dffb05ea8d9e08a8473e"
+ },
+ {
+  "path": "05-源码/src/package/BootUiTraceProbe.c",
+  "bytes": 14691,
+  "sha256": "b8ae3ad92d3240037e5462e460827848f148884f32e2e7a0969b6ee2b9e23b02"
+ },
+ {
+  "path": "05-源码/src/package/BootWatchdogPolicy.c",
+  "bytes": 7437,
+  "sha256": "7caba440652bdf7a8afbc7dfced8a2cfef97deeab1bed4d6439aabf4954ab644"
+ },
+ {
+  "path": "05-源码/src/package/CpuFreqProbe.cpp",
+  "bytes": 30986,
+  "sha256": "ca8899cc0fc4725f3939ee1e494cad85cb429dd7dc11871681235b3d913afb25"
+ },
+ {
+  "path": "05-源码/src/package/DbyA650Gmu.c",
+  "bytes": 29547,
+  "sha256": "b264b41fafebe352db34d287104980a4f0483d02c1e4c31a0d1fecffed232ebb"
+ },
+ {
+  "path": "05-源码/src/package/DbyA650Gmu.h",
+  "bytes": 6839,
+  "sha256": "b41cef1e4b147bac60f69acc76a7d5aed326084537ef0c364f1d240272f25889"
+ },
+ {
+  "path": "05-源码/src/package/DbyAudio.cpp",
+  "bytes": 67489,
+  "sha256": "d0fbdf8fcd04ac0c115917e5a3daa7bb1fbeae8a7b20979cd2dd34bb02fe9a59"
+ },
+ {
+  "path": "05-源码/src/package/DbyBattery.cpp",
+  "bytes": 102264,
+  "sha256": "5263855863ec98dffb44b971fd0eba78671387ed936928d277f48fd05629082d"
+ },
+ {
+  "path": "05-源码/src/package/DbyCamera/ios/DbyCameraPattern.c",
+  "bytes": 10266,
+  "sha256": "9b27c6c923731f1ca3143bed9a48a249d12fadd621babef555879933857b8789"
+ },
+ {
+  "path": "05-源码/src/package/DbyCamera/ios/DbyCameraPattern.h",
+  "bytes": 2784,
+  "sha256": "a4882cbae45d0938fb84f77a10a00fd08e0b406a5e8dece9fa453c69bc403e7d"
+ },
+ {
+  "path": "05-源码/src/package/DbyCamera/ios/DbyCameraProvider.h",
+  "bytes": 2536,
+  "sha256": "571bc65b4184721099bec0aea9c74354c3904b1e52cde39871bb7a9fdbe59eeb"
+ },
+ {
+  "path": "05-源码/src/package/DbyCamera/ios/DbyCameraProvider.m",
+  "bytes": 25411,
+  "sha256": "fe33d462ed389457503c1efba2da0f98757e86fb310cd6bce693d4410b697442"
+ },
+ {
+  "path": "05-源码/src/package/DbyGpuFirmware.h",
+  "bytes": 469162,
+  "sha256": "78c96b646f292e825aa625284c57edba27eec1e60177bafef76b5649ef5e68e1"
+ },
+ {
+  "path": "05-源码/src/package/DbyGpuPowerProbe.cpp",
+  "bytes": 250183,
+  "sha256": "ab2b9e90fcad0ad088d6b88a4120b034d7111990f58594807121ecf709aad648"
+ },
+ {
+  "path": "05-源码/src/package/DbyGpuRegs.h",
+  "bytes": 18921,
+  "sha256": "e3f719878ef1e073fd97fb0fae09a637daf96da5d0212a92e3da0099e3438c86"
+ },
+ {
+  "path": "05-源码/src/package/DbyGpuSmmuProbe.cpp",
+  "bytes": 12789,
+  "sha256": "33dd82595eac3ff8a3b8ef0cc96be173643905a55274f80f2861b30b1018c1a5"
+ },
+ {
+  "path": "05-源码/src/package/DbyPaTables.h",
+  "bytes": 33565,
+  "sha256": "e93581622ea09aa83eb8c7fba4dd3d6b81298c0773394898fcbcd3b2b0ed33cd"
+ },
+ {
+  "path": "05-源码/src/package/DbySmartPA.cpp",
+  "bytes": 39654,
+  "sha256": "e5065a73b617984e04cd525767a907688556a57b80d269d2d1a8a849251620fd"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/DbyTorch.cpp",
+  "bytes": 10741,
+  "sha256": "3d7e1526c5719aed9a855bde00ffd6fe257e75acbead98a7c64f122d1be47ee7"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/DbyTorch.h",
+  "bytes": 4161,
+  "sha256": "0a4591d996d9b9f279e0d557f73107fcd20b68e03d4c28a756485eab19ab383a"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/DbyTorchCore.c",
+  "bytes": 26907,
+  "sha256": "ec9fcecb78033530f874c2d036969ef2ff66285a112013a13de0de14d3988c03"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/DbyTorchCore.h",
+  "bytes": 3420,
+  "sha256": "5f67e1a35f294acf2ffec4d56505b194fb36087a5d729e6bcb7942909b875b86"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/DbyTorchIos.c",
+  "bytes": 1285,
+  "sha256": "5a91a346d3ed8824296cdd63f63d58aafe7bcd367be8a45cc2d11622db2c1cab"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/DbyTorchIos.cpp",
+  "bytes": 8276,
+  "sha256": "dcd3f9e5b03ea41990f35987a988151f1d6d681a310c6fd5b2ebec8915963a60"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/DbyTorchIos.h",
+  "bytes": 4647,
+  "sha256": "0095cbaaee9df3d0efc5e9d8bd1f19172a22fdd23bd61f68601501988f062a71"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/DbyTorchRegs.h",
+  "bytes": 8696,
+  "sha256": "9d260dfa25fe1885b965bcb8dcc2084a42604d2e9628ceda09a3d3784a2ee8d6"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/DbyTorchSpmi.c",
+  "bytes": 11489,
+  "sha256": "eadf9d00bb022d69f289c54623d8e75b10eba328061e2f88a233de8d9dd89050"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/DbyTorchSpmi.h",
+  "bytes": 4406,
+  "sha256": "e74b57c45d20042b3a00ace8cc438b54d536f93fd164d56da53aea5385fd1862"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/DbyTorchText.h",
+  "bytes": 2682,
+  "sha256": "ce8b048d465aa701dc018d64eba1c297fc00f6545cf8021c6abd826ac29c73cd"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/README.md",
+  "bytes": 22556,
+  "sha256": "e608e940f5c70901189adab8aa19d7ebb6eb5b45cc1d25ba0a8465c95be7cbd4"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/Test/check.h",
+  "bytes": 1643,
+  "sha256": "c573e15c426c2076e05b1b80af4396cedc6766506faf541ab2beb631ed2580cb"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/Test/core.c",
+  "bytes": 35706,
+  "sha256": "30a912d89283788f1555f534e43580a63f81bab903f403160144878560469a3b"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/Test/ios.c",
+  "bytes": 2578,
+  "sha256": "72892233032c62333b078d8d776c812d93c4892413e15c72cbbe2b7d0debdadb"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/Test/model.h",
+  "bytes": 17519,
+  "sha256": "a22d950c7d8654113953cbd5f180b786e1e98730cf7321eafbbb693bf28cc382"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/Test/spmi.c",
+  "bytes": 19379,
+  "sha256": "e823f14beb619a802e2667724e61f4fc1ddfa28984d992cdbd99d98f89cce246"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/ios/DbyTorchPlugin.h",
+  "bytes": 1140,
+  "sha256": "704e9198f390fe395d8bc720ba0d1d0fd01de009cd6b253b4d270eb066bcc41a"
+ },
+ {
+  "path": "05-源码/src/package/DbyTorch/ios/DbyTorchPlugin.m",
+  "bytes": 8971,
+  "sha256": "968681d0ef95d9a685aa2ffe9d311584b906fdfe4a39b443aeda03707f1cf506"
+ },
+ {
+  "path": "05-源码/src/package/DbyTouch.cpp",
+  "bytes": 178752,
+  "sha256": "ce55fd0793fe069c97813bcb2ae71b5b29db2c8299df794257137f1d92345803"
+ },
+ {
+  "path": "05-源码/src/package/DbyTouch/DbyTouch.cpp",
+  "bytes": 178752,
+  "sha256": "ce55fd0793fe069c97813bcb2ae71b5b29db2c8299df794257137f1d92345803"
+ },
+ {
+  "path": "05-源码/src/package/DbyTouch/DbyTouchBoard.h",
+  "bytes": 35776,
+  "sha256": "98e40da59acb49ecd9f1ff493d1711ec64701eba28476bfaf36633d8f86dbc6e"
+ },
+ {
+  "path": "05-源码/src/package/DbyTouch/DbyTouchFw.h",
+  "bytes": 1192808,
+  "sha256": "d19d15f65ce5bd18e40255262254edb40d6235673ddd058e3adfe14d845c7864"
+ },
+ {
+  "path": "05-源码/src/package/DbyTouch/DbyTouchProtocol.c",
+  "bytes": 15859,
+  "sha256": "ba140ad5f4dca6619b57cf52864ea1b02d63ed0bf82f11d2a87cb71847b54ad1"
+ },
+ {
+  "path": "05-源码/src/package/DbyTouch/DbyTouchProtocol.h",
+  "bytes": 7965,
+  "sha256": "1649405a3c840a8e2afab91231693b0f170c39456d27626570125ce48cd77ba9"
+ },
+ {
+  "path": "05-源码/src/package/DbyTouchBoard.h",
+  "bytes": 35776,
+  "sha256": "98e40da59acb49ecd9f1ff493d1711ec64701eba28476bfaf36633d8f86dbc6e"
+ },
+ {
+  "path": "05-源码/src/package/DbyTouchFw.h",
+  "bytes": 1192808,
+  "sha256": "d19d15f65ce5bd18e40255262254edb40d6235673ddd058e3adfe14d845c7864"
+ },
+ {
+  "path": "05-源码/src/package/DbyTouchProtocol.c",
+  "bytes": 15859,
+  "sha256": "ba140ad5f4dca6619b57cf52864ea1b02d63ed0bf82f11d2a87cb71847b54ad1"
+ },
+ {
+  "path": "05-源码/src/package/DbyTouchProtocol.h",
+  "bytes": 7965,
+  "sha256": "1649405a3c840a8e2afab91231693b0f170c39456d27626570125ce48cd77ba9"
+ },
+ {
+  "path": "05-源码/src/package/DbyWifiProbe.cpp",
+  "bytes": 20338,
+  "sha256": "7d795fbf4552bc83998573f4f46cd81e194e69ce04f19770e07ca67fb3f9f6bd"
+ },
+ {
+  "path": "05-源码/src/package/DbyWifiProbeBoard.c",
+  "bytes": 25638,
+  "sha256": "0a08786157934fd14365dedfde7302b4eeb3f48fa5c1dedc9b188908762d212d"
+ },
+ {
+  "path": "05-源码/src/package/DbyWifiProbeBoard.h",
+  "bytes": 21169,
+  "sha256": "ab10d6916006fbb8dfdfabb219434b6163687499d5131f6fbe019a2c58cfd801"
+ },
+ {
+  "path": "05-源码/src/package/FatVolume.c",
+  "bytes": 9657,
+  "sha256": "6e00c31149c4d52733bce0eea360e2db3647c32f01f14ae7c4550ac641f62779"
+ },
+ {
+  "path": "05-源码/src/package/FatVolume.h",
+  "bytes": 2339,
+  "sha256": "a438bcc5519bacfbfa6b6c55646fe4a3f7787f37a50c52103d8094c6871b67e7"
+ },
+ {
+  "path": "05-源码/src/package/Font.h",
+  "bytes": 3692,
+  "sha256": "d2a3687db67b069f4e34a961e17fd28b0242986e3fa8dd8a7545cab70834fa8e"
+ },
+ {
+  "path": "05-源码/src/package/GeniI2c.c",
+  "bytes": 5740,
+  "sha256": "34eb6effebb1750a538cf092ce68ceddd4855b7d44678a71305a02e454bf8b7b"
+ },
+ {
+  "path": "05-源码/src/package/GeniI2c.h",
+  "bytes": 4798,
+  "sha256": "2ade734ab7cdbd41fcea68c7f7ff4392b779b2d04666118407a1533e22258e7c"
+ },
+ {
+  "path": "05-源码/src/package/GeniSpi.c",
+  "bytes": 18288,
+  "sha256": "0a35a94ddf009736ff3127cf47f78261124a3d8e13abd2f497f88abf2a7d99e5"
+ },
+ {
+  "path": "05-源码/src/package/GeniSpi.h",
+  "bytes": 10126,
+  "sha256": "ed6f25aa51427eda6d708b583bc2efeacb883093e5c9fde0e17bc13cc0ddf31d"
+ },
+ {
+  "path": "05-源码/src/package/HidInputProbe.cpp",
+  "bytes": 15401,
+  "sha256": "26ac45ff583cd6de378e45d698fd02891c9ca8dc7af7c24071bf792b4c961c84"
+ },
+ {
+  "path": "05-源码/src/package/IliTddi.c",
+  "bytes": 10508,
+  "sha256": "71746f1c1ed7254d14242eb7ac56ce555bb3028a8a2e488634ed85e05010c797"
+ },
+ {
+  "path": "05-源码/src/package/IliTddi.h",
+  "bytes": 8194,
+  "sha256": "a43b2d0af6f49362809aed9298583bd6f27a2088dd0ae5799eb67b43346317c1"
+ },
+ {
+  "path": "05-源码/src/package/IliTddiHostTests.c",
+  "bytes": 15311,
+  "sha256": "85143748a35ccfba5b7d77843af086f9ee56f1047e5130a589c0865c9610a299"
+ },
+ {
+  "path": "05-源码/src/package/KeyStoreProbe.cpp",
+  "bytes": 6552,
+  "sha256": "f6ac0fbb46d49ab9cc3909d18cc39b048a56b56f3386086ff6322538fece4aa9"
+ },
+ {
+  "path": "05-源码/src/package/LegacyDisplayProbe.cpp",
+  "bytes": 40515,
+  "sha256": "a3b9457ec61189e3e5c4adf1d6cd384e7c0ffa1b1210150ab389edd21d537c21"
+ },
+ {
+  "path": "05-源码/src/package/LinkStubs.c",
+  "bytes": 10289,
+  "sha256": "f6b2f9c1391904f628d3e2b15875130b967055505f77529d13879ae43df8ad98"
+ },
+ {
+  "path": "05-源码/src/package/NvtN9ZHostTests.c",
+  "bytes": 6825,
+  "sha256": "c4c1d366475517c1cdc248d3e186649033cd0897ef0db2bd633173fcb89b5eb4"
+ },
+ {
+  "path": "05-源码/src/package/NvtProtocol.c",
+  "bytes": 41405,
+  "sha256": "d282856a9d4c47754b3351087d3049c3e959266ed82822e524f2302f37f51bd1"
+ },
+ {
+  "path": "05-源码/src/package/NvtProtocol.h",
+  "bytes": 16775,
+  "sha256": "29c43558e1f9c6214384f2a50bf2283c6284a0815a1519f1792278d97ad443d0"
+ },
+ {
+  "path": "05-源码/src/package/NvtTouchCore.c",
+  "bytes": 18489,
+  "sha256": "2c7e3e22d4188b714390b1fd18f5d49763107e85ad2c7c933d2458cfbc718f68"
+ },
+ {
+  "path": "05-源码/src/package/NvtTouchCore.h",
+  "bytes": 7481,
+  "sha256": "fbd9e507bfaf938f1f48f0741f4cda84a728e20f3b671f4cfa8bf63336cf416a"
+ },
+ {
+  "path": "05-源码/src/package/QcomGlink.c",
+  "bytes": 21670,
+  "sha256": "e47d0470bb206baa8ddead575915531af024e45fc247ba2ac6ebc6513bf0b73a"
+ },
+ {
+  "path": "05-源码/src/package/QcomGlink.h",
+  "bytes": 5477,
+  "sha256": "9f3b2e8372fe4003ce6eed8e71426fc4fc71bd5a9802086303da3fdedbca7ca3"
+ },
+ {
+  "path": "05-源码/src/package/QcomMdt.c",
+  "bytes": 8035,
+  "sha256": "706f4a86624d119282683287bf408ae679275368f9bcc28d6f4ba652d3ad377a"
+ },
+ {
+  "path": "05-源码/src/package/QcomMdt.h",
+  "bytes": 4209,
+  "sha256": "22d8e567b285e254becf1af41f8ba0c9c1cfcc5295f6246b4b9d09e5fef88477"
+ },
+ {
+  "path": "05-源码/src/package/QcomQmp.c",
+  "bytes": 3377,
+  "sha256": "9a4160daca9e9b9ce637cc2f3bcd7167361b486aca6599d7b5f9809656f57ed3"
+ },
+ {
+  "path": "05-源码/src/package/QcomQmp.h",
+  "bytes": 2008,
+  "sha256": "dd6722ade248435930c5f242ef78728f58f7e3bc6a9765fe229b32c87f342503"
+ },
+ {
+  "path": "05-源码/src/package/QcomQrtr.c",
+  "bytes": 9248,
+  "sha256": "d22ff8572b93424f1f03138204a44e10b444d0cb62b6be4f1c57b7d3b2ddbc74"
+ },
+ {
+  "path": "05-源码/src/package/QcomQrtr.h",
+  "bytes": 4480,
+  "sha256": "3ead40f5f996497224ebef92e2e67820aa8372bab0a21646c15df954baba84f1"
+ },
+ {
+  "path": "05-源码/src/package/QcomRpmh.c",
+  "bytes": 4602,
+  "sha256": "679a55467e6ed4c7e75a8191f1d6da48637377088ef5e27879b1c99bc4a62314"
+ },
+ {
+  "path": "05-源码/src/package/QcomRpmh.h",
+  "bytes": 2480,
+  "sha256": "47e299744ff83989449d262f74f5dfd2ba1cdbf921b2886643735f2febb6ee21"
+ },
+ {
+  "path": "05-源码/src/package/QcomScm.h",
+  "bytes": 1831,
+  "sha256": "ab03ab1291f043cb281f4d64b82b0d497d0e4f61a5b888512f0ec852ae1a3244"
+ },
+ {
+  "path": "05-源码/src/package/QcomSmem.c",
+  "bytes": 5861,
+  "sha256": "4e9eb0ee22458dad30e1fcb7edb74a9d762222aff0623a6d5b85fb4a6e08bd03"
+ },
+ {
+  "path": "05-源码/src/package/QcomSmem.h",
+  "bytes": 2005,
+  "sha256": "f2a25e807bfa0556f2ec19258d8b2f47782acdc5fe1d9bdab23ecbb9f948ae37"
+ },
+ {
+  "path": "05-源码/src/package/QcomSmp2p.c",
+  "bytes": 4497,
+  "sha256": "f91c38e60fe86c5a55cbf9e822e0486997f7104d564ea90d6afe6ab40ac9d60b"
+ },
+ {
+  "path": "05-源码/src/package/QcomSmp2p.h",
+  "bytes": 2717,
+  "sha256": "894f36fd14be184252ce64c4c8c908d161d31433185b190041f4bd18d47d68c6"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/.gitattributes",
+  "bytes": 133,
+  "sha256": "47b7540d689e7e4a798a971254751fcabda0308f1906d43128928936e1c30b36"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/.gitignore",
+  "bytes": 29,
+  "sha256": "60c9bdd905fcf45ac485c680d32e9773962cf061b6f041dcddd033911558a672"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/AGENTS.md",
+  "bytes": 2913,
+  "sha256": "fac0aa2cf69c5246b6dd965be08862142a9912b31619ca86bf4664aa7372eb4f"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/README.md",
+  "bytes": 3371,
+  "sha256": "58819cece494a37fc42111dbb244d4d0c60842a794133fbae28a9be630da6f6c"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/docs/architecture.md",
+  "bytes": 10213,
+  "sha256": "2d43e94b2548e2c0de3a67f2df41dc324283e99df84b5127b15878cff57fbbbf"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/docs/boundaries.md",
+  "bytes": 4610,
+  "sha256": "f6c0d16c91477213edd016959dbcd465efab27070d2e5bc57bfd3d6aade81a30"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/docs/control-and-screenshot.md",
+  "bytes": 5640,
+  "sha256": "29361ccae60dc9df16a81c31e3b92f061705ee926ed1c00ab211d0c886d0f465"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/docs/integration.md",
+  "bytes": 9345,
+  "sha256": "829edb07e861a46ff7122831032d444d18be80f8784021c56939142e26433222"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/docs/port-sm8250.md",
+  "bytes": 19670,
+  "sha256": "4166e45c476a9dc23c5846a0d02cbe98843990770721ef6458b982bf262b7eac"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/docs/porting-other-socs.md",
+  "bytes": 10755,
+  "sha256": "8c09378d7b063e70ba89b5b20552c452e8051f12e21d6946d28613b7f7b62a5a"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/docs/sources-and-evidence.md",
+  "bytes": 9453,
+  "sha256": "96838c6d19afd819a2015aca0306e326282ff17b333a737aa2a5a757aa3121fe"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/docs/usage-and-validation.md",
+  "bytes": 5496,
+  "sha256": "aaf5e5ecba93f6b03f9d4ed7dec6b1a8ba825cc6cf24a81734a18e5941bc1d28"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/ported/bsd/kern/bsd_init.c",
+  "bytes": 57324,
+  "sha256": "644b118155f700dedee312ad078da7607b4c2bee9f02aa5777fc1a2c08ea5480"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/ported/osfmk/console/serial_console.c",
+  "bytes": 24225,
+  "sha256": "5cd97a0bcbcffd8f3e314d5159976e63bd0d82487cda6e2bbd2a54f194afa905"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/ported/osfmk/console/serial_general.c",
+  "bytes": 5449,
+  "sha256": "1bf247fef6e9f86886fbc384fdc407a472c6f752d1adb1ec1857e37a5dc854db"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/ported/osfmk/kern/debug.c",
+  "bytes": 72521,
+  "sha256": "c959df1d074a6d4828c969660a6c674c6e57c2ee05b7fcec6dc0fa7a56e38fad"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/ported/osfmk/kern/printf.c",
+  "bytes": 23227,
+  "sha256": "7146d35fc8bafbd24484c334e557534af76ba0fc686af6c9bd5e4ac8a134db9f"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/ported/pexpert/arm/pe_kprintf.c",
+  "bytes": 6928,
+  "sha256": "9c4d14e475d4ed657c666ce34c5cecdded48a9ca19ac0d7903707c5dc6222800"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/stock/bsd/kern/bsd_init.c",
+  "bytes": 50355,
+  "sha256": "52bf3e995f9811656545714d142ac912ac98f37f65fc7fbb0d64950658c4392a"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/stock/osfmk/console/serial_console.c",
+  "bytes": 23776,
+  "sha256": "026aae3bd254250f6a74f1ab75668f6e3c225346e49cdec992a8e2165a26d4c9"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/stock/osfmk/console/serial_general.c",
+  "bytes": 5345,
+  "sha256": "106264ee7ce6885a4773daf90689c6f5394681c75d231a8a526668116cf6bb19"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/stock/osfmk/kern/debug.c",
+  "bytes": 72058,
+  "sha256": "03300886ebf0ccf6159756491ae6af0e7cef031df70e15c9de71d8aea8ff42a5"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/stock/osfmk/kern/printf.c",
+  "bytes": 22206,
+  "sha256": "cfcc4c6a9cf988a54f42446475816edc8ede3aa68334dc5fdf2c2ca56e4e558a"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/fixture/stock/pexpert/arm/pe_kprintf.c",
+  "bytes": 4653,
+  "sha256": "138dc10c3b379e8625bbe265c1b8cc1acc80e5cd4a1f0de7c890fbaaa44171a7"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/include/QcomUsbScreenshot.h",
+  "bytes": 1836,
+  "sha256": "6dee606bbf1314be4dc8fccda8a30d9dfd748b2e8bc243679348c84222e38dee"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/include/QcomUsbSoc.h",
+  "bytes": 2450,
+  "sha256": "d88c1f10dc32683fed7c38af8f3f040bcd8bb0f2801512fda6637c35e97dfc23"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/include/QcomXnuUsbDebug.h",
+  "bytes": 5560,
+  "sha256": "7d12867d75344c653df7894a60b66159b26bbf81dc84a9bc3cbe96e16e475bbc"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/kernel/QcomUsbBuffer.h",
+  "bytes": 3306,
+  "sha256": "857ba276de22d2f1b297a72bd6db4c14afc1a1442a493640e0c0d666e27cabc4"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/kernel/QcomUsbControl.h",
+  "bytes": 13221,
+  "sha256": "622c9eda7f4c2a1d30e3512067fbaf5ef70389aae43de162c984a706685f7534"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/kernel/QcomUsbScreenshot.c",
+  "bytes": 4738,
+  "sha256": "1963a2c4de0457e3035360adbf22c7826c962c17bfe6c5fcb42eb72d4b5a186b"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/kernel/QcomUsbScreenshot.h",
+  "bytes": 563,
+  "sha256": "551d4e291de1670a18c653c898cea8a99b80f99366bf92baf9bf07ec1e1353e2"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/kernel/QcomXnuUsbDebug.c",
+  "bytes": 65144,
+  "sha256": "74d1068e0b606e842000faf502282ffafde9614cba175aaeaf1cfeb0e7c4ae36"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/patches/darwin22/0001-qcom-usb-debug-console.patch",
+  "bytes": 6318,
+  "sha256": "6488547bcf0a8ac6479cae99b842c0deeca45dbd1d1624c1c63798c90a01a71b"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/patches/darwin22/0002-qcom-usb-debug-worker.patch",
+  "bytes": 7791,
+  "sha256": "a102367fd6fa2e62d6d720eea16cdacc2ca4e8c139cc5cd3a285387aaa0ca680"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/patches/darwin23/0001-qcom-usb-debug-console.patch",
+  "bytes": 8110,
+  "sha256": "c2c08dc1c61df4912ad111ec6cac809ca2d45de72518939ca3a1acc9ec789353"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/patches/darwin23/0002-qcom-usb-debug-worker.patch",
+  "bytes": 7683,
+  "sha256": "5cabb4646437ed20c1eab8561d8d14d3f9072c910e8ba4884f601efd4b4126eb"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/scripts/build.py",
+  "bytes": 7786,
+  "sha256": "8788b8559dfec8976b40ad2f522dbc9fea84c1c499d6e7c4bbf502b50644b067"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/scripts/collect-xnu-usb.py",
+  "bytes": 16523,
+  "sha256": "593014ea0de99e9e2ddf60bdb3d7c15b281322b00b84441bd1428500b353f4b4"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/scripts/compile_units.py",
+  "bytes": 3942,
+  "sha256": "c6f05e34168a914648e4fcbd9d9540e4da937ecdb57093e9c6e0795ae9870e37"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/scripts/screenshot.py",
+  "bytes": 5679,
+  "sha256": "22893c1f2a026519fa42806693153b367526a1ca6bcb07158c0bd9159c9ae137"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/scripts/xnu_patches.py",
+  "bytes": 4724,
+  "sha256": "6bbc530bf104bbf4905017cec3df96817b17f80e7c4931faa499bcdcfc023ccd"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/scripts/xnu_usb_control.py",
+  "bytes": 11927,
+  "sha256": "c7395430832f4bc2bdca0bd08782f2783e1e19f8d8ee09dd61ff16f9a66b1ac9"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/soc/QcomUsbDmaDomain.c",
+  "bytes": 24510,
+  "sha256": "fbdde0acb14b7e6872457041ffabd437ff27c435067739c2f3a2641e4a75b41a"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/soc/QcomUsbDmaDomain.h",
+  "bytes": 3542,
+  "sha256": "27cc620e7cf48a57c619e77a4b0d6c334140b2ee8ea3564cfc36dcdf6c6fd08f"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/soc/QcomUsbQualify.c",
+  "bytes": 24994,
+  "sha256": "631bc494ab2e13abe09a5abfa3988980bd2f57b2985f6da99410982e2563561a"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/soc/QcomUsbQualify.h",
+  "bytes": 6297,
+  "sha256": "dd3ef35a97809f0012d68354d1d557c998a86dfe6d541b718ebf817c5e8bbcea"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/soc/Sm8250.h",
+  "bytes": 7681,
+  "sha256": "ab97c83f693c6faeee77b79b1d236538c56e1bf113e4ef6a3a03d55153758646"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/soc/Sm8550.h",
+  "bytes": 1179,
+  "sha256": "b4624b89513da624ef25fbdef3a8116c151e9c2c8d4c1de4ae448635c9382d9b"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/check.py",
+  "bytes": 6991,
+  "sha256": "bedfab5eb8d03e3c2beb060818249c1c384b48900b557e8607573fa16b46c04a"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/check_port.py",
+  "bytes": 18573,
+  "sha256": "02e09fe9541097592ee7ab59e1846fa1400e962b38bcb0d808b17b45d8102b94"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/check_xnu.py",
+  "bytes": 6777,
+  "sha256": "d2613df1aa863cec61ada4614dbc6d220e2b2c9411e20e259a34d133773eb47d"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/test_domain.c",
+  "bytes": 14142,
+  "sha256": "2b2d208e6f572af50f41f147a32c28d5a7425c490effc410f98a67fe0344bec9"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/test_dwc3.c",
+  "bytes": 16450,
+  "sha256": "8fe809c2e9c73775952b999150e33f66ec6d37e820e0342f2f839a53bc418110"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/test_inspect.c",
+  "bytes": 721,
+  "sha256": "e439f8118d1d7d9bc819bfc32223f23aaf53169627d9c024354ddd9cfff4f198"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/test_qualify.c",
+  "bytes": 12084,
+  "sha256": "01758a72656254645f83a88bc7b1d3bea86695503d8e5caba18a8d86b8ea4e72"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/test_screenshot.py",
+  "bytes": 4595,
+  "sha256": "67ff8098cb4059584f030a66348ad135b0d942231aaf2294da7417ed435ce50a"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/test_usb_buffer.c",
+  "bytes": 5466,
+  "sha256": "09ecedfab462f477a741209e4a41cb42ec7255dd5c305dc95302b34a6a396954"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/test_usb_control.c",
+  "bytes": 12188,
+  "sha256": "b9a67fd64df286f91bda7ab3aba615341a2d484671d6ef34fb4e839830ea0e77"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/test_usb_screenshot.c",
+  "bytes": 2832,
+  "sha256": "764f92512b5e2c3617052d625cfbd9c4bb9ff4f5295bbc3e8354e7bdd7f6435d"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/tests/test_usb_screenshot_control.c",
+  "bytes": 3101,
+  "sha256": "046da5fd0f99dc9d4fc706a7adbcc31563ef7b6cf74ab2b7558e8f8ef98b58b3"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/usb/Dwc3.c",
+  "bytes": 27497,
+  "sha256": "5a65e72507ebd638799f04e48df933b333b99c457bd8e2b5c5f68e5a7ea55bb3"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/usb/Dwc3.h",
+  "bytes": 3860,
+  "sha256": "9cbb1ff8ad03af1ed91fd291ae6678f898be3c736f71895bc9a77de76fb8dca8"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/usb/Dwc3Regs.h",
+  "bytes": 21849,
+  "sha256": "5e9a362cfa6385f55a793b48965963559fc2c1f167cab9d3afa3845603328e4b"
+ },
+ {
+  "path": "05-源码/src/package/QcomXnuUsbDebug/usb/LICENSE.m1n1",
+  "bytes": 1076,
+  "sha256": "11ca423a564b52d3b7f260398baa20d016c25ae180fbdd0067c27b7d1ed7b420"
+ },
+ {
+  "path": "05-源码/src/package/ShengAdsp.h",
+  "bytes": 1474,
+  "sha256": "d877fc12d123ab99c08f00a6e043daf46270da01a0b093673af1910ba08e0b7f"
+ },
+ {
+  "path": "05-源码/src/package/ShengApr.c",
+  "bytes": 27903,
+  "sha256": "a5a268b5eb9dba39804ef5e403fff2be6596804fb43fb56d4d68851e33bb7706"
+ },
+ {
+  "path": "05-源码/src/package/ShengApr.h",
+  "bytes": 24458,
+  "sha256": "92c57bb7dfa4a08cbe1a618bda2f2f3fe3d7a1b4ad4e5400f62aee5a241d8af5"
+ },
+ {
+  "path": "05-源码/src/package/ShengAudioAbi.h",
+  "bytes": 6207,
+  "sha256": "9ef369877cfae3d2255129f7fdf332448b71300a0fc840d6522ec83e09754b52"
+ },
+ {
+  "path": "05-源码/src/package/ShengAudioReach.c",
+  "bytes": 17119,
+  "sha256": "9b198e58272d325bad48e68633f59c8cc5bdc97033d2a485abb6691a402b6a8d"
+ },
+ {
+  "path": "05-源码/src/package/ShengAudioReach.h",
+  "bytes": 6273,
+  "sha256": "b135177a5feb3e24e0d8a6aabb301600e2c37078b970a09ada6e8eb7bb6a5b98"
+ },
+ {
+  "path": "05-源码/src/package/ShengAudioService.cpp",
+  "bytes": 7463,
+  "sha256": "eb732665cd493969887d8cf53eebec540d8efbedc2cff7d22757adab822262be"
+ },
+ {
+  "path": "05-源码/src/package/ShengCs35l43.c",
+  "bytes": 5573,
+  "sha256": "90b909f792559555de688e7be75fc151158e682cdf46620a1c081eec47937149"
+ },
+ {
+  "path": "05-源码/src/package/ShengCs35l43.h",
+  "bytes": 4340,
+  "sha256": "b13177eb799f39e173733df4a0e2b5ee4e4756127f6e0ec7fde2ebb0c7b76465"
+ },
+ {
+  "path": "05-源码/src/package/ShengGpr.c",
+  "bytes": 4165,
+  "sha256": "c4f498f07e2cb601b593e64a8d32474a21d6a87375618e1a67b99d52c5d3160e"
+ },
+ {
+  "path": "05-源码/src/package/ShengGpr.h",
+  "bytes": 3041,
+  "sha256": "a274dded1f4d1e2709b9f966759bcb1f57d12747ee0f57743dea1fa97d95d23e"
+ },
+ {
+  "path": "05-源码/src/package/ShengPlatformPower.cpp",
+  "bytes": 8235,
+  "sha256": "cf9abdfff931390a6d72162d92ba1c32544cde989cfecfabe06e2ee7a809efce"
+ },
+ {
+  "path": "05-源码/src/package/ShengQrtr.c",
+  "bytes": 4824,
+  "sha256": "6584dd43500281ec3606665fda56b8b5394b2c559fcbcea4ebaea124fd6108e0"
+ },
+ {
+  "path": "05-源码/src/package/SmmuBypass.h",
+  "bytes": 4810,
+  "sha256": "450f59f9e305e73add8de3e3a7bd1c7f1d155fdd6b1f284b60ec3d4d958e92b8"
+ },
+ {
+  "path": "05-源码/src/package/TouchBoard.h",
+  "bytes": 13969,
+  "sha256": "5a0951b0beb93316d373f9db9bf5ee547d54fbca1b0240e66a04184e4a72265d"
+ },
+ {
+  "path": "05-源码/src/package/TouchProbe.cpp",
+  "bytes": 63629,
+  "sha256": "dda9a33dad488b908873ecfcc1b9e6f774def0ab5a92535a0b1cbe0a4de8a09f"
+ },
+ {
+  "path": "05-源码/src/package/tests/apr_audio_host.c",
+  "bytes": 29964,
+  "sha256": "b6d18a85fa5baa90c6dfc8516e61749a598f145424c23a33279b7d8c4c551550"
+ },
+ {
+  "path": "05-源码/src/package/tests/audioreach_host.c",
+  "bytes": 10882,
+  "sha256": "bc95229edebbcde37de7de11c8e4f66f30f8010911570399d1478392dedc1352"
+ },
+ {
+  "path": "05-源码/src/package/tests/gpr_host.c",
+  "bytes": 5986,
+  "sha256": "0ef79db96255f7f63c3479e0b512279d99ce38532ccf72e79cd0627e507ec9bd"
+ },
+ {
+  "path": "05-源码/src/package/tests/modem_fw_host.c",
+  "bytes": 8556,
+  "sha256": "dbf316ac37ad9022ecc3f23328544079052c537edd6393eebc53370aafcfaeaf"
+ },
+ {
+  "path": "05-源码/src/package/tests/qcom_adsp_host.c",
+  "bytes": 26766,
+  "sha256": "04996c84de1e211220987f1ebff359fc347f9b20af17addf95910cb0023f81b8"
+ },
+ {
+  "path": "05-源码/src/package/tests/qrtr_host.c",
+  "bytes": 10060,
+  "sha256": "2b58d40eb579f490b7de37bf00ddc4ecb83801bf9a3fbd62ebaa578a18bae488"
+ },
+ {
+  "path": "05-源码/src/package/unixnu.toml",
+  "bytes": 252,
+  "sha256": "bd89ac19fc8e893d498a9cc2ee0a59e5bfe8a363f87cee2ea19e65f898eb1619"
+ },
+ {
+  "path": "05-源码/src/patches/.gitkeep",
+  "bytes": 0,
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+ },
+ {
+  "path": "05-源码/src/patches/xnu/qud-darwin23-console.patch",
+  "bytes": 8110,
+  "sha256": "c2c08dc1c61df4912ad111ec6cac809ca2d45de72518939ca3a1acc9ec789353"
+ },
+ {
+  "path": "05-源码/src/patches/xnu/qud-darwin23-worker.patch",
+  "bytes": 7683,
+  "sha256": "5cabb4646437ed20c1eab8561d8d14d3f9072c910e8ba4884f601efd4b4126eb"
+ },
+ {
+  "path": "05-源码/src/patches/xnu/restore-omitted-public-headers.patch",
+  "bytes": 225632,
+  "sha256": "5d3d35f8423d1b60889e169c306cee4b69e23b5c68dfe3ffa14cb01586cf14b9"
+ },
+ {
+  "path": "05-源码/src/patches/xnu/series",
+  "bytes": 1875,
+  "sha256": "1de75ce0f644671eb1ed8e83be2aa7cd77c68edd7ec9af5b277377f2bf9c121d"
+ },
+ {
+  "path": "05-源码/src/patches/xnu/series-audio",
+  "bytes": 662,
+  "sha256": "17aafcc0188e0bb0a010bb4cfb8f91133a725d9922dc7ad8ff782ec4f7d67f41"
+ },
+ {
+  "path": "05-源码/src/patches/xnu/series-torch",
+  "bytes": 1320,
+  "sha256": "fa8d836899439e66a14c85759424c8d2df4647daacdca091e14812b84b7b7179"
+ },
+ {
+  "path": "05-源码/src/patches/xnu/series-usb",
+  "bytes": 1039,
+  "sha256": "d3ea2292239f3af1ffec99af431d2c7c863f19c43478fc32b01be27775ab94d8"
+ },
+ {
+  "path": "05-源码/src/patches/xnu/zze-dby-torch-media-mount.patch",
+  "bytes": 3305,
+  "sha256": "38b15f4e1e052e27321d1d019b918af488e474840ace093d91a75545e3c9da65"
+ },
+ {
+  "path": "05-源码/src/patches/xnu/zzyd-sheng-audio-addon-mount.patch",
+  "bytes": 1868,
+  "sha256": "dc1f1b8f0c00edb17b086ff08439dc711521932472071dcd4306d516ca2609b8"
+ },
+ {
+  "path": "05-源码/src/porting.toml",
+  "bytes": 283968,
+  "sha256": "255c9cd3a40e01842134aff1633b59d69c68689675887513eede9b0d2855958b"
+ },
+ {
+  "path": "05-源码/src/proprietary-files.txt",
+  "bytes": 4736,
+  "sha256": "50d50cf400331887e215fd7b5e129c522b541e35c6a43c9ca946d6a5a1c0b8ac"
+ },
+ {
+  "path": "05-源码/src/scripts/add-dby-camera-data.py",
+  "bytes": 6607,
+  "sha256": "3ae18540f32531bda2e243c45fbf7ef67919a6fee6895e9c8926a7f5043cb6e1"
+ },
+ {
+  "path": "05-源码/src/scripts/add-dby-camera-trust.py",
+  "bytes": 8115,
+  "sha256": "04d2995bd192a490ec1b89d1d5ba211d83c0f4aa9a9f3cde62999955c4ead54c"
+ },
+ {
+  "path": "05-源码/src/scripts/add-sheng-audio-data.py",
+  "bytes": 4673,
+  "sha256": "a16fac83a728a4dfa4e01801e0111de917b62c326d391f8bfb985c10b820e088"
+ },
+ {
+  "path": "05-源码/src/scripts/addon-add-dir.py",
+  "bytes": 1981,
+  "sha256": "f7038c80ac859ab48bfc6ffeac95d746b4b4ba4e2c7f50b9d56ab78af419acd8"
+ },
+ {
+  "path": "05-源码/src/scripts/build-adreno650-accelerator.py",
+  "bytes": 9653,
+  "sha256": "8f4d956f48f6224defea9f118f0b65ed46f5489abe0c5c425aa6ff85e16574c2"
+ },
+ {
+  "path": "05-源码/src/scripts/build-adreno650.py",
+  "bytes": 41597,
+  "sha256": "11bfd746ef5ac2a9017243091431c486b6bcc465f2c0df44d5f20b97f8246dd4"
+ },
+ {
+  "path": "05-源码/src/scripts/build-battery.py",
+  "bytes": 12975,
+  "sha256": "7fbb5ef703581672cddbe0dd0363fb2a49206b25da3633a3de2ae9ebb314a4d0"
+ },
+ {
+  "path": "05-源码/src/scripts/build-boot-progress.py",
+  "bytes": 7666,
+  "sha256": "5edc238df920a7c562cfe6be2bd5f5a467e44300c450555dfcf8f7ffed0fede4"
+ },
+ {
+  "path": "05-源码/src/scripts/build-cpufreq.py",
+  "bytes": 11907,
+  "sha256": "ebc4e293fe10be2bd6a5762bb874c0fc4407d7d25eb0326cdaa7f81e39292b11"
+ },
+ {
+  "path": "05-源码/src/scripts/build-dby-camera-plugin.py",
+  "bytes": 6427,
+  "sha256": "10cfcb92edf738abee031fa27ed2316d6ead7361879e609ee2557316d3df7754"
+ },
+ {
+  "path": "05-源码/src/scripts/build-dby-torch.py",
+  "bytes": 18902,
+  "sha256": "1d9a5bc53adff8d144eef5d39f82c868a4a1959dfd0e9677cf9db343742ac641"
+ },
+ {
+  "path": "05-源码/src/scripts/build-dby-touch.py",
+  "bytes": 9474,
+  "sha256": "602b959e32ce010e5a0769a094c1789e7641049fa4be464f9e1bf99e30fba305"
+ },
+ {
+  "path": "05-源码/src/scripts/build-gop-legacy-display-linux.py",
+  "bytes": 20505,
+  "sha256": "5f548eb5012331924afc53bd9ed4a441dd87e04d3160a2a7eeed439fe262ecf4"
+ },
+ {
+  "path": "05-源码/src/scripts/build-gop-legacy-display.py",
+  "bytes": 33616,
+  "sha256": "a9e3bfd09d946d3b98607c3fc40d26cf8eb27c78e89c132bb3f36611bfcfc9af"
+ },
+ {
+  "path": "05-源码/src/scripts/build-gpu-power-probe.py",
+  "bytes": 17570,
+  "sha256": "b91d824c9d41da65f3ecc6af014fb0584a5e7b8831565595bbe7ca9c751dc70e"
+ },
+ {
+  "path": "05-源码/src/scripts/build-gpu-smmu-probe.py",
+  "bytes": 11927,
+  "sha256": "79c63e677fc86cfbdd28664508a5a93b18d8d9a94cc1c012d0bfbebddf0017ef"
+ },
+ {
+  "path": "05-源码/src/scripts/build-link-stubs.py",
+  "bytes": 1551,
+  "sha256": "80d49f8934e578495ff31cc65c423ca7d0646dc6dffdbf95f9bf942c1e41fbda"
+ },
+ {
+  "path": "05-源码/src/scripts/build-platform-power-linux.py",
+  "bytes": 14011,
+  "sha256": "5eb1ff576e6a8572b12d8183d98e2373e88c65bf3b53375a492f6ecfafbdcef8"
+ },
+ {
+  "path": "05-源码/src/scripts/build-platform-power.py",
+  "bytes": 12113,
+  "sha256": "a71aeefdcfd13bc78276a2ed9924b8e25ee1384d8443707c65894a786dab8077"
+ },
+ {
+  "path": "05-源码/src/scripts/build-qcom-usb-debug.py",
+  "bytes": 2479,
+  "sha256": "333b497b50f86c63574f9a1c02c3823d10226289f8d8ce00f1523aedb3c0dca4"
+ },
+ {
+  "path": "05-源码/src/scripts/build-sheng-audio-hal.py",
+  "bytes": 2337,
+  "sha256": "ed9fd2d386a27e9c5175467375a982a0371e62b5c1268ff59eb2327bb3ec11d3"
+ },
+ {
+  "path": "05-源码/src/scripts/build-storage-bindings.py",
+  "bytes": 7865,
+  "sha256": "d6ad383ff17edd48b15d71eb8f3576d7e536f120847736b9e1c61d63fb7bbb3b"
+ },
+ {
+  "path": "05-源码/src/scripts/build-verified-root-archive.py",
+  "bytes": 12476,
+  "sha256": "c91da11af00c694f54815464dd83425067f78deeef1f4dbf0c1a145430ca6a83"
+ },
+ {
+  "path": "05-源码/src/scripts/build-wifi-probe.py",
+  "bytes": 25636,
+  "sha256": "9c524e411959dee0d606dba38d0f2d93f16c4498dc00619891b672838f321a3f"
+ },
+ {
+  "path": "05-源码/src/scripts/build-xnu-4k-baseline.sh",
+  "bytes": 45944,
+  "sha256": "ca4c3a4bf168c5457d5e8577842b484dfb96888c3398f43b45e0fd9a28224969"
+ },
+ {
+  "path": "05-源码/src/scripts/check-addon-writer.py",
+  "bytes": 4496,
+  "sha256": "2a3fbe7ca73a6053ef9d26c73b74186f9a1d3f6de8b9382862733b3f1ba2345e"
+ },
+ {
+  "path": "05-源码/src/scripts/check-adsp-host.py",
+  "bytes": 1016,
+  "sha256": "7a272919509dfb9564fefd75e7804e7698e69f2400dd7f50571c7c30db39b29a"
+ },
+ {
+  "path": "05-源码/src/scripts/check-apr-host.py",
+  "bytes": 1118,
+  "sha256": "93d016c69fd019661d9dc602cde3e3801b3ed6ad8461f996426e614d49b59bc9"
+ },
+ {
+  "path": "05-源码/src/scripts/check-audioreach-host.py",
+  "bytes": 892,
+  "sha256": "20b779a1804b4a41193bcf0d8def1dd1b808cae418aba2e3f68b801561a8da15"
+ },
+ {
+  "path": "05-源码/src/scripts/check-dby-torch-host.py",
+  "bytes": 8391,
+  "sha256": "88bef6761560c787210d1666a37c4ef50e9fd9e3d2a7528917b37c154cf6e00b"
+ },
+ {
+  "path": "05-源码/src/scripts/check-dby_w09.py",
+  "bytes": 6122,
+  "sha256": "687f394f7499f5686de65adc57a477d628b02677a131263bf3fc4540e5af9ba4"
+ },
+ {
+  "path": "05-源码/src/scripts/check-gpr-host.py",
+  "bytes": 869,
+  "sha256": "f3c5bdb64d4893e6df083c6a3af8c2ba7c936516fb712e86e6e036f3683283e6"
+ },
+ {
+  "path": "05-源码/src/scripts/check-modem-fw-host.py",
+  "bytes": 5409,
+  "sha256": "5d475c11042705a9ffec4d5079d520e8ec4a5786bbc4ad16e5d3903e13304874"
+ },
+ {
+  "path": "05-源码/src/scripts/check-qrtr-host.py",
+  "bytes": 817,
+  "sha256": "314333ca934a47ce1f883039d6d8831c467f0d797abf73cdbdfd5e6db27f1ac2"
+ },
+ {
+  "path": "05-源码/src/scripts/check-regression.py",
+  "bytes": 15215,
+  "sha256": "a2bc66407a94cbf183c20dfaabf572692052d3bbc97a07f4fc685fb17485c941"
+ },
+ {
+  "path": "05-源码/src/scripts/check-smp-topology.py",
+  "bytes": 4939,
+  "sha256": "6d5a16e78b5376d157b2486430bc8f9554802ac1553c1d80d0e2df431e8a392a"
+ },
+ {
+  "path": "05-源码/src/scripts/data/adreno-compiler-inputs.json",
+  "bytes": 2498,
+  "sha256": "11759f0f6c5a03030f3b0d70e40e920055b201c22f2b091fc33b07a166b8d0ba"
+ },
+ {
+  "path": "05-源码/src/scripts/data/adreno-constant-inputs.json",
+  "bytes": 746,
+  "sha256": "30cb7cb2ac588f52bd8be762e832b26f6a268a0cd45ad24453c1d27cb000a39a"
+ },
+ {
+  "path": "05-源码/src/scripts/data/adreno-inputs.json",
+  "bytes": 10158,
+  "sha256": "770c85b715dbd325bf8813c72b5b4cde1e204faa79c14e8272fa1c4e93bb6434"
+ },
+ {
+  "path": "05-源码/src/scripts/data/adreno-raster-inputs.json",
+  "bytes": 2398,
+  "sha256": "9cb3940682ddd1c2b1a83ee05b7af0057c559d6c2df4d0433524e003eb344cbc"
+ },
+ {
+  "path": "05-源码/src/scripts/data/adreno-shader-inputs.json",
+  "bytes": 1249,
+  "sha256": "7f901d1c93b870a44160fd191b4afd75405dd336564eb69146fdca99923130f3"
+ },
+ {
+  "path": "05-源码/src/scripts/data/adreno-vpc-inputs.json",
+  "bytes": 1747,
+  "sha256": "27831a60f7342ce524f5878a634f5572b3b15833119cb7ec6090d1954eb4d344"
+ },
+ {
+  "path": "05-源码/src/scripts/data/air-fragment-inputs.json",
+  "bytes": 3563,
+  "sha256": "705e29a8fe1a309876736d98bb0b7cc5c0e6337f2f403bc6072b4fc640c9b7bb"
+ },
+ {
+  "path": "05-源码/src/scripts/data/gpu-metal-vulkan-inputs.json",
+  "bytes": 2637,
+  "sha256": "e7e98926856f7bb206a3596a9d9c56afe9aa98b00ce2a6f20d4899f22d061b88"
+ },
+ {
+  "path": "05-源码/src/scripts/data/ioaccelerator-base-abi.json",
+  "bytes": 1236,
+  "sha256": "7d898b215006553b4de3820b0a29b4a330ddb5ec44fee77a3695bd6ea682a7be"
+ },
+ {
+  "path": "05-源码/src/scripts/data/native-adreno-memory-inputs.json",
+  "bytes": 2098,
+  "sha256": "1240f7b12fb27305fdfae0ca9a0d9f10925fc36c9df4ebe5f45690def04029cd"
+ },
+ {
+  "path": "05-源码/src/scripts/data/native-aes-original-bindings.S",
+  "bytes": 3016,
+  "sha256": "69576361ea9a462cfed936e36e5c08458bb8b710ed1ee523e96f7ec7cf0a960a"
+ },
+ {
+  "path": "05-源码/src/scripts/data/native-air-compiler-inputs.json",
+  "bytes": 770,
+  "sha256": "e47b6aa3308b3735f48c464843c058f1fa803afb7984e9a97c7fd156f4dcaa43"
+ },
+ {
+  "path": "05-源码/src/scripts/data/native-air-diagnostic-inputs.json",
+  "bytes": 8277,
+  "sha256": "12b1cf9701d86c8c68b41dff61800253e1beaea603aa35eba5c344adda7557e6"
+ },
+ {
+  "path": "05-源码/src/scripts/data/native-air-fragment-inputs.json",
+  "bytes": 10758,
+  "sha256": "fb44e7808267948b6136a334b3d849c7122fcbf7af1735b69d2552803ad13675"
+ },
+ {
+  "path": "05-源码/src/scripts/data/native-storage-original-bindings.S",
+  "bytes": 3048,
+  "sha256": "a8d34b46b6fb75f52069ce836dda6112dba320a68875e0f7539a6f9d2ddb1d25"
+ },
+ {
+  "path": "05-源码/src/scripts/dby_macho_late.py",
+  "bytes": 2918,
+  "sha256": "0f009544e2382e3160a6c43c7d66407d6a74b46a5fe8d7d14db172f375dba5d6"
+ },
+ {
+  "path": "05-源码/src/scripts/extract-afe-firmware.py",
+  "bytes": 6156,
+  "sha256": "5949300bf45976eb54702f5516f7663ac28264f8cddf80f68ccbaad46dbc0bc6"
+ },
+ {
+  "path": "05-源码/src/scripts/extract-files.py",
+  "bytes": 4152,
+  "sha256": "fb212b81f34f93fc127c7dbc6aa3abd25667fb6c960151c2559e84b25b76e1e0"
+ },
+ {
+  "path": "05-源码/src/scripts/gen-gpu-firmware-header.py",
+  "bytes": 16393,
+  "sha256": "1b96462a80b4d48c5aaa20d5f6a029f9fb9978cd7d97167797b5673572dd0c19"
+ },
+ {
+  "path": "05-源码/src/scripts/gen-touch-firmware.py",
+  "bytes": 1485,
+  "sha256": "9a9c4ecdd9b84eedf93ba3f743fc0c9980fddfe1419b9085cae8ed7a091a8f88"
+ },
+ {
+  "path": "05-源码/src/scripts/macho-late.py",
+  "bytes": 3675,
+  "sha256": "a60dd352b107461b1a73a6c9cb8d3d74a467de2ad9213149eb5221256c665442"
+ },
+ {
+  "path": "05-源码/src/scripts/make-gpu-addon.py",
+  "bytes": 5300,
+  "sha256": "f5083f830c024cc5960c0c7ce002e5c968c8c98175c13d8721776d82faef5cd7"
+ },
+ {
+  "path": "05-源码/src/scripts/make-owner-trust-bundle.py",
+  "bytes": 4165,
+  "sha256": "1f0d77bf4486939579e765e83291511f3005d3d088e23b2f0823874c47dc0727"
+ },
+ {
+  "path": "05-源码/src/scripts/make-sheng-audio-trust-bundle.py",
+  "bytes": 3890,
+  "sha256": "6b52f81ecebe0243b8e5c85aaa2325eb11e44e56ab7cf218cb97efff3f2380bf"
+ },
+ {
+  "path": "05-源码/src/scripts/make-verified-root-policy.py",
+  "bytes": 9468,
+  "sha256": "945cdf53c306fa2fcaa2cde31acfa73084a0bdda1e49d62895fdb737502fff6e"
+ },
+ {
+  "path": "05-源码/src/scripts/patch-xnu-entry-probe.py",
+  "bytes": 25178,
+  "sha256": "6e72dd78dd26bdf771235c21372911d6d7784f43e74ecc988fa1641d1b11411c"
+ },
+ {
+  "path": "05-源码/src/scripts/regression-baseline-adt.adt",
+  "bytes": 14736,
+  "sha256": "e91c7e803a16bdd760d595fb1363f882efac78299f292597ce8a1e34f01a5d07"
+ },
+ {
+  "path": "05-源码/src/scripts/regression-baseline.json",
+  "bytes": 3729,
+  "sha256": "81e521d76ddf08f25c236d32921cd7a916d3be902a463c3f84e946bd8a3258cc"
+ },
+ {
+  "path": "05-源码/src/scripts/seed-mobile-graphics-record.py",
+  "bytes": 2183,
+  "sha256": "0a1b588360b56e27d1c3cf49945d75b6daa6094cdb098fce087db87024367c3a"
+ },
+ {
+  "path": "05-源码/src/scripts/test-dby-torch-media-mount-patch.py",
+  "bytes": 8028,
+  "sha256": "f92755e31937224e04f2430452bd432d8d3da6bda78720a15bc7960227db329a"
+ },
+ {
+  "path": "05-源码/src/scripts/trust-append-module.py",
+  "bytes": 1264,
+  "sha256": "5de6c87ea926e2c9b6eefba8ecf643dec656e693d24aa51d7c06f7fb0e57fa4d"
+ },
+ {
+  "path": "05-源码/src/scripts/xnu-panic-screen.c",
+  "bytes": 10385,
+  "sha256": "22dcf78dbfa15e75990d75da8dc7524340804d9fc656ca9ce4f0cb9abaa1e8c6"
+ },
+ {
+  "path": "05-源码/src/unixnu.lock",
+  "bytes": 996,
+  "sha256": "3c21d732452fa515d75076cf16ff7027620f5a9929e525dcd9a1888cdbab8e08"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/AGENTS.md",
+  "bytes": 2183,
+  "sha256": "f9820481525be558fc52bcb05d5c06f046db0b1ee493e649292f5f10c9fd1b74"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/CacheExport.h",
+  "bytes": 16543,
+  "sha256": "678333d6e8ef97b64ac776f23606d39f8375d9a3e4597b5c38419dfb7e3ec9bf"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/ExceptionDiag.h",
+  "bytes": 2335,
+  "sha256": "daa05a4c68d8a4f081ac0902220342fbf758fdc83f0610c9d446d81d10513aaf"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/GpuScanoutClient.h",
+  "bytes": 8103,
+  "sha256": "7301b75561f995cae7c9e9f421b09f13d176facfb3310d7a9e2418e39f0c80b0"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/GpuScanoutPresenter.h",
+  "bytes": 6820,
+  "sha256": "43aace3fcad5ade38ac21a915ddb791806b9339c8f98ab53e130a42d4202ad9f"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/HostMetalCommandServer.h",
+  "bytes": 227,
+  "sha256": "556b9f2091eb69e60aed098489acc6465e6cc1e5d9a128b5aa3e0e147142050a"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/HostMetalCommandServer.mm",
+  "bytes": 60605,
+  "sha256": "8ce074e404be178311605afd083dd665d0cad886d5c807faccb3655f5af5c9ea"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/LICENSE",
+  "bytes": 1102,
+  "sha256": "6685409a074a6f5bb0583745a6afd8a6d89c0156e4e76103db54f8ecfed221e5"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/NativeAdrenoMetalPlugin.mm",
+  "bytes": 26684,
+  "sha256": "1e30daa661f54abef4a8380771dd11adb0b4833a095bbd015d5b04a7c7c94208"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/NativeAdrenoProbeDaemon.cpp",
+  "bytes": 1465,
+  "sha256": "95cc2a3ddfa9c001be0c33174b8b87c6db25373aeadae4dd76cd08060766556a"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/NativeAdrenoUserTest.h",
+  "bytes": 35786,
+  "sha256": "6454c1f755f98f37d6dce2d3faf7eb69990d2dd3dd112b5e9f15b9e1d4ef7d9b"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/NativeBridgeMetalFrontend.h",
+  "bytes": 2404,
+  "sha256": "121ad533de738d49556c9e731b64063a9c079e098c8c3e1479989f27d8d9fd26"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/NativeBridgeMetalFrontend.mm",
+  "bytes": 137215,
+  "sha256": "1a7750c8a977e105242bde2252aeb9f0b114341815463a342af31d7309efb350"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/NativeIOGPUProviderProbe.cpp",
+  "bytes": 3849,
+  "sha256": "75e7b3935561740cb717492390bda5a9a1f39b4cc3535ce6352132984e16bcb8"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/NativeMetalBridgePhase.h",
+  "bytes": 13666,
+  "sha256": "2106ffc0471fddedc65df0677b9985d101f62ce674f269f5469a8178feaa1a1f"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/NativeOfflineAccelerator.cpp",
+  "bytes": 764,
+  "sha256": "e7911770811c67130bcaa5737e56773157301e799d98a76837ba8bbd7fcda21a"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/NativeOfflineGPU.cpp",
+  "bytes": 21455,
+  "sha256": "21c7b21056c627e52d458d34a9f1ac00c10827115326d8d811f8026fc6bbf67c"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/NativeOsLogExport.mm",
+  "bytes": 5139,
+  "sha256": "fbd21272a1cfef1c1fa3cd6463f4954e39a95f45b57e1ebc45f18c320455c83e"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/NativeTurnipSmoke.h",
+  "bytes": 36002,
+  "sha256": "86221864bcbad1dc7859cc17ec4459bef51b047a2a277fede66f61e2b3eb73a0"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalCommandWire.h",
+  "bytes": 555,
+  "sha256": "22fb814b36aff3f3653c37cdc678811cc2fa380027976aa319fdc3fa53d36596"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalDepthStencilWire.h",
+  "bytes": 1207,
+  "sha256": "1c1f68c75000c6c688f3c604d742b6dce37751c0876f5e051868cf41dc8e51fd"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalEventWire.h",
+  "bytes": 525,
+  "sha256": "48eb5434452635cf116f093458b1c28fb61bee78c3bf6a2587b5aab3d95df72e"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalFenceWire.h",
+  "bytes": 674,
+  "sha256": "7df5d9b55f0be9de753f0364d73252d60d6a99b3f8d7ba718e120f0e81f78d26"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalFrontend.mm",
+  "bytes": 76689,
+  "sha256": "b25d67ae64f5b557459a141cb5dbe723d4e9a0ad0156625b6c1b460f808c79f3"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalFunctionWire.h",
+  "bytes": 1390,
+  "sha256": "9d0773fe92d8e5da6be53757c820b2edcbbd3fb91294ff552d486818994989a9"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalPlugin.mm",
+  "bytes": 2019,
+  "sha256": "16c6a5fd3cf1d9dd25a55ca406f308146ecc9fd94e27c5bbf93b73f28bcd9eec"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalQueueWire.h",
+  "bytes": 427,
+  "sha256": "7325b7c1f720accac3c92d6715137ca26157a862a1a6eebfc407ec74653a7a12"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalSessionWire.h",
+  "bytes": 469,
+  "sha256": "80d09ca0f58496be98893d3aa5be94963baf23aac94b01aebcc60e10828ece07"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalSharedEventWire.h",
+  "bytes": 907,
+  "sha256": "6932ab04e83e693b4d63d48f9f434324b2e41e5f7df6afc0654888645873a96c"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalTextureWire.h",
+  "bytes": 562,
+  "sha256": "0e19b43136c4cb267e3110d3f717524c2b277258e2f2b2e368c73720c6909e25"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalVertexWire.h",
+  "bytes": 1886,
+  "sha256": "cf7468b7339984a62062c8652341fc03c2eb7615b1d58ebfdd8b01a0cd8492ad"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OfflineMetalWire.h",
+  "bytes": 2821,
+  "sha256": "055dd49f5a5f43c3090dc35e085b944e2548f19e879d099ee03ff668facd3262"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OriginalAcceleratorABI.h",
+  "bytes": 585,
+  "sha256": "1dc63af83fc46022166b5e656b5c7b82b004798a52805152077699971673ee0a"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/OriginalGPUProviderABI.h",
+  "bytes": 2772,
+  "sha256": "6fda36592e0c7471fbfada6b4ba537efd67543db7667d3b06cb3133c1a256580"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/PrimeShaders.h",
+  "bytes": 19318,
+  "sha256": "18e146a70d5b768b5201500e6ca131db261331ff9f6379238fd52eccfa97df99"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/README.md",
+  "bytes": 394,
+  "sha256": "2f8a5a7f105614b84817cb5f9a5a65364a193ebb315ebdf91db6c6c4fadcb0e0"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/FrontendChecks.h",
+  "bytes": 30304,
+  "sha256": "20d0afe470dbbe4a3336e0f980e692dd2a37c243a6941cbeb58b2424215e93b8"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/NativeMetalBridge.h",
+  "bytes": 1172,
+  "sha256": "f25ce69c7b724d0064770057d1848c9f8deb73b98a2b7faf4c578697c1f64aa0"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/NativeMetalBridge.rs",
+  "bytes": 18878,
+  "sha256": "4b6c98993291edd3873c84025b35a68839209bc7bdd8457c77ee95dc818eb8e1"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/NativeMetalObjects.h",
+  "bytes": 19626,
+  "sha256": "13a396713100bf997369d091394c250c999510109c2ba16cef82dc23b80d6253"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/NativeMetalObjects.rs",
+  "bytes": 96353,
+  "sha256": "3fa4f8ae88a95c5daa3f152c447fe4f3889ebbb24a4b0c069c8e7b54c5d9b9df"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/archive_host.mm",
+  "bytes": 3933,
+  "sha256": "23fb371ba6caf2be76bbd5ab1f5f84a08410182aa2c7474e9b1a947c6d1216ac"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/bridge_smoke.cpp",
+  "bytes": 1237,
+  "sha256": "4a9d21a36dca08b17471d0dcc2b157af276c52ddb9dc2b16ea2c696aefd3fcd5"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/cache_export_host.cpp",
+  "bytes": 4186,
+  "sha256": "eccfa987b638ebdbb4b5527a44b5685f092a866a837027c1e35298f1b14df80f"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/carenderer_host.mm",
+  "bytes": 9774,
+  "sha256": "09c4ce3d4d7fb7434a1b7312254f234cbd7c9e21d5f51d6115f6d319148a7641"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/compute_archive_host.mm",
+  "bytes": 6115,
+  "sha256": "d0b2cbcf89829c110d3be371dbc8377d1bc814020ee886aa3719b20cf42e1366"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/driver_cache_host.cpp",
+  "bytes": 4223,
+  "sha256": "c9780565dcb843556ad4a3c2b8ed3b75a03282be17a40573e91cd8ebee9cf503"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/frontend_host.mm",
+  "bytes": 2107,
+  "sha256": "4a3c86309bc0b72d0654b2c24b93657ca73fc14f3736d6d2894a88621e07a86b"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/graphics_cache_loader.cpp",
+  "bytes": 7839,
+  "sha256": "4021cc398e642519d2bd6b3fdeb968833029cf6ff8e289fa6150231ba1da67c2"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/import_count_loader.cpp",
+  "bytes": 3050,
+  "sha256": "92844ee3efc9a514d68c007c5f70c97ed4fa552e952c5982fd75ef653710d4ac"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/nil_args_host.mm",
+  "bytes": 2800,
+  "sha256": "d5e5c2815499d9a4b2ca9d6f36f4b526154d7dc2a3b1654a83ae4204c244c162"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/no_copy_import_host.mm",
+  "bytes": 8509,
+  "sha256": "bbc6fe9c49a9154dfc00cf38305c1524c6840755ce6260f12d8d15d72b8f293f"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0001-optional-constant-output-members.patch",
+  "bytes": 2776,
+  "sha256": "f2dd283d3bfef5c62d4b522e439599646def9eb42427d2940526e51976403445"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0002-resource-wait-storage-dependencies.patch",
+  "bytes": 3255,
+  "sha256": "b36b96f3829bcb6434a2ddb99984db4451446049d50b90a09ee3f7a2f591d2b5"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0003-cache-device-entry-point-priming.patch",
+  "bytes": 10349,
+  "sha256": "b85ef2b8babc17c283f742f536f0f62a6d02637503161887542fcaaf734165f8"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0004-fold-constant-global-field-loads.patch",
+  "bytes": 17007,
+  "sha256": "63e5def665a809d0aa3f9a9469c594b748b62093500c323f04b01f09d8d41c79"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0005-keep-module-decodes-and-profile-fingerprints.patch",
+  "bytes": 5592,
+  "sha256": "7758eb8b54c6bc13d95fde7d695e3b5f5cffd04452e90c633795c93fc3f9be38"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0006-skip-draws-without-a-pipeline.patch",
+  "bytes": 989,
+  "sha256": "a9926e5356649fe2d94da62ecdd43a4c1e2c201bb9223ae8c43c0ee5071b8c73"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0007-accept-two-plane-rgb-surfaces.patch",
+  "bytes": 1670,
+  "sha256": "4dd0affdea94d749f342a9f0ac752412d50396373b610f21179ced67129fea7e"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0008-alias-padded-rows-of-written-textures.patch",
+  "bytes": 1669,
+  "sha256": "ecc1926bfb6c1fbfef6b8da28891991815855506f87eb19e81521af88a9fdbdb"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0009-keep-final-pass.patch",
+  "bytes": 6324,
+  "sha256": "558aa51c4e3c480f39fdf1ccb87111482a05cb66208eb8a8da567130198fece0"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0010-fewer-allocations-per-draw.patch",
+  "bytes": 24655,
+  "sha256": "46cdc107999c456d3ea75c6f2aeb4601e6859ad1cb152fbef1ff17357cc8353b"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0011-keep-draw-commands.patch",
+  "bytes": 14476,
+  "sha256": "ef583af46844bcbb9a812d5231747bdb8a3e197b68b59df45c67d2579b2e455c"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0012-keep-draw-lists.patch",
+  "bytes": 12890,
+  "sha256": "6a891ad8ced326d1bdb5bfbf75dcd664dcca55be32a3ba79a520e560e04ed119"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0013-skip-unchanged-rebinds.patch",
+  "bytes": 18646,
+  "sha256": "db04a40299833f44e133bcfe0f442969518d130a37994d51dff7e891dc786bfc"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0014-map-tracker-keys.patch",
+  "bytes": 2825,
+  "sha256": "8f86d029aaf181445e84226fba362bef58eb50c004b4930ae1ae06c494ea8433"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0015-two-plane-shadow-as-memory-lies.patch",
+  "bytes": 2775,
+  "sha256": "e7ca8f1e9e4cb19cc16ef9286d7e6a019c3881585b01ff1adea893812d294d83"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/patches/0016-tile-stores-within-rows.patch",
+  "bytes": 4034,
+  "sha256": "51a1c6c0a1bfcdd05dd922fc31bbd6855ca6669cdc633894decd000870de4127"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/pipeline_timing_host.mm",
+  "bytes": 7861,
+  "sha256": "1c6bdb2cb2395314c130a4084b7b11594383dd4b5a2c28ed9f509d920963966d"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/plugin_sequence_host.mm",
+  "bytes": 1753,
+  "sha256": "26fe427f4b9fc064eab75803b396596edfd00efcfe1ea39593b7b321241af46f"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/present_host.mm",
+  "bytes": 3410,
+  "sha256": "45b84c9088049a783acd2818b46e1a82a924494d9b375f3ce30f05c17cead85a"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/priming_cache_host.cpp",
+  "bytes": 2770,
+  "sha256": "a00bc11733886626f334e29be4d5825ddf83c81591d3fc3a781862ab4feb2318"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/priming_cache_ios.cpp",
+  "bytes": 4070,
+  "sha256": "490e55eeba57b52ff42d2af59510c38236b2d910cfb82cb30d180816b6909e60"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/priming_cache_loader.cpp",
+  "bytes": 4740,
+  "sha256": "1d2d35026fbe0bc9535c0d01d5d1183d9849877d721c4550b77c5c6a4a8d5072"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/quartzcore_blur_host.mm",
+  "bytes": 15830,
+  "sha256": "0dafe67ce8aca847118cab0ef7b55bd5d79c72058222a30d52c0c5ba3dc5b6bf"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/quartzcore_cache.mm",
+  "bytes": 9096,
+  "sha256": "e43015a98f270eb1f0500959e44290a64772e0e59e1c632b8b5eef79bdc86272"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/quartzcore_cache_ios.cpp",
+  "bytes": 9664,
+  "sha256": "6c8695731a1c12858720f171552dad65ab5df55d1c5af9c7e21e7b1420c3b5d1"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/quartzcore_cache_provisioned_ios.cpp",
+  "bytes": 2320,
+  "sha256": "84a87104783698a73aa1cdd44915f6f89a1cd2522c76129825add8dfeaf836ab"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/register_host.mm",
+  "bytes": 1637,
+  "sha256": "01d5e1987c65d4357d3abfd6d3d98d1302408b367dcc339263609b2f1b854b68"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/resource_lifetime_host.mm",
+  "bytes": 8283,
+  "sha256": "f6905c93568fd66c7719f996e7e61fe3e5b249b5c3d1a18ef4f3031619c74728"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/resource_wait_host.mm",
+  "bytes": 8680,
+  "sha256": "a8539928c69afd3ba4246e6357d86136c365c2d654b422cac6ae5e8564139046"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/scheduled_host.mm",
+  "bytes": 4094,
+  "sha256": "e84cac838ece49cc25e577e2436abe4cfde83bb9ebe00cc60d8ed47d6a0b51cc"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/selector_coverage_host.mm",
+  "bytes": 5240,
+  "sha256": "3c61d5c1ecd4c818b5e312288960c494a47a5f3a1a8daf5fe6ad1ec2bc05d943"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/surface_flush_host.mm",
+  "bytes": 6431,
+  "sha256": "faa1226b15bde133dc69a595849f7dcce5070c1d291953d589ce59d1815bacc8"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/surface_import_host.mm",
+  "bytes": 10351,
+  "sha256": "7f6895faab84d7ae238e88358057293915f74649bd1eb65f8a84c0b3a4de7490"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/telemetry_host.mm",
+  "bytes": 3487,
+  "sha256": "06af1094b93ddad46097b63164830091688b779b7659a5931c318bf618fe9783"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/bridge/uber_diff_host.mm",
+  "bytes": 12129,
+  "sha256": "3f11591ea5b8584ef75eed7cddf8a56228e776a2cb05598b555999f377d039e5"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/shaders/smoke_fill.comp",
+  "bytes": 375,
+  "sha256": "b1ce5c550b02dbc4fbd306c14e0b1602b947174d0378e9acb21316f983ee80f3"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/shaders/smoke_triangle.frag",
+  "bytes": 138,
+  "sha256": "e816f05eb36ec90f7b0b553ad7f78bb4f017e9815cd2001699cf5d9b27c6555c"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/shaders/smoke_triangle.vert",
+  "bytes": 248,
+  "sha256": "1d561164fe4eb3466d7723d0d5dd87feca7473fc21c9b06f50771fbc1154476b"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/tools/MetalVulkanProbe.rs",
+  "bytes": 6647,
+  "sha256": "1adb5c726ccc48e66caff129bae71ac7afae8af5f6c0f9a3fc989e64dfd47db1"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/tools/metal-vulkan-probe.lock",
+  "bytes": 5330,
+  "sha256": "c4b03bc157b6ad6154fdf2ac8307a4caa8a39dfaf072c8839b471caf6096818e"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/tools/probe-coverage-attachment.json",
+  "bytes": 19,
+  "sha256": "5146cbb38c595b3afeec281b6332101f7d1c756c0179e820105f6c34a50231f1"
+ },
+ {
+  "path": "05-源码/src/userspace/AdrenoMetal/tools/probe-vertex-layout.json",
+  "bytes": 316,
+  "sha256": "a20489802425de1d7b4b28cfad03419b1a74b1014463fb9d9b61e4a0bacd428f"
+ },
+ {
+  "path": "05-源码/src/userspace/GpuScanoutClient.h",
+  "bytes": 8103,
+  "sha256": "7301b75561f995cae7c9e9f421b09f13d176facfb3310d7a9e2418e39f0c80b0"
+ },
+ {
+  "path": "05-源码/src/userspace/GpuScanoutPresenter.h",
+  "bytes": 6820,
+  "sha256": "43aace3fcad5ade38ac21a915ddb791806b9339c8f98ab53e130a42d4202ad9f"
+ },
+ {
+  "path": "05-源码/src/userspace/NativeAdrenoUserTest.h",
+  "bytes": 35786,
+  "sha256": "6454c1f755f98f37d6dce2d3faf7eb69990d2dd3dd112b5e9f15b9e1d4ef7d9b"
+ },
+ {
+  "path": "05-源码/src/userspace/NativeMetalBridgePhase.h",
+  "bytes": 13666,
+  "sha256": "2106ffc0471fddedc65df0677b9985d101f62ce674f269f5469a8178feaa1a1f"
+ },
+ {
+  "path": "05-源码/src/userspace/bridge/NativeMetalBridge.rs",
+  "bytes": 18878,
+  "sha256": "4b6c98993291edd3873c84025b35a68839209bc7bdd8457c77ee95dc818eb8e1"
+ },
+ {
+  "path": "06-工具/brew-shim.sh",
+  "bytes": 386,
+  "sha256": "9a35955c8e8e42aec09dba3857fb7838d041b78844ace4c1912a7533a8c698a2"
+ },
+ {
+  "path": "06-工具/decode-thisboot.py",
+  "bytes": 6893,
+  "sha256": "3c2c6a9d933d6c019df71a83686f993ffc517c2d694b4b736f868aa7e71f0527"
+ },
+ {
+  "path": "06-工具/edl/readback-window.xml",
+  "bytes": 962,
+  "sha256": "0499ab884285794fe1b2d8847e8a350bab12601678f4493843ae2762d08faf74"
+ },
+ {
+  "path": "06-工具/flash-preload-edl.ps1",
+  "bytes": 6716,
+  "sha256": "5ab6a4f33f7466599d41e29dcf19d700a3b326d741b1c9989df56b451acd945e"
+ },
+ {
+  "path": "06-工具/llvm-objcopy-linux.py",
+  "bytes": 2835,
+  "sha256": "9f5597b95769a5432040ef6d0030ec5f3277c3353af478012a2d15767741ce53"
+ },
+ {
+  "path": "06-工具/read-payload-args.py",
+  "bytes": 2265,
+  "sha256": "1410afdd56f35d1d3675da33e9e40c61b71edd14c51f45515e69cf7f6f42f432"
+ },
+ {
+  "path": "06-工具/read-window-8192-keep-edl.ps1",
+  "bytes": 2853,
+  "sha256": "8c2e15972c5f94912d22d6a6f0d7b7e972cbe127c3213ba4d816d782e6558ff4"
+ },
+ {
+  "path": "07-证据/gpu-实测摘要.md",
+  "bytes": 4031,
+  "sha256": "30ed74e109b1f1a8d828696f7fbbf20b8f413fc9194710374227dfe8628d93d1"
+ },
+ {
+  "path": "07-证据/lun0-partitions.txt",
+  "bytes": 1072,
+  "sha256": "26c20b1fa694d9170e096065602170127a5b69d36ad2a385a3920f13b4f18c37"
+ },
+ {
+  "path": "07-证据/s130-gpu-rows.txt",
+  "bytes": 7061,
+  "sha256": "ef01d61d29ead6693330749616df898fc7af4cccaac22ee3b25caaf95445858d"
+ },
+ {
+  "path": "07-证据/s131-gpu-rows.txt",
+  "bytes": 12467,
+  "sha256": "1bf3f31cb046576fd18e27917ac5ea797bd39c4754be827b948a9696520518d2"
+ },
+ {
+  "path": "07-证据/s132-root-mount-panic.txt",
+  "bytes": 358,
+  "sha256": "8a1bbb1be331aa6ce849e1e642c70700c44fa3dee460b4fc5611c579de5f49cd"
+ },
+ {
+  "path": "07-证据/s151-关键页摘录.txt",
+  "bytes": 234316,
+  "sha256": "fd3b2d1dce5f8bef8601bd7a462483d0c801f5786800954be610bb7f5ef1a48e"
+ }
+]

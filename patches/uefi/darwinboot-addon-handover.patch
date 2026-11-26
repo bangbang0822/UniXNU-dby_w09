@@ -1,0 +1,163 @@
+From 388903050b0e23654587071145c091e0dbe1095e Mon Sep 17 00:00:00 2001
+From: builder <build@local>
+Date: Tue, 17 Nov 2026 15:12:40 +0800
+Subject: [PATCH] feat(darwinboot): hand the GPU addon to the kernel
+
+The payload builder writes the addon next to the kernel as kernel.macho.gpuaddon and
+declares a 16-byte /chosen/memory-map/GpuAddon node, but this DarwinBoot predates the
+handover: the node stayed empty, the kernel found no block, and the boot row read
+A files=-1 with no other explanation. Ported from UniXNU/DarwinBoot at the core pin
+5243c68: AdtNode recognises the node, the loader validates the payload file (NGPUADD2,
+size field) and the copy stores address and size into the tree the way the trust cache
+is stored. The board physical-framebuffer code is untouched. Review: faithful port, and
+the failure path now frees the addon buffer.
+---
+ DarwinBootPkg/Driver/DarwinBoot.c | 52 ++++++++++++++++++++++++++++---
+ 1 file changed, 48 insertions(+), 4 deletions(-)
+
+diff --git a/DarwinBootPkg/Driver/DarwinBoot.c b/DarwinBootPkg/Driver/DarwinBoot.c
+index 696399e..927ba4c 100644
+--- a/DarwinBootPkg/Driver/DarwinBoot.c
++++ b/DarwinBootPkg/Driver/DarwinBoot.c
+@@ -210,7 +210,7 @@ ParseKernel (CONST UINT8 *Data, UINTN Size, KERNEL *Kernel)
+ 
+ STATIC
+ BOOLEAN
+-AdtNode (CONST UINT8 *Data, UINTN Size, UINTN *Offset, UINTN Depth, UINTN ParentPath, UINTN *RamdiskOffset, UINTN *TrustCacheOffset, UINT64 *WindowSize, BOOLEAN *KeepPacked)
++AdtNode (CONST UINT8 *Data, UINTN Size, UINTN *Offset, UINTN Depth, UINTN ParentPath, UINTN *RamdiskOffset, UINTN *TrustCacheOffset, UINTN *AddonOffset, UINT64 *WindowSize, BOOLEAN *KeepPacked)
+ {
+   UINT32 Properties;
+   UINT32 Children;
+@@ -219,6 +219,7 @@ AdtNode (CONST UINT8 *Data, UINTN Size, UINTN *Offset, UINTN Depth, UINTN Parent
+   UINTN  Path;
+   UINTN  Candidate;
+   UINTN  TrustCandidate;
++  UINTN  AddonCandidate;
+   UINTN  MemoryCandidate;
+   CONST UINT8 *Name;
+   UINTN  NameLength;
+@@ -227,6 +228,7 @@ AdtNode (CONST UINT8 *Data, UINTN Size, UINTN *Offset, UINTN Depth, UINTN Parent
+   NameLength = 0;
+   Candidate = MAX_UINTN;
+   TrustCandidate = MAX_UINTN;
++  AddonCandidate = MAX_UINTN;
+   MemoryCandidate = MAX_UINTN;
+   if ((Depth > 64) || (Size - *Offset < 8)) { return FALSE; }
+   Properties = U32 (Data + *Offset);
+@@ -257,6 +259,10 @@ AdtNode (CONST UINT8 *Data, UINTN Size, UINTN *Offset, UINTN Depth, UINTN Parent
+       if ((TrustCandidate != MAX_UINTN) || (Length != 16)) { return FALSE; }
+       TrustCandidate = *Offset;
+     }
++    if (AsciiStrCmp ((CONST CHAR8 *)(Data + *Offset - 36), "GpuAddon") == 0) {
++      if ((AddonCandidate != MAX_UINTN) || (Length != 16)) { return FALSE; }
++      AddonCandidate = *Offset;
++    }
+     if (AsciiStrCmp ((CONST CHAR8 *)(Data + *Offset - 36), "darwinboot-memory-size") == 0) {
+       if ((MemoryCandidate != MAX_UINTN) || (Length != 8)) { return FALSE; }
+       MemoryCandidate = *Offset;
+@@ -277,6 +283,10 @@ AdtNode (CONST UINT8 *Data, UINTN Size, UINTN *Offset, UINTN Depth, UINTN Parent
+     if (*TrustCacheOffset != MAX_UINTN) { return FALSE; }
+     *TrustCacheOffset = TrustCandidate;
+   }
++  if ((Path == 2) && (AddonCandidate != MAX_UINTN)) {
++    if (*AddonOffset != MAX_UINTN) { return FALSE; }
++    *AddonOffset = AddonCandidate;
++  }
+   if (MemoryCandidate != MAX_UINTN) {
+     if ((Path != 1) || (*WindowSize != 0)) { return FALSE; }
+     *WindowSize = U64 (Data + MemoryCandidate);
+@@ -284,7 +294,7 @@ AdtNode (CONST UINT8 *Data, UINTN Size, UINTN *Offset, UINTN Depth, UINTN Parent
+   }
+   if (Children > (Size - *Offset) / 8) { return FALSE; }
+   for (Index = 0; Index < Children; Index++) {
+-    if (!AdtNode (Data, Size, Offset, Depth + 1, Path, RamdiskOffset, TrustCacheOffset, WindowSize, KeepPacked)) { return FALSE; }
++    if (!AdtNode (Data, Size, Offset, Depth + 1, Path, RamdiskOffset, TrustCacheOffset, AddonOffset, WindowSize, KeepPacked)) { return FALSE; }
+   }
+   return TRUE;
+ }
+@@ -530,7 +540,11 @@ Boot (
+   BOOLEAN                         RamdiskPacked;
+   BOOLEAN                         KeepPacked;
+   UINTN                           TrustCacheOffset;
++  UINTN                           AddonOffset;
++  UINTN                           AddonSize;
++  VOID                            *Addon;
+   UINT64                          TrustCacheAddress;
++  UINT64                          AddonAddress;
+   DARWIN_BOOT_ARGS                *Args;
+   EFI_MEMORY_DESCRIPTOR           *Map;
+   UINTN                           Capacity;
+@@ -586,9 +600,12 @@ Boot (
+   Offset = 0;
+   RamdiskOffset = MAX_UINTN;
+   TrustCacheOffset = MAX_UINTN;
++  AddonOffset = MAX_UINTN;
++  Addon = NULL;
++  AddonSize = 0;
+   WindowSize = 0;
+   KeepPacked = FALSE;
+-  if (!AdtNode (Tree, TreeSize, &Offset, 0, 3, &RamdiskOffset, &TrustCacheOffset, &WindowSize, &KeepPacked) || (Offset != TreeSize)) { Status = EFI_COMPROMISED_DATA; goto Fail; }
++  if (!AdtNode (Tree, TreeSize, &Offset, 0, 3, &RamdiskOffset, &TrustCacheOffset, &AddonOffset, &WindowSize, &KeepPacked) || (Offset != TreeSize)) { Status = EFI_COMPROMISED_DATA; goto Fail; }
+   if (KeepPacked && (!RamdiskPacked || (RamdiskOffset == MAX_UINTN))) { Status = EFI_COMPROMISED_DATA; goto Fail; }
+   if (WindowSize == 0) { WindowSize = WINDOW_SIZE; }
+   if (Kernel.Base > MAX_UINT64 - WindowSize) { Status = EFI_LOAD_ERROR; goto Fail; }
+@@ -613,6 +630,25 @@ Boot (
+     Status = EFI_COMPROMISED_DATA;
+     goto Fail;
+   }
++  //
++  // The GPU addon (kernel.macho.gpuaddon, scripts/make-gpu-addon.py): the files the kernel writes into
++  // the mounted Data volume before its addon mounts. Only the header is checked here, the kernel
++  // validates every entry it installs.
++  //
++  CopyMem (TreePath, Request->KernelPath, Length);
++  StrCatS (TreePath, Length / sizeof (CHAR16) + 11, L".gpuaddon");
++  Status = ReadFile (Root, TreePath, SIZE_64MB, &Addon, &AddonSize);
++  if (EFI_ERROR (Status) && (Status != EFI_NOT_FOUND)) { goto Fail; }
++  if (Addon != NULL) {
++    if ((AddonOffset == MAX_UINTN) || (U64 ((UINT8 *)Tree + AddonOffset) != 0) || (U64 ((UINT8 *)Tree + AddonOffset + 8) != 0) ||
++        (AddonSize < 24) || (CompareMem (Addon, "NGPUADD2", 8) != 0) || (U64 ((UINT8 *)Addon + 16) != AddonSize)) {
++      Status = EFI_COMPROMISED_DATA;
++      goto Fail;
++    }
++  } else if (AddonOffset != MAX_UINTN) {
++    Status = EFI_COMPROMISED_DATA;
++    goto Fail;
++  }
+   Status = ReadBootVideo (Video);
+   if (EFI_ERROR (Status)) { goto Fail; }
+ 
+@@ -649,7 +685,8 @@ Boot (
+   RamdiskAddress = ALIGN_VALUE (TreeAddress + TreeSize, EFI_PAGE_SIZE);
+   RamdiskBytes = ALIGN_VALUE (KeepPacked ? Request->RamdiskSize : RamdiskExpandedSize, EFI_PAGE_SIZE);
+   TrustCacheAddress = RamdiskAddress + RamdiskBytes;
+-  Used = ALIGN_VALUE (TrustCacheAddress + TrustCacheSize, SIZE_16KB) - Address;
++  AddonAddress = ALIGN_VALUE (TrustCacheAddress + TrustCacheSize, SIZE_16KB);
++  Used = ALIGN_VALUE (AddonAddress + AddonSize, SIZE_16KB) - Address;
+   if (Used > WindowSize - BLOCK_SIZE) { Status = EFI_BAD_BUFFER_SIZE; goto Fail; }
+   ZeroMem ((VOID *)(UINTN)Address, (UINTN)Used);
+   for (Index = 0; Index < Kernel.Count; Index++) {
+@@ -681,6 +718,12 @@ Boot (
+     WriteUnaligned64 ((UINT64 *)(UINTN)(TreeAddress + TrustCacheOffset + 8), TrustCacheSize);
+     FreePool (TrustCaches); TrustCaches = NULL;
+   }
++  if (Addon != NULL) {
++    CopyMem ((VOID *)(UINTN)AddonAddress, Addon, AddonSize);
++    WriteUnaligned64 ((UINT64 *)(UINTN)(TreeAddress + AddonOffset), AddonAddress);
++    WriteUnaligned64 ((UINT64 *)(UINTN)(TreeAddress + AddonOffset + 8), AddonSize);
++    FreePool (Addon); Addon = NULL;
++  }
+   FreePool (Image); Image = NULL;
+   FreePool (Tree); Tree = NULL;
+   FreePool (TreePath); TreePath = NULL;
+@@ -737,6 +780,7 @@ Fail:
+   if (Image != NULL) { FreePool (Image); }
+   if (Tree != NULL) { FreePool (Tree); }
+   if (TrustCaches != NULL) { FreePool (TrustCaches); }
++  if (Addon != NULL) { FreePool (Addon); }
+   if (TreePath != NULL) { FreePool (TreePath); }
+   if (Map != NULL) { FreePool (Map); }
+   if (Address != 0) { gBS->FreePages (Address, EFI_SIZE_TO_PAGES (WindowSize)); }
+-- 
+2.43.0
+

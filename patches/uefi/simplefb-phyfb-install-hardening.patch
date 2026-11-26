@@ -1,0 +1,28 @@
+--- /tmp/SimpleFb.head.c	2026-11-17 21:14:32.989885707 +0800
++++ /root/work/uefi-dby_w09/Silicon/Silicium/SiliciumPkg/Drivers/SimpleFbDxe/SimpleFb.c	2026-11-17 20:32:38.342898218 +0800
+@@ -565,8 +631,23 @@
+   // with the driver image after BDS unload (kernel load window reuses it).
+   //
+   {
+-    DBY_PHYFB_INFO *Phy;
+-    if (!EFI_ERROR (gBS->AllocatePool (EfiReservedMemoryType, sizeof (DBY_PHYFB_INFO), (VOID **)&Phy))) {
++    DBY_PHYFB_INFO *Phy     = NULL;
++    EFI_STATUS      PhyStat;
++
++    PhyStat = gBS->AllocatePool (EfiReservedMemoryType, sizeof (DBY_PHYFB_INFO), (VOID **)&Phy);
++    if (EFI_ERROR (PhyStat)) {
++      //
++      // EfiReservedMemoryType can come back short on a warm reboot, and a silent skip here is what
++      // leaves the kernel on the GOP logical canvas, where it refuses every swap for the whole boot.
++      // The loader reads this block before it exits boot services, so boot-services memory carries the
++      // same values across; the reserved allocation is only a lifetime preference.
++      //
++      DEBUG ((EFI_D_ERROR, "SimpleFbDxe: PHYFB reserved alloc failed (%r), retrying as boot services\n", PhyStat));
++      PhyStat = gBS->AllocatePool (EfiBootServicesData, sizeof (DBY_PHYFB_INFO), (VOID **)&Phy);
++    }
++    if (EFI_ERROR (PhyStat) || (Phy == NULL)) {
++      DEBUG ((EFI_D_ERROR, "SimpleFbDxe: no PHYFB block (%r); the kernel will refuse every swap\n", PhyStat));
++    } else {
+       Phy->Signature  = DBY_PHYFB_SIGNATURE;
+       Phy->Version    = DBY_PHYFB_VERSION;
+       Phy->PhysBase   = (UINT64)(UINTN)mPhysFb;
