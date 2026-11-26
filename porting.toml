@@ -21,7 +21,7 @@ findings = [
   "The catalog name is `dby-w09`, not `dby_w09`: scripts/sync-devices.py parses board.toml through board_data(), which returns None unless [board] name matches SLUG = [a-z0-9][a-z0-9-]*, so an underscore makes the twice-daily scan discover the repository and then skip it -- none of the registered devices has an underscore, while repository names may keep one (IssacL04/UniXNU-Pagani_SM8750 registers as oneplus13t). porting-record.py:validate requires device.name to match board.toml and config.py:80 builds out/<name>/ from it, so the record name and the two out/ paths in the prose moved with the board name; kit = dby_w09, configs/dby_w09_defconfig, dts/dby_w09.dts, [firmware] config and scripts/check-dby_w09.py are directory or file names and are unchanged.",
   "board.toml on 2026-11-05 pins the firmware tree as `uni-xnu-dby-w09/uefi-dby_w09@423e222`, the organisation mirror of the upstream `WQSQW/uefi-dby_w09`, and the sm8250 SoC feed checkout is at its pinned commit `6bb9b025704764a662728dce1a30557a35e082d8` with a clean work tree, so `unixnu fetch` reproduces both feeds.", "scripts/ is an overlay, not a symlink: tree.py:assemble copies core, then the SoC repository, then the device repository into out/<device>/tree/scripts, so scripts/build-xnu-4k-baseline.sh in this repository IS the board kernel step and core's copy is only the default it replaces. When core changes that script the board copy has to be re-diffed by hand; today the two differ only in the QcomXnuUsbDebug hunks.", "components.toml is symlinked from core and the device repository cannot extend it (tree.py:assemble), so a module with no catalog spec reaches the kernel as package/<Name> plus a [kernel] archives script slot; that is the official shape for QcomXnuUsbDebug, and [components] says so instead of pretending to select it.", "Editing configs/*_defconfig alone is inert: the kernel build reads the generated out/dby-w09/.config, so defconfig must run again after every defconfig change.", "The donor identity is not a free choice. Prelink, ADT, PMGR contract and Metal inputs are written against iPad7,1 / 21H461, the only combination with an official qualified reference; another donor means redoing target adaptation from scratch.", "kernel_args are measured, never assumed: the CPU round passed armcpu-self-ipi=1 and moved sheng-cpufreq from 2 to 3, so the accepted line is 46 arguments and 984 bytes against the 1000-byte gate in core/scripts/unixnu/payload.py:35. The probe that spent the whole reserve (sheng-banner=1, 47 arguments and 999 bytes) was built, flashed, read and reverted at the owner's instruction on 2026-11-05: a readable log outranks painted text, and he never asked for the text back. So the line is at 984 with 16 bytes free again, and qcom-usb-ctl=1 (15 bytes with its space) has gone back from queued to affordable. On 2026-11-05 21:43 the line moved to 46 arguments and 993 bytes: sheng-log=1 was dropped (-12 bytes, the owner judged the userdata log window useless after it was built and read) and -enable_kprintf_spam added (+21). That flag is the only thing missing between the 3844-byte / 65-line console and full kprintf: the QUD port rewrites pe_kprintf.c so qcom_usb_debug_kprintf_requested = !disable_kprintf_output, which is false on a DEVELOPMENT kernel unless this argument is present, leaving only the _cnputs printf tee. On 2026-11-06 00:08 the owner approved a trim and the line was re-measured at 42 arguments and 901 bytes with 99 free: offline-legacy-retire=1 (-23), boot-ui-focus=launchd (-21), boot-ui-focus4=SpringBoard (-26) and sheng-data-reset=1 (-18) were each dropped together with their separating space. None of the four carried behaviour, and that was checked at the reader, not assumed: offline-legacy-retire and offline-legacy-cpu-present feed one OR at NativeLegacyDisplay.cpp:522 (if (!(retire==1 || cpuPresent==1 || force)) return false;), cpu-present stays, so the retire path is untouched; the two boot-ui-focus rows re-added processes BootProcessProbe.c:36 already lists (launchd sits at slot 0, SpringBoard at slot 2 with trace_slot={0,1,1}), so the sample table simply falls back to its default; sheng-data-reset=1 never enters a branch because BootWatchdogPolicy.c:51 acts only on reset==2, leaving the persist argument as the one that works. The reclaimed reserve goes to the backlight argument under the naming rule now written at the top of kernel_args: a board-prefixed short key, dby-bl=1, takes 9 bytes including its separator where the sheng-backlight=1 the earlier budget assumed would have taken 18. That rule is the answer to the 1024-byte ceiling being structural (DarwinBoot.c:542 CommandLine[1024] copies straight into boot_args.CommandLine, which the kernel declares as BOOT_LINE_LENGTH 1024 at pexpert/arm64/boot.h:25): a new switch either earns a short board name or moves to the device tree through PE_get_default and /defaults, which devicetree.py:376 already emits.",
           "payload_sha256 can never repeat between two builds of one source: generate() writes os.urandom(64) as /chosen/random-seed (core/scripts/unixnu/devicetree.py:308), so the ADT differs by seed bytes only. Measured on 2026-11-05 by extracting kernel.macho.adt and unixnu.toml out of the accepted 4e808ec1 image and the reverted c1303fb6 image with mcopy -i and diffing them: the two command lines are byte-identical and the ADT differs in 62 bytes inside one 64-byte range (393..456). Identity of a payload is that diff, not its sha.",
-  "A fresh out/dby-w09 tree can now regenerate its build-only inputs on macOS: the workflow makes a bootstrap kernel, copies it into the shipping tree as the HID/display reference candidate, seeds the display ABI audit with the recorded QEMU checkpoint hash, and builds the dual-policy VerifiedRoot archive from checksum-verified 21H461 IPSW members. The first pass omits the three verified-root recipes because their compile record is produced by that pass; the shipping pass runs them normally. On a first-install cache miss, the generated Data seed's UUID is carried from the bootstrap configuration into the shipping defconfig for release, then the tracked defconfig is restored. Inspection of the pinned core tree assembler confirms it preserves build/ across tree preparation. These are build intermediates and remain outside Git; no macOS run has yet confirmed this workflow.",
+  "A fresh out/dby-w09 tree can now regenerate its build-only inputs on macOS: the workflow makes a bootstrap kernel, copies it into the shipping tree as the HID/display reference candidate, seeds the display ABI audit with the recorded QEMU checkpoint hash, and builds the dual-policy VerifiedRoot archive from checksum-verified 21H461 IPSW members. The core's internal compile-record pass runs without archive inputs, then the full archive plan, including the verified-root recipes, links the intermediate candidate. Runtime binds the UUID from a supplied or generated Data seed into the temporary kernel config; the workflow carries that value into the shipping defconfig before packaging and restores the tracked defconfig afterward. Inspection of the pinned core tree assembler confirms it preserves build/ across tree preparation. These are build intermediates and remain outside Git; no macOS run has yet confirmed this workflow.",
   "An untracked local copy of the shared tree accumulates board-specific edits silently. Every module that the board build depends on must be named here, otherwise this repository cannot reproduce the kernel (see README Deviations).",
   "The porting-record gate only fires for files an area claims, and three of this board-s live sources were claimed by nobody: package/DbyBattery.cpp, package/BatteryProbe.cpp, package/DbySmartPA.cpp and package/GeniI2c.c/h matched no area paths at all, so several rounds of battery, PA and bus work could be committed without the gate ever asking for a record change -- the skip is silent, it does not read as a pass. They are now claimed by power and audio. The mirror image of the same defect is package/BootLog.c, which sits under network: an area that has nothing to do with it, which is how its behaviour got asserted in three other areas without ever being checked there.",
   "Two output trees live on the build host and only one is current: out/dby-w09 (the catalog name, hyphen) and out/dby_w09, the format-1 tree from before the 2026-11-05 rename. A wrapper pointed at the stale one does not fail, it prints a kernel hash, an archive listing and a payload that belong to no image ever flashed -- measured on 2026-11-06, where it reported the 2026-11-05 kernel a6382e52 after the real build had produced b587c637. Any proof read off a build directory has to name the directory it came from, and the hash has to be recomputed from the file that actually went to the device.",
@@ -155,17 +155,17 @@ result = "2026-11-17 late: the display failures of that day are a warm-reboot ra
 [[area.evidence]]
 kind = "source"
 reference = "patches/uefi/darwinboot-addon-handover.patch"
-result = "2026-11-17 22:00, where the GPU addon stands. The handover code is sound - one boot of a firmware carrying it read 'A files=6 wr=6', the six files written - but most boots read 'A files=-1 wr=0 same=0 fail=0 err=0' with mount stage 0 and status -1, which is not the loader failing to publish a block: a diagnostic build that prints the GpuAddon node from inside native_ram_block_gpu_addon printed nothing at all, so the kernel never entered the addon install on that boot (kern_exec.c calls it before any write, and stage 0 means even the mount preparation did not run). The next measurement is one line at that call site: entering native_gpu_addon_install prints, then the value native_ram_block_gpu_addon answers, which separates three cases - never called (the Data volume preparation the mount waits for), called with no block (the loader), or a block the address window refuses (gPhysBase/gPhysSize in NativeRamBlock.cpp:705). [[area]] id = 'cpu"
+result = "2026-11-17 22:00, where the GPU addon stands. The handover code is sound - one boot of a firmware carrying it read 'A files=6 wr=6', the six files written - but most boots read 'A files=-1 wr=0 same=0 fail=0 err=0' with mount stage 0 and status -1, which is not the loader failing to publish a block: a diagnostic build that prints the GpuAddon node from inside native_ram_block_gpu_addon printed nothing at all, so the kernel never entered the addon install on that boot (kern_exec.c calls it before any write, and stage 0 means even the mount preparation did not run). The next measurement is one line at that call site: entering native_gpu_addon_install prints, then the value native_ram_block_gpu_addon answers, which separates three cases - never called (the Data volume preparation the mount waits for), called with no block (the loader), or a block the address window refuses (gPhysBase/gPhysSize in NativeRamBlock.cpp:705)."
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-diag.log"
+reference = "docs/display-research-merge-2026-11-19.md"
 result = "2026-11-17 22:20, the GPU pipe is further along than the day's earlier rows suggested, and the mistake was reading the replay. The live rows of the payload with the addon read '[gpu addon] node len=16 phys=da090000 size=d07a68', 'A files=6 wr=0 same=6 fail=0 err=0 mount=5/0': the loader publishes the block and the kernel installs all six files. The plugin's markers 6800-6803 appear, four client slots submit objects ('[gpu objects] s0 418/418 ... p16/112'), and 'GPU METAL st=8 kext=0 init=0 acc=0 state=0000001e f=0' is a pass row, not a failure (each zero is a KERN_SUCCESS return code). What fails is the last hop: '[scanout wait] calls=1890 timeouts=1889 asked=500ms last=501024us', i.e. the frame producer never offers a swap, so the presenter times out every 500 ms and nothing reaches the panel through the GPU. The earlier 'A files=-1 mount=0/-1' rows came from a boot whose command line had no gpu-addon=1, which the record now names as the gate that rules install out. Upstream context gathered the same evening: no UniXNU organisation device repository targets SM8250; the working Adreno 650 boards are community ports (gts7xlwifi, alioth) that vendor drivers/Adreno650 (a6xx with a GMU) and add a sandbox entitlement plus an IOAcceleratorES publication; this board instead selects generation 6 in its own a650 probe path, so the generation is not the open question - the scanout completion is."
 command = "fastboot flash preload /root/payloads/addon-diag.img; catch-console.ps1 -Minutes 2"
 revision = "152cb70a5bde4e8c2f7a6f0b9d3e1c4a5f6b7c8d"
 
 [[area.evidence]]
 kind = "source"
-reference = "tools/console-diag.log"
+reference = "docs/display-research-merge-2026-11-19.md"
 result = "2026-11-18 01:00, the display failures are Apple's, not the port's: the string 'verify_swap failed for swap id: %d' that fills the console on a bad boot exists in the donor kernelcache (/root/core-pub/out/ipsw/21H461/kernelcache.decompressed, file offset 0xdd0e21, __PRELINK_TEXT), and no file in this repository or the core contains it. So the port's own validateSwap accepted the request and the original IOMobileFramebuffer path rejected the surface afterwards, which is why the GPU client waits forever ([scanout wait] calls=1890 timeouts=1889) while the GPU keeps submitting: no frame is ever offered because no swap survives Apple's check. Reading that check from the kernelcache needs the string's cross-reference, which an ADRP+ADD scan of every segment does not find (Apple's kext may load the format through a table), so the next measurement stays empirical: a build that prints, on the first three accepted swaps, the display dimensions, the surface width/height/stride/allocation/length and Video[] as the loader published it, which is payload 913f277e (swapok.img) on the build host."
 
 [[area.evidence]]
@@ -175,21 +175,21 @@ result = "2026-11-18 02:10, why the swap queue cannot simply be reset: the core'
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-reject2.log"
+reference = "docs/display-research-merge-2026-11-19.md"
 result = "2026-11-18 00:30, the display driver's swap path is not being called at all. A payload whose diagnostics count the calls printed '[kick] 0', '[swaprej] 0' and '[swapok] 0' while the console carried thousands of Apple's 'verify_swap failed for swap id' lines and '[scanout wait] calls=745 timeouts=744': the family never enters this driver's kickSwapQueue() or validateSwap(), so every swap is decided by the original IOMobileFramebufferLegacy implementation and rejected there. The driver does start and does own the GOP (its scanout preparation prints), which is why the UI draws through it on a good boot, but the swap virtuals land nowhere the family looks - most likely a vtable/ABI mismatch, since this copy is compiled against the tree's headers while the running family comes from the donor kernel. Until the swaps reach this driver, no swap logic in it can change anything, and the GPU client keeps timing out because no frame is ever offered."
 command = "fastboot flash preload /root/payloads/reject2.img; tools/catch-console.ps1 -Minutes 2"
 revision = "7a11424d413e4349ca7cb62e96fa6063743c5826"
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-final2.log"
+reference = "docs/display-research-merge-2026-11-19.md"
 result = "2026-11-18 01:05, the display race is a binding race between two drivers, not a timing detail inside one. The display driver prints 'DbyDisplay: copy=...' from the frame it copies; that row appears eight times in the boot where the panel shows the interface and zero times in the boots where Apple's 'verify_swap failed' fills the console - and those same boots print zero from kickSwapQueue and zero from validateSwap, because our driver was never in the path. So a cold boot binds this driver to the framebuffer and a warm one leaves the original implementation bound, which is what the earlier 'warm reboot race' really was. The fix must make our driver bind every boot (wait for the GOP/PHYFB handover before matching, retry the match, or take the framebuffer over after it appears) rather than assume a single match decides it. Evidence payloads: reject2.img a4565dd5 (0 rows) and the earlier boot in console-final2.log (8 rows)."
 command = "cold boot; tools/catch-console.ps1 -Minutes 2 (console-final2.log) vs fastboot flash preload /root/payloads/reject2.img"
 revision = "7a11424d413e4349ca7cb62e96fa6063743c5826"
 
 [[area.evidence]]
 kind = "source"
-reference = "drivers/DarwinBoot/DarwinBootPkg/Driver/BootVideo.h"
+reference = "docs/display-research-merge-2026-11-19.md"
 result = "2026-11-18 01:10, a hypothesis tried and disproved, kept so it is not tried again: removing '-v' from the kernel arguments was expected to fix the warm-reboot boots where the display driver never binds, on the reading that DarwinBoot zeroes Boot_Video.v_display when -v is present. It does not. BootVideo.h:31 sets Video[1] = 1 unconditionally in every copy of the tree, the arm64 layout puts v_display second (pexpert/pexpert/arm64/boot.h:31-33), XNU copies it at pe_init.c:438, and the driver's primary=video.v_display==1 therefore cannot be false because of -v. The tree also has no reader of 'v' at all: no PE_parse_boot_argn(\"v\"), no PE_verbose, and the detailed rows come from -enable_kprintf_spam plus debug=0x14e. The change was reverted unbuilt, and the review that rejected it also found it would have failed check-regression, whose baseline still lists -v. The cause of the warm-reboot zero rows is still open; the remaining source-backed lead is the firmware side, where DarwinBoot looks the PHYFB protocol up exactly once and falls back to the GOP heap canvas if it is not there."
 
 [[area.evidence]]
@@ -199,7 +199,7 @@ result = "2026-11-18 02:00, two results from building the board's DarwinBoot out
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-phyfb-retry.log"
+reference = "docs/display-research-merge-2026-11-19.md"
 result = "2026-11-18 09:35, the PHYFB retry is ruled out as the fix for the bad boots, which is what the review predicted. Firmware 44815136 (DarwinBoot retries the PHYFB lookup 50 times over one second) booted a warm reboot and behaved exactly like before: zero 'DbyDisplay' frame copies, zero '[kick]' and zero '[swaprej]' from the display driver's own entry points, 3256 Apple 'verify_swap failed' rows, and '[scanout wait] calls=5141 timeouts=5140'. The addon still installed ('A files=6'). So the protocol is genuinely absent after DXE dispatch, not merely late: the fault is on the publisher side, SimpleFbDxe, which either does not start or skips its PHYFB install on these boots. The next measurement has to come from that driver, not from DarwinBoot: record why its start or its install did not happen somewhere the kernel can read, since its own debug output only goes to the panel's log band."
 command = "fastboot flash boot /root/uefi-phyfb.img; tools/catch-console.ps1 -Minutes 2"
 revision = "7a11424d413e4349ca7cb62e96fa6063743c5826"
@@ -315,7 +315,7 @@ result = "The launchd stall had a second stale boot argument behind it. native_g
 
 [[area.evidence]]
 kind = "device"
-reference = "driver:ShengUfs"
+reference = "https://github.com/FFT-infra/NativeUfs-alioth"
 command = "the boot that first ran the whole userspace, read from its own UFS slot and from the CDC console (COM20, DTR raised at enumeration)"
 revision = "86beeae46b4b789f11f73062f02edd46dc262b10"
 result = "The seed observation is closed from both ends. The kernel console carries `handle_mount:817: disk1s1 vol-uuid: 2138CDAC-F86A-4DED-9EF1-09F27363DB2A block size: 4096 block count: 2097152 (unencrypted; flags: 0x1; features: 1.0.2)`, `setting dev block size to 4096 from 512` and `mount-complete volume OwnerData, requested by: init (pid 1)`, so the packed seed-s volume UUID is the one the kernel was compiled against and APFS mounted it; launchd then says `****** DEVICE HAS EPHEMERAL DATA VOLUME, SKIP INIT ****`, which is the ADT-s ephemeral-storage property being honoured instead of a first-boot data migration. The panel row `D st=2 hdr=0 gpt=0/0 lba=1b055bf pres=1 ld=65 wr=1 cm=1 er=0 pages=2097152` says the persistent store resumed this seed-s overlay, loaded 65 pages and landed a write and a cache flush with no errors, against `st=7 ... pres=0` (Kept, no overlay) before the one-shot sheng-data-reset=1. The 2097152 pages are the 8 GiB seed, matching [payload.adt] packed_data_ramdisk and the grown data-final.dbr."
@@ -351,6 +351,8 @@ findings = [
   "The GOP mapping assertion protects a value the whole display stack reads. If an object other than the wrapped legacy display asks for the mapping, package/LegacyDisplayProbe.cpp:816 panics rather than adopting it, because the frame buffer base, size and geometry recorded there are what every later scanout publishes through. The branch is unreachable on the accepted path -- the only caller is the original IOMobileFramebufferLegacy instance this probe wrapped -- and it has never fired on hardware, which is recorded as an absence rather than a proof.",
   "native_legacy_backend_guard is NOT board-local dead code, and this record exists because a first conclusion said it was. The wrap in LegacyDisplayProbe.cpp replaces exactly two slots (168 external, 175 register) and that is the user-client vtable, but the guard belongs to NativeLegacyDisplay's own vtable in the shared GopFramebuffer component: NativeLegacyDisplay.cpp declares it at :28, calls it unconditionally from registerService() at :562, and generates seven opaque leaf overrides from it at :1223. Deleting the definition therefore leaves _native_legacy_backend_guard undefined and the display build cannot link. The mistake was survivable only because a submodule that is not materialised in a checkout is invisible to git grep: searching this repository and the core tree both returned nothing, while the same search inside the GopFramebuffer mirror found three call sites. Any future claim that a symbol is unused has to include the component repositories.",
   "scripts/build-gop-legacy-display.py binds the legacy backend to the reference candidate and writes original-bindings.S with absolute addresses from that image. On a cold tree it now emits a temporary archive defining only the three patched XNU callbacks, allowing the bootstrap kernel to link; the shipping build replaces that archive with the audited backend. The macOS workflow also patches the fetched HID recipe for the same first-pass-only fallback, then copies the bootstrap candidate into the shipping tree. Its display ABI JSON reuses the recorded QEMU checkpoint hash as provenance and is regenerated from the candidate; no new device observation is claimed.",
+  "The separate cold-build output tree uses the shipping authenticated-root settings. The macOS workflow copies the already verified owner key and OS/SystemOS policy inputs into that tree before the kernel build; this keeps UFS, VerifiedRoot, Virtio, RPMh providers and boot-progress instrumentation in one audited link configuration.",
+  "The legacy-display cold-build fallback records the temporary callback archive's SHA-256 and the generated stub source's SHA-256 in build-report.json. This satisfies the kernel link gate without claiming the stubs initialized or presented a display; after the candidate exists, the shipping tree rebuilds the audited backend.",
   "The display and PMGR builders import native_prelink from the official kit directory kits/XnuPrelink in the assembled tree. They previously prepended kits/NativePrelink, a name retired upstream, so that path never existed for a fresh clone.",
   "scripts/build-boot-progress.py compiles the board BootProgress.c with the panic-screen glyph table (Font.h) taken from the Mu-Silicium checkout passed with --uefi, so the firmware tree is a build input of the kernel step; a missing checkout is now the documented prerequisite error instead of an empty -I that surfaces as a fatal missing-header error.", "The legacy backend's own start already dispatches the hardware start; calling it a second time from board code produced a crash storm that looked like a panel failure.", "Scale is the gate that decided everything: preferredScale 0 makes the unchanged -[FBSDisplayMode _initWithWidth:height:preferredScale:] trap, SpringBoard never finishes and the render server ignores the panel. Publishing /chosen display-scale with unit-scale=1 closed it.", "Once the OS owns the panel, the diagnostic page must not take it back. boot-diag-resume=10 alternated our text page with the iPadOS lock screen because an ambient screen legitimately scans out nothing for more than ten seconds.", "The lock screen with its clock and home indicator is now on the panel on hardware, which is the first presented iPadOS frame observed on this board.",
   "scripts/build-gop-legacy-display.py:293 asserted that the only ready reader of native_battery_stats[16] is the [battery] row in BootLog.c and that the row never printed for lack of a producer. The second half is an assumption, and the first half was answered both ways at different times: on 2026-11-06 twelve commands over the working branch found no reader at all, and on 2026-11-14 the archive this tree builds lists BootLog.o, so the row does print (see the diagnostics area). What the display side still owns is the other half - no producer has yet filled the array on hardware - and that is what its comment should say.",
@@ -378,6 +380,13 @@ limits = [
   "The mapping-owner assertion has never been observed firing, so its message and its recovery path are untested. If it fires, the panic text names the object; the next step is the previous boot's DISPLAY row (native_legacy_stage, native_legacy_pm_stage) to identify which service took the mapping.",
   "A fresh clone needs one kernel pass that produces a prelink candidate before the legacy display archive can link; build/xnu-prelink/ is a build product, not a repository input.", "No hardware cursor, no vsync-driven swap accounting and no DPU-specific timing on this SoC: the path is a GOP-backed legacy scanout.", "drivers/GopFramebuffer is a fork of the component, not a pin: 6 of its 11 files are byte-identical to the component repository, 4 differ (NativeGOPresenter.cpp and NativeGOPWire.h among them) and one file exists only here.", "package/LegacyDisplayProbe.cpp reads Apple objects at hand-derived offsets: the swap request's surface ids at 2624, its state words at 792/796/800 with their options at 804/808/812, width and height at 816/820, the rectangle bytes at 17 and 81, and the display object's retirement counters at 5472/5480/5820/5824/252. They are raw on purpose - reporting what a refused swap and a retirement carried is what the probe is for - and the classes are opaque, so no offsetof or _Static_assert can check them; the two functions now carry the offset map and say the layout is the one the 21H461 objects have. That is a decision rather than a gap: the probe is written for the 21H461 objects and says so, a generated layout header needs class metadata this repository does not carry and that the binary does not store (IOKit C++ ivars have no name table), and a different build would need a new probe rather than a reused offset table."]
 next_action = ["Read the [dby-dpu] rows from the read-only probe (dby-dpu=1, package/LegacyDisplayProbe.cpp). vig*.src0 is the address the controller fetches: 9c000000 with ctl*.pipe/fetch set means it still scans the copy target. The smmu rows decide whether that IOVA is translated or used as physics; measured 2026-11-20 the 0x820 stream routes to bank 4 with CBAR stage1 but SCTLR.M=0 and zero TTBR0/TCR, and 0x821 is not mapped, so the fetch is physical. The dsi row gives the eight DSI branches in dispcc (pclk0/1, byte0/1, byte0/1_intf, esc0/1) and must be read four ways: all zero together with power=0 is not a reading (the block is not answering); every word with bit1 set (clock off) means the link is gated, which a command-mode panel survives by holding its last frame, so the fault is that nothing ever opened DSI; the 0-series enabled and the 1-series gated means the boot loader drove DSI0 (cross-check ctl0 intf=0x6); PHY-side byte clocks on while byte*_intf is off means the controller is not forwarding. esc on is normal during command-mode LP and proves nothing. The dsi lane row is read three ways only: identical LANE_CFG0/CFG1 on both links (a difference is the anomaly; a value other than our own driver's 0x21/0x84 is not a fault, the loader's swap encoding may differ), LANE_CTRL0 bits[4:0] == 0x1f (four data lanes plus the clock lane released), and LANE_CTRL1 bits5|6 == 0x60 (continuous clock, which video mode needs - a clear pair is a real candidate for a panel that holds its last frame). LANE_STATUS0/1 have no documented bitfields and are recorded raw only. The dsi phy row is the last block before the panel: lock bit0 (PLL locked), status bit0 (REFGEN), cmn0 bits[4:0] (lane power-down-B, 0x1f = lanes live, 0x00 = off) and bit5 (PLL bias), cfg1 bit0 (pclk mux; the PLL source is BITCLK_SEL, 0 = internal). Read it as three verdicts: lock=1 + status=1 + (cmn0 & 0x1f)==0x1f means the PHY is live and only the panel remains; lock=1 + status=1 with the lanes down means nothing is being sent while the DPU keeps fetching; lock=0 means the DSI never transmitted. An enabled PHY reads cmn0 in the 0x7f shape - a 0xffffffff or unrelated value means the offset is wrong and the row must be discarded rather than interpreted. The probe refuses to touch the MDP block unless both MDSS clocks and the power domain read on, because the 2026-11-15 pipe read aborted the kernel. The earlier name dby-dpu=2 was withdrawn with that row.", "Keep the panel with the OS across idle, then make the lock screen passable (see the input area)."]
+
+[[area.evidence]]
+kind = "host"
+reference = "docs/reviews/2026-11-26-cold-build.md"
+command = "WSL continuation: build the first-pass display archive, then link the bootstrap kernel"
+revision = "81733fd2b80077fb1aaa8728663b15153d5a72bc"
+result = "The temporary display callback archive passed the kernel hash gate; SHA-256 cbad7ce2997c671e2e13cbc0de25fc043fda988b75aff12fbb08af5965922f6f. The bootstrap link then stopped on missing VerifiedRoot and RPMh symbols because that attempt omitted the signed root inputs and boot-progress providers. It produced no kernel.macho or payload; the corrected authenticated-root workflow still needs a macOS runner."
 
 [[area.evidence]]
 kind = "device"
@@ -561,6 +570,13 @@ revision = "445d5a9c5755bdeeb2b2eb09638647ba704b967f"
 result = "A files=-1 wr=0 same=0 fail=0 err=0 mount=1/2 mount2=1/2 mount3=1/2 mount4=5/0 mount5=5/0: no addon blob reaches the kernel, /private/var/ngpu/addons does not exist and [gpu clients] lists only kernel_task, so the Metal plug-in is not staged. [metal askers] shows the consumer side ready - mediaserverd, backboardd, SpringBoard, WidgetRenderer, CollectionsPoster, iconservicesagent x13, Preferences - so the carrier is what is missing. The seed route the official notes describe needs macOS to write the APFS container inside scratch-data.img; this host has neither hdiutil nor apfs-fuse."
 
 evidence = []
+
+[[area.evidence]]
+kind = "host"
+reference = "docs/reviews/2026-11-26-cold-build.md"
+command = "WSL continuation: build the DbyTorch archive using the Linux llvm-objcopy shim"
+revision = "81733fd2b80077fb1aaa8728663b15153d5a72bc"
+result = "Archive completed at 524,888 bytes with SHA-256 c09522a7f6a6811e77dea62e8028f39c7fd7e6be33b29ac912c914529b91c307. This verifies the archive step only; no kernel or payload was produced by the subsequent bootstrap link."
 
 [[area.evidence]]
 kind = "host"
@@ -945,7 +961,9 @@ inputs = ["Prelinked kernel image from the donor kernelcache plus board archives
 configuration = ["[payload] loader = firmware places DarwinBoot inside the firmware volume; title, timeout and kernel_args are written into the ESP unixnu.toml of the image.", "[payload.adt] unique_chip_id = required and --unique-chip-id carry the identity at build time.", "[userdata] describes which IPSW components become root windows inside the assembled image.", "XnuPrelink is the kit stage that assembles the prelinked kernel image the payload then carries."]
 procedure = ["Build the payload, inspect the produced image (menu entry, kernel arguments, ramdisk size) and flash it to the payload partition named in README.md.", "Keep every produced image: rebuilds overwrite the output path, and a checkpoint that cannot be re-flashed cannot be repeated."]
 findings = ["[kernel] patch_series is an array override, not an append: a device layer that adds a fifth series repeats the four inherited arch:/soc:/device:/os: entries, and the order inside that array is the order patches.py:prepare applies them.", "Argument counts come from the command line embedded in the built image, never from the board.toml array: the array spans comment lines, so an unfiltered grep reported 48 arguments / 1038 bytes for an image that carries 44 / 955, and the DarwinBoot header caps the string at 1000 bytes, which is what makes the difference decisive.", "The menu entry's kernel arguments come from the payload, which is why an argument change is a three-minute payload rebuild rather than a kernel rebuild.", "The payload partition had to change because the image exceeds the official cache partition; the flash target is recorded with its reason instead of being a local habit.", "A seed larger than what the packed container can carry silently produces an unbootable image; check the packed size and the logical size together.",
-  "A second `patches/xnu` series now ships: `patches/xnu/series-torch`, naming exactly one patch (`zze-dby-torch-media-mount.patch`), resolved after `series-audio` in `board.toml`. Two things this area records because the last round taught them: the patch is generated from the work-tree file and verified by `git apply --check` plus a `diff -q` against the intended post-state rather than typed (tabs and context lines do not survive retyping), and a series is only reviewable by replay, since the next `unixnu build kernel` re-clones and applies 67 patches where it applied 66 - the replay is `scripts/test-dby-torch-media-mount-patch.py --inputs xnu-inputs.json`, now a step of the torch host check.",]
+  "A second `patches/xnu` series now ships: `patches/xnu/series-torch`, naming exactly one patch (`zze-dby-torch-media-mount.patch`), resolved after `series-audio` in `board.toml`. Two things this area records because the last round taught them: the patch is generated from the work-tree file and verified by `git apply --check` plus a `diff -q` against the intended post-state rather than typed (tabs and context lines do not survive retyping), and a series is only reviewable by replay, since the next `unixnu build kernel` re-clones and applies 67 patches where it applied 66 - the replay is `scripts/test-dby-torch-media-mount-patch.py --inputs xnu-inputs.json`, now a step of the torch host check.",
+  "The cold-build workflow copies the per-run owner key and signed OS/SystemOS policy inputs from the verified shipping tree into its separate bootstrap tree, preserving the same authenticated-root archive set in both links. The owner key and Apple source images remain outside Git and are not included in build artifacts.",
+]
 completion = ["One command produces a bootable image that is reproducible from the recorded inputs and hashes."]
 limits = ["One image is assembled from two repositories: the firmware repository builds SILICIUM_UEFI.fd, and a workbench script splices that volume behind the verified 144-byte boot shim into a stock Android boot header, because this tablet cannot boot an unpacked image and the flashed partition is not ./unixnu bootimg's output.", "./unixnu bootimg packs this board's image correctly but bootimg.verify() unpacks the v0/v1 header fields, so any header_version >= 3 board rejects its own output; the check is read as a layout diff, not as a pass/fail gate."]
 next_action = ["Bring the boot packaging (shim + FD into the stock boot header, with its size and shape gates) into this repository so one recorded command produces the image that is flashed to boot."]
@@ -972,7 +990,7 @@ kind = "source"
 reference = ".github/workflows/package.yml"
 command = "GitHub Actions workflow_dispatch run 45843837616 (package.yml, macos-15, ipados-17.7.11-21H461, init_data=false)"
 revision = "4bbaed0af1d8369f18a4d9f4e96c2523f32871e8"
-result = "The run completed as cancelled before any workflow step started because GitHub did not assign a hosted runner; the package job has no runner name or step output. No kernel or payload was produced. Installation-seed artifact 15107593055 from run 45796042471 was recovered to the Git-ignored .cache/unit-recovery/run-457960/ before expiry: data.dbr is 1,073,280 bytes, SHA-256 d044042c1f2eb7f721396da1ab7cddebcd5e547e88ce7a5df5e14409e4cc2c4f, with volume UUID B415F419-BD11-4332-A026-86DA4C1B2D2A. This differs from the tracked defconfig UUID 2138CDAC-F86A-4DED-9EF1-09F27363DB2A and is preserved for recovery only, not as a shipping input. No device was flashed or observed."
+result = "The run completed as cancelled before any workflow step started because GitHub did not assign a hosted runner; the package job has no runner name or step output. No kernel or payload was produced. Installation-seed artifact 15107593055 from run 45796042471 was recovered to the Git-ignored .cache/unit-recovery/run-457960/ before expiry: data.dbr is 1,073,280 bytes, SHA-256 d044042c1f2eb7f721396da1ab7cddebcd5e547e88ce7a5df5e14409e4cc2c4f, with volume UUID B415F419-BD11-4332-A026-86DA4C1B2D2A. This differs from the tracked defconfig UUID 2138CDAC-F86A-4DED-9EF1-09F27363DB2A, but scripts/unixnu/runtime.py:108-120 binds the observed seed UUID into the temporary config for kernel builds, and package.yml carries that same value into the shipping defconfig before package then restores the tracked file. The seed remains usable when restored from this workflow's platform-seed cache. No device was flashed or observed."
 
 [[area.evidence]]
 kind = "source"
@@ -1375,146 +1393,146 @@ next_action = ["Flash the M1 payload (`/root/payloads/e6737e11.img`, kernel 2fec
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m47.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot flash preload /root/payloads/51718497.img; fastboot reboot; catch-console.ps1 -Minutes 12 -Log tools/console-m47.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "m6k rails found=f voted=f 00040200 00040000 00040100 00040400; m6k clocks found=f voted=f 00042900 00042a00 00042700 00042800; m6i dram 464c457f 00010101 00000000 00000000 sum=c9711ed6 cpu=c9711ed6 match; bhi wrote addr=00000000:eda4e000 size=00426890 vec=0 db=1a5a0001 | read back ...; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=414500us; bhi post mhi_sts=00000000 state=0 ready=0 exec=00000000. Four rails and four clocks voted, handoff unchanged."
 
 [[area.evidence]]
 kind = "host"
-reference = "/root/dby-full.dts (the tablet's own device tree), node qcom,cnss-qca6390@b0000000 at line 6270"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "sed -n '6270,6340p' /root/dby-full.dts; the supply phandles 0xa8..0xab resolved by walking each phandle to its owning node (smpa6/smpa4/smpa5/smpc8)"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "vdd-wlan-aon and -dig -> pm8150_s6 under rpmh-regulator-smpa6 (qcom,resource-name smpa6, 950 mV); vdd-wlan-io -> pm8150_s4 under smpa4 (1800 mV); vdd-wlan-rfa1 -> pm8150_s5 under smpa5 (1900 mV); vdd-wlan-rfa2 -> pm8150a-s8 under smpc8 (1350 mV). Also in the node: qcom,cmd_db_name smpa6, mhi,max-channels 30, mhi,timeout 0x2710, mhi,buffer-len 0x8000, qcom,smmu-s1-enable, qcom,set-wlaon-pwr-ctrl, and tcs_cmd at 0xb2e5510."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m46.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot flash preload /root/payloads/49299c12.img; fastboot reboot; catch-console.ps1 -Minutes 12 -Log tools/console-m46.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "m6i dram 464c457f 00010101 00000000 00000000 sum=c9711ed6 cpu=c9711ed6 match; bhi wrote addr=00000000:eaecf000 size=00426890 vec=0 db=1a5a0001 | read back 00000000:eaecf000 00426890 1a5a; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=414500us; bhi post mhi_sts=00000000 state=0 ready=0 exec=00000000; m6n smmu after fsr48=00000000 r40=00000000 synr50=00000000 synr54=00000000. The interrupt vector is the last descriptor field; it makes no difference."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m45.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot flash preload /root/payloads/17357f59.img; fastboot reboot; catch-console.ps1 -Minutes 12 -Log tools/console-m45.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "m6n smmu before fsr48=00000000 r40=00000000 synr50=00000000 synr54=00000000; bhi wrote addr=00000000:eded8000 size=00426890 vec=1 db=1a5a0001 | read back ...; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=415000us; bhi post mhi_sts=00000000 state=0 ready=0 exec=00000000; m6n smmu after fsr48=00000000 r40=00000000 synr50=00000000 synr54=00000000. No SMMU fault was recorded across the transfer, before or after."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m44.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot flash preload /root/payloads/aace987f.img; fastboot reboot; catch-console.ps1 -Minutes 12 -Log tools/console-m44.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "m6c image/qca6390/amss20.bin bytes=4352144 copied=4352144 pa=f1f91000; m6i dram 464c457f 00010101 00000000 00000000 sum=c9711ed6 cpu=c9711ed6 match; m6c offer whole 4352144 of 4352144 bytes; bhi wrote addr=00000000:f1f91000 size=00426890 vec=1 db=1a5a0001 | read back ...; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=415000us; bhi post mhi_sts=00000000 state=0 ready=0 exec=00000000. The DRAM the device reads holds the file, byte for byte as far as the first page can prove."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m43.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot flash preload /root/payloads/4e306d32.img; fastboot reboot; catch-console.ps1 -Minutes 12 -Log tools/console-m43.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "m6k clocks found=f voted=f 00042900 00042a00 00042700 00042800; bhi wrote addr=00000000:eae21000 size=00426890 vec=1 db=1a5a0001 | read back ...; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=415000us; bhi dbg eae21000 00000000 00426890 sts2=ffffffff reglen=00000100 ctrl=00000000; bhi post mhi_sts=00000000 state=0 ready=0 exec=00000000 (no ready row followed, i.e. two seconds of polling saw no READY)."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m42.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot flash preload /root/payloads/de2392ed.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 12 -Log tools/console-m42.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "product kona, Writing preload OKAY, capture opened COM20. m6k clocks found=f voted=f 00042900 00042a00 00042700 00042800; m6k qfprom 00000006 -> 00000002 (clear mask 5) plausible=1; m6h before handoff reglen=00000100 bhi=00000100 bhie=00000224 ctrl=00000000 sts=00000000 ee=00000000; bhi wrote addr=00000000:e5c95000 size=00426890 vec=1 db=1a5a0001 | read back ...; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=414500us; bhi dbg e5c95000 00000000 00426890 sts2=ffffffff reglen=00000100 ctrl=00000000. All four clock outputs voted through TCS 0 of the apps RSC, and the handoff's answer unchanged."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m40.log and tools/console-m41.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot flash preload /root/payloads/192d7f09.img (Gen1) then /root/payloads/de9804c8.img (whole amss20.bin); fastboot reboot; catch-console.ps1 per boot"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "Gen1 boot: m3 lnkctl2 00010003 -> 00010001 (target Gen1); m3 ltssm 0->111 elbi=00011401 dll=30110008 id=010b17cb up=1 spd=1 waited=6300us; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=415500us. Whole-image boot: m6c image/qca6390/amss20.bin bytes=4352144 copied=4352144; m6c offer whole 4352144 of 4352144 bytes; m6j inbound r1 mapped=1 c2=80000000 base=eaf1e000 lim=eb71dfff tgt=eaf1e000 (an 8 MiB power-of-two span); bhi wrote addr=00000000:eaf1e000 size=00426890 vec=1 db=1a5a0001 | read back ...; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=415000us; m6l log05 42100100 00000005 0080ead8 00000253 ef000008 - identical to the m3.bin boot's log05. Fixed 415 ms, same code, same log, for three image sizes and two link rates."
 
 [[area.evidence]]
 kind = "host"
-reference = "/root/dby-edge/qca6390/m3.bin and amss20.bin (the EDL dumps of the modem partition)"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "python3 _review_tmp/parse-elf.py over both files, reading the ELF32 header and program header table"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "m3.bin: ELF32, entry 0x401, e_phoff 0x34, one program header, PT_LOAD at paddr 0x4ff00000 filesz 0x40000, code from file offset 0x1000. amss20.bin: ELF32 ARM, entry 0x16bfe00, eighteen program headers, PT_LOAD segments at 0x01000000 (filesz 0x5f000), 0x01477000, 0x016b0000, 0x0181a000, 0xf0000000 and 0xf0020000. Data.msc is not an ELF: it begins with the ASCII text VERSION:269714491."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m39.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot flash preload /root/payloads/18ef28ed.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 12 -Log tools/console-m39.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "product kona, Writing preload OKAY, capture opened COM20. m6c offer sbl 266684 of 266684 bytes; bhi wrote addr=00000000:eaed8000 size=000411bc vec=1 db=1a5a0001 | read back ...; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=416000us; bhi dbg eaed8000 00000000 000411bc sts2=ffffffff reglen=00000100 ctrl=00000000; m6l pbl log=ef128100 cfg=00000200 boot=00000040 dbg2=00000000; m6l log00 ef128100 00000000 00120700 00000000 00f84271; m6l log05 42100100 00000005 0080ead8 00000253 ef000008; m6l log10 888c0020 fbdcdca1 6bd6e549 90685011 b4a1ab7e; m6l log15 598ca2a5 06349f6c a59ac75e b4f78d83 fefbfab0. The PBL's logging register carries the error code itself, and the log's first ten words are structured while the last ten are not."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m38.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot flash preload /root/payloads/9cb12075.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 12 -Log tools/console-m38.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "product kona, Writing preload OKAY, capture opened COM20. m6c image/qca6390/m3.bin bytes=266684 copied=266684 pa=eb01f000; m6c offer sbl 266684 of 266684 bytes; m6k mhi reset released after 2000us (ctrl=00000000); bhi wrote addr=00000000:eb01f000 size=000411bc vec=1 db=1a5a0001 | read back 00000000:eb01f000 000411bc 1a5a; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=115000us; bhi dbg ee130000 00000000 000411bc sts2=ffffffff reglen=00000100 ctrl=00000000; link elbi=00011401 up=1 dbi=010b17cb dllla=1. Same error code as the amss20 slice, at a time proportional to the size, with the link healthy afterwards."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-peek.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 1 -Log tools/console-peek.log  (ring replay of the 21:43 boot, after the capture for that boot was lost)"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the ring replay held the whole ladder and the two rows the lost capture would have given: m5 arena pa=eda99000 size=33554432; m6c offer sbl 524288 of 4352144 bytes; m6j inbound r1 mapped=1 c2=80000000 base=eda99000 lim=edb18fff tgt=eda99000; bhi wrote addr=00000000:eda99000 size=00080000 vec=1 db=1a5a0001 | read back ...; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=416000us; bhi dbg eda99000 00000000 00080000 sts2=ffffffff reglen=00000100 ctrl=00000000. The dbg trio equals (arena, 0, transfer size), so it is the descriptor the device accepted, not a fault report."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m36.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot flash preload /root/payloads/871e37a3.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 12 -Log tools/console-m36.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "product kona, Writing preload OKAY, capture opened COM20 and kept the boot. The current run: m6c offer sbl 524288 of 4352144 bytes; m6k qfprom 00000006 -> 00000002 plausible=1; m6k soc reset 00000004 -> 00000004; m6k mhi reset released after 2000us (ctrl=00000000); m6h before handoff reglen=00000100 bhi=00000100 bhie=00000224 ctrl=00000000 sts=00000000 ee=00000000; m6j inbound r1 mapped=1 c2=80000000 base=eae55000 lim=eaed4fff tgt=eae55000; bhi wrote addr=00000000:eae55000 size=00080000 vec=1 db=1a5a0001 | read back 00000000:eae55000 00080000 1a5a; bhi sts=ffffffff xfer=3 exec=00000000 ee=0 err=ef128100 waited=416500us. First device-side error code of this line, and the first boot in which the doorbell was consumed."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m34.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot flash preload /root/payloads/a1f26718.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 12 -Log tools/console-m34.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "product kona, Writing preload OKAY, capture opened COM20 at 20:51:04. The current run's rows: m6h before handoff reglen=00000100 bhi=00000100 bhie=00000224 ctrl=00000000 sts=00000000 ee=00000000; m6k qfprom 00000006 -> 00000002 (clear mask 5) plausible=1; m6k cookie=00000000 warm=00000000 -> 00000000; m6k mhi vectors cleared 00000000 00000000 00000000 00000000; m6k mhi ctrl 00000000 -> 00000002 reglen=00000100 sts=00000000; then m6h before handoff ... ctrl=00000002; m6j inbound r1 mapped=1 ...; bhi wrote ... | read back ...; bhi sts=00000000 xfer=0 exec=00000000 ee=0 err=00000000 waited=300000us. Two facts from it: VDD4BLOW was set before this boot touched it, and MHI's reset bit does not clear on its own."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m33.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/24f3d376.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 12 -Log tools/console-m33.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "product kona, Writing preload OKAY, capture opened COM20 at 20:35:04. m6h before handoff reglen=00000100 bhi=00000100 bhie=00000224 ctrl=00000000 sts=00000000 ee=00000000; m6j inbound r1 unrolled before c1=00000000 c2=00000000 base=00000000 lim=00000fff tgt=00000000; m6j inbound r1 mapped=1 c2=80000000 base=ebb21000 lim=ebf47fff tgt=ebb21000; bhi wrote addr=00000000:ebb21000 size=00426890 vec=1 db=1a5a0001 read back 00000000:ebb21000 00426890 1a5a; bhi sts=00000000 xfer=0 exec=00000000 ee=0 err=00000000 waited=300000us. The inbound window is live over the whole image and the doorbell is still not consumed, with no sequence echo in BHI_STATUS."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m32.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot getvar product; fastboot flash preload /root/payloads/49898a3b.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 12 -Log tools/console-m32.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "product kona, Writing preload OKAY in 0.7 s, capture opened COM20 at 20:10:21. The current boot's rows: m6c image/qca6390/amss20.bin bytes=4352144 copied=4352144; m6c offer whole 4352144 of 4352144 bytes; m6h before handoff reglen=00000100 bhi=00000100 bhie=00000224 ctrl=00000000 sts=00000000 ee=00000000; bhi wrote addr=00000000:eba90000 size=00426890 vec=1 db=1a5a0001 read back 00000000:eba90000 00426890 1a5a (the row is clipped at 119 characters); bhi sts=00000000 xfer=0 exec=00000000 ee=0 err=00000000 waited=300000us; bhi did not complete. The capture opens with a replayed tail of the previous boot, which is the gadget flushing its ring rather than a second run."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m30.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 12 -Log tools/console-m30.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the capture opened COM20 at 19:50:27, one second after the reboot, and kept every probe row: m6c image/qca6390/amss20.bin bytes=4352144 copied=4352144; m6c offer whole 4352144 of 4352144 bytes; retrain ltssm 10d->10d elbi=0000d401 dll=b8120008 id=010b17cb up=1 waited=0us; m6h after reset reglen=ffffffff bhi=ffffffff bhie=ffffffff ctrl=ffffffff; bhi offset ffffffff outside the mapped window, refused; then the firmware listing and link elbi=00005101 up=0 dbi=00000000 dllla=0 before stage=10 rc=8. It is the first boot whose rows show a retrain result and the register reads that follow it in the same frame, which is what identified the PERST# toggle as the cause of the all-ones block, and the ladder ran twice with arena addresses eae93000 and eae9d000."
 
 [[area.evidence]]
 kind = "source"
-reference = "docs/wireless-bring-up-plan-2026-11-20.md"
+reference = "docs/wireless-research-2026-11-24.md"
 result = "The evidence behind every row above: the device tree nodes and their line positions, the vendor image inventory, the kernelcache personalities, the two sibling ports and their state, the three architecture routes, and the exact no-flash experiment with its decision table"
 
 [[area.evidence]]
 kind = "source"
-reference = "/root/dby-full.dtb (the tablet's own 738,417-byte device tree, decompiled with dtc to /root/dby-full.dts)"
+reference = "docs/wireless-research-2026-11-24.md"
 result = "qcom,cnss-qca6390@b0000000 at :6270 (compatible qcom,cnss-qca6390, reg 0xb0000000+0x10000 and 0xb2e5510+0x5c0), the wlan alias at :24883, WLAN_EN GPIO20 with its pinctrl at :11079, the cnss_wlan_region 20 MB pool at :24366, pcie@1c00000 at :8929, PERST# 79 and WAKE 81 at :8945, SID base 0x1c00 at :8968, PHY status 0x814/bit 6 at :8980 and the 99-triple phy-sequence at :8983"
 
 [[area.evidence]]
 kind = "source"
-reference = "/root/dby-zap/vendor.img (this unit's vendor partition, extracted to /root/dby-zap/out)"
+reference = "docs/wireless-research-2026-11-24.md"
 result = "bin/cnss-daemon, cnss_cli, wcnss_service, wifi_driver_init and ftmdaemon; etc/init/init.huawei.wcnss.rc line 2 `# for wifi driver built in` and its `cnss_diag ... -t HELIUM` service; bin/cnss-daemon strings `/vendor/etc/wifi/bdwlan.bin`, `%s_bdwlan.bin` and `/vendor/firmware_mnt/image/`; etc/wifi with qca6390 and qca6490 configs and the seven 56,180-byte per-board BDF files named after dby and w09; firmware/wlan/qca_cld holds one .ini and no blob, and no amss/m3/regdb file exists anywhere in this image"
 
 [[area.evidence]]
 kind = "source"
-reference = "/root/core-pub/out/ipsw/21H461/kernelcache.decompressed (the donor kernelcache, strings -a)"
+reference = "docs/wireless-research-2026-11-24.md"
 result = "A decode of __PRELINK_INFO lists 238 kexts and none is IO80211* or IOBluetooth*: com.apple.driver.AppleOLYHAL (load 0xfffffff005622c80) has two personalities, IONameMatch wlan over AppleARMIODevice and over AppleOnboardSerialSync, both with IONetworkRootType airport, and its OSBundleLibraries name IOPCIFamily, AppleEmbeddedPCIE, corecapture and AppleOnboardSerial; com.apple.driver.AppleBluetooth is a 2,040-byte BTReset stub with IONameMatch bluetooth over IOService; AppleOnboardSerial.kext carries com.apple.uart.sk.%s, which is how a bluetooth node becomes the com.apple.uart.sk.bluetooth socket BlueTool and bluetoothd open. The six IO80211 strings in the image are bare class names in the KPI stub block, and IO80211APIUserClient plus AppleBCMWLANSkywalkInterface resolve inside Sandbox.kext as rule names"
 
 [[area.evidence]]
 kind = "source"
-reference = "docs/wireless-spec-2026-11-20.md"
+reference = "docs/wireless-research-2026-11-24.md"
 result = "The implementation document this round follows: scope and non-goals, the hardware fact table with its sources, the nine-stage ladder (M1 read-only census through M9 Darwin network layer) with what each stage writes and accepts, the row grammar, the failure model, the risk register and the rollback rule. Stage M1 is what package/DbyPcie.cpp implements; the later stages are specified at the level of what must be observed and are refined as each predecessor is accepted"
 
 [[area.evidence]]
@@ -1533,7 +1551,7 @@ result = "payload.img 218,103,808 bytes, sha256 ec2a9a9da0e8e954..., packed kern
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m1.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/c547ec8f.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 10 -Log tools/console-m1.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "[dby-pcie] gcc gdscr=0022f001 clkref=80000000 refgen=00000001; halt 80000000 80000220 80000220 80000000 80000000 80000000; pin20 and pin79 west=00000000/00000000 south=00000000/00000000 north=00000001/00000000; tile wlan_en=none perst=none; block gated, parf not read; stage=1 rc=1. Interpretation in the finding: PCIe0 is collapsed exactly as the same-SoC record says, PHY refgen is already enabled, the WIFI_CLKREF branch is off, and the endpoint was correctly not touched (GDSCR bit 31 clear). The same console capture reaches SpringBoard p27, so the payload did not disturb the running system; the packed command line reads len=997 with dby-pcie=1. The tile verdict is none because the pads are at reset defaults before M3 programs them - recorded as a design error in the census, not as a hardware surprise"
@@ -1547,7 +1565,7 @@ result = "kernel step returned 0 with zero error lines and kernel.macho sha256 8
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m2a.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/2c80f27f.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 10 -Log tools/console-m2a.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the M2a block reads: gcc gdscr=0022f001 clkref=80000000 refgen=00000001; gcc2 votes=063c23c0 tbu=00004221 phyaux=80000000 ddrss=00100001; resets bcr=00000000 phybcr=00000000 phycom=00000000; m2 before gdscr=0022f001 votes=063c23c0; m2 voted votes=063c23ff clkref=00000001 refgen=00000001 tbu=00004221 phyaux=00000001 ddrss=00100001; m2 gdsc after=f822f000 pwron=1 waited=0us; m2 resets bcr=00000000 phybcr=00000000 released; parf sys=2000361c phy=00000900 refclk=00001019 dbi_base=00000000 ltssm=0. The packed command line reads len=994 with dby-pcie=2. The log's earlier block is the PREVIOUS boot's tail (it shows stage=1 and lacks the gcc2/resets rows this kernel prints), which is why the file carries two [cmdline] lines"
@@ -1561,7 +1579,7 @@ result = "the generated header holds 99 entries with offsets 0x010..0xCE0 and no
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m3.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/036e5a5f.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 10 -Log tools/console-m3.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the M3 block reads: gcc gdscr=0022f001; gcc2 votes=063c23c0; tile wlan_en=NORTH(src) cfg=00000001 perst=NORTH(src) cfg=00000001; m2 voted votes=063c23ff; m2 gdsc after=f822f000 pwron=1 waited=0us; m2 resets bcr=00000000 phybcr=00000000 released; m3 pads gpio20=000003c3/00000003 gpio79=00000201/00000003; m3 phy count=99 first=840:03 last=844:03; m3 ltssm 0->107 elbi=00007001 up=0 waited=100000us; m3 no link in 100 ms, pads low and ltssm=5 restored; parf sys=2000361c phy=00000900 refclk=00001019 dbi_base=00000000 ltssm=5; link elbi=00005001 up=0 dbi=00000000 dllla=0; stage=3 rc=3. The packed command line reads len=994 with dby-pcie=3. The boot reached the UI afterwards (DbyTouch pub climbing past 4736) and printed no panic of its own."
@@ -1575,7 +1593,7 @@ result = "kernel step returned 0 with zero error lines and kernel.macho sha256 7
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m3b.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/4e585672.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 10 -Log tools/console-m3b.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the M3b block reads: m3 wlan_en high, ep-latency 10000us waited; m3 parf dev=4 sys=0000365e refclk=00000019 dbi_base=00000000 slv=04000000; m3 phy count=99 first=840:03 last=844:03; m3 pads gpio20=000003c3/00000003 gpio79=00000201/00000003; m3 dbi gen2=00020190 eq=04000060 misc=00000000 devctl=00105810; m3 ltssm 0->111 elbi=00011401 dll=b0120008 id=010b17cb up=1 waited=10100us; m3 dbi id=010b17cb dllla=1 bar0_soc_hw=ffffffff major=15; link elbi=00011401 up=1 dbi=010b17cb dllla=1; stage=3 rc=0. The packed command line reads len=994 with dby-pcie=3. This is a link result, not a WiFi result: no firmware, no MHI, no ath11k, no interface."
@@ -1589,14 +1607,14 @@ result = "kernel step returned 0 with zero error lines and kernel.macho sha256 6
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m4.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/309db13f.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 10 -Log tools/console-m4.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the M4 block reads: m4 atu r0 ctrl1=ffffffff ctrl2=ffffffff base=ffffffff limit=ffffffff; m4 atu mem ctrl1=ffffffff ctrl2=ffffffff base=ffffffff limit=ffffffff; m4 atu cfg ctrl1=ffffffff ctrl2=ffffffff base=ffffffff limit=ffffffff; m4 rc hdr cmd=00100007 busn=00ff0100; m4 ep cmd=ffff->ffff bar0=ffffffff->ffffffff id=ffffffff; m4 cfg id=ffffffff class=ffffffff soc_hw=ffffffff major=15; m4 no config answer (vendor ffff), windows left as programmed; stage=4 rc=5. The same boot's M3b rows are healthy (m3 ltssm 0->111 elbi=00011401 up=1 waited=9900us), so the link was up and the failure is the unrolled translator window not decoding on this board."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m4b.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/072276b6.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 10 -Log tools/console-m4b.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the M4b block reads: m3 ltssm 0->111 elbi=00011401 dll=b0120008 id=010b17cb up=1 waited=10100us; m4 atu probe vp=ffffffff unrolled=ffffffff; m4 atu layout vp=0 unrolled=0; m4 atu retry dbi_base=60000000 slv=00000000/80000000; m4 atu retry layout vp=0 unrolled=1; m4 atu mem ctrl2=80000000 base=60300000 limit=603fffff; m4 atu cfg ctrl2=80000000 base=60100000 limit=60100fff; m4 rc hdr cmd=00100007 busn=00ff0100; m4 ep cmd=0000->0006 bar0=00000004->60300004 id=110117cb; m4 cfg id=110117cb class=02800001 soc_hw=400a0200 major=2; stage=4 rc=0. QCA6390 (17cb:1101) confirmed by the endpoint's own configuration space; TCSR major 2; BAR0 reachable at 0x60300000. This is a bus result, not a WiFi result: no firmware, no MHI, no ath11k, no interface."
@@ -1610,77 +1628,77 @@ result = "kernel step returned 0 with zero error lines and kernel.macho sha256 6
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m5.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/c2eb069f.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 10 -Log tools/console-m5.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the M5 block reads: m5 arena pa=e5e44000 size=33554432; m5 smmu sid=1c01 slot=7 bank=73 smr=80001c01 s2cr=00000049 t=0; stage=5 rc=0. The same boot's earlier stages are healthy (m4 cfg id=110117cb class=02800001 soc_hw=400a0200 major=2, and the link up rows). No m6 rows in this boot because the argument was dby-pcie=5 and M6a is gated on stage >= 6, which is the dispatch behaving as written."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m5.log (the M6a rows landed in this capture, which was still holding COM20 when the dby-pcie=6 image booted)"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/32292411.img; fastboot reboot; read tools/console-m5.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the M6a block reads: m6 mhi reglen=00000100 bhi=00000100 bhie=00000224 ctrl=00000000 sts=00000000; m6 mhi state=0 ee=0 ready=0 syserr=0; stage=6 rc=0, in the same boot whose earlier stages read m5 arena pa=e5e44000 size=33554432, m5 smmu sid=1c01 slot=7 bank=73 smr=80001c01 s2cr=00000049 t=0 and m4 cfg id=110117cb class=02800001 soc_hw=400a0200 major=2. The device is in PBL with READY clear and no SYSERR: the baseline a firmware download must move. The packed command line reads len=994 with dby-pcie=6."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m8b.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot getvar product; fastboot flash preload /root/payloads/a4653f28.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 10 -Log tools/console-m8b.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the M7a block reads: m7 part=modem lun=4 first=1286 blocks=48128; m7 fat mount failed rc=-2; stage=8 rc=8, in a boot whose earlier stages were healthy. No partition named firmware/firmware_a/firmware_b exists on this unit, and the one name that answered (modem) is not a FAT volume, so the vendor firmware's location is still unknown and the port says so instead of asserting an absence."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m9b.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/86369fe6.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 8 -Log tools/console-m9b.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the M7b block reads: m7b gpt entries_lba=2 num=64 size=128; m7b part 0 ssd, 1 persist, 2 nvme, 3 misc, 4 bsp_info, 5 reserved1, 6 oeminfo, 7 bootfail_info, 8 rrecord, 9 cache, 10 frp, 11 log; m7 part=modem lun=4 first=1286 blocks=48128; m7 fat mount failed rc=-2; m6b firmware volume does not mount; stage=9 rc=8. The GPT reader works on hardware; the twelve-row cap hid the rest of the table, and M6b reached hardware for the first time and reported that no FAT volume by a known name exists."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m9g.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/94cbc007.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 8 -Log tools/console-m9g.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the M7d block reads: m7d modem first=1286 root=110592 entries=512 cluster=16384; m7d modem /image /verinfo; m7d modem/PCAFUI~2 n=366 (JSN/XML/MBN/BRD/FW plus .B00..B20 runs each headed by a .MDT, and a subdirectory); m7d modem/AUL5K3~2 n=3 (*.TXT); m7d bluetooth first=49414 root=28672 entries=512 cluster=16384; m7d bluetooth /image; m7d bluetooth/PCAFUI~2 n=10 (six .BIN, two .TLV, two more .BIN). Both volumes are FAT16 with 4096-byte sectors and list correctly; the file names are long names whose assembly was missing at that point, so they printed as 8.3 short names."
 
 [[area.evidence]]
 kind = "host"
-reference = "_review_tmp/test-fat-walker.py (scratch harness, not part of the repository)"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "mkfs.fat -F 16 -s 4 -S 512 test.img; mcopy -s image ::/; python3 test-fat-walker.py"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the offline harness printed: parsed: ['IMAGE', 'very-long-name-for-testing.bin', 'M3.BIN', 'BDWLAN.BIN', 'AMSS20.BIN', 'SHORT.BIN'] against an image written with those five names; the harness's own 'long names present' assertion is buggy and reports False, which is a defect of the harness, not of the walker."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/edl-attempt-2026-11-21.log (this host, /tmp/edl4.log at the time of the attempt)"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot oem edl; usbipd attach --wsl --busid 2-1; modprobe -r qcserial; python3 edl.py --loader=/root/loader.elf printgpt"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the unit entered EDL (05c6:9008, QUSB_BULK_CID:0412_SN:E3931613) and pyusb could open it, but the partition-table read stopped after the Sahara hello: the interface was owned by qcserial (/dev/ttyUSB0) until it was unbound and blacklisted, and with it free edl.py still waits after 'Device detected :)' - i.e. before the ready packet - on six attempts that have now consumed the session. Nothing was written to the device at any point."
 
 [[area.evidence]]
 kind = "host"
-reference = "/root/loader-dby/devprg.elf (from Downloads/MatePad11Toolkit_v3.3.1.zip, assets\\img\\devprg.elf)"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "python3 extract-devprg.py; usbipd detach/attach 2-1; cd /root/edl && python3 edl.py --loader=/root/loader-dby/devprg.elf printgpt"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the toolkit's devprg.elf (697,840 bytes) was extracted from MatePad11Toolkit_v3.3.1.zip with python's zipfile (the archive's member names carry literal backslashes, so unzip's patterns miss them) and used as the edl.py loader; the handshake still stops after 'Device detected :)' both before and after a driver-free re-enumeration, which excludes the loader, qcserial and the usbip link and leaves the device's spent Sahara session as the cause."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m9h.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/48bf141e.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 8 -Log tools/console-m9h.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the recursive walker printed the long names: modem/image/qca6390 holds Data.msc, amss20.bin and bdwlan.e01..bdwlan.e0e (shown=16 of 30, n=30); modem/image has 364 entries including adsp.b00..adsp.b12 and the qca6390 directory; modem/verinfo has ver_info.txt; bluetooth/image holds dby_ddr_htnv20.bin, dby_fem_htnv20.bin, dby_htnv20.bin, mrr_htnv20.bin, htbtfw10.tlv, htbtfw20.tlv, htnv10.bin and one more (n=8). The WLAN firmware is on the device after all, inside the modem partition's FAT16 volume."
 
 [[area.evidence]]
 kind = "device"
-reference = "/root/dby-edge (modem.img, bluetooth.img, oeminfo.img, qca6390/)"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "fastboot oem edl; usbipd attach --wsl --busid 2-1; cd /root/edl && python3 edl.py --loader=/root/loader-dby/devprg.elf printgpt; python3 edl.py --loader=/root/loader-dby/devprg.elf r modem /root/dby-edge/modem.img; mdir -i /root/dby-edge/modem.img ::/image/qca6390; mcopy -s -i /root/dby-edge/modem.img ::/image/qca6390 /root/dby-edge/; python3 edl.py reset"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "EDL read the tablet: printgpt printed every LUN (modem 0x506000 length 0xbc00000, bluetooth 0xc106000 length 0x100000, and no firmware partition at all), 'r modem' dumped 197,132,288 bytes at ~22 MB/s, 'r bluetooth' 1,048,576 bytes, 'r oeminfo' 100,663,296 bytes; mtools then listed image/ and verinfo/ on the host exactly as the probe had, and image/qca6390 extracted to amss20.bin 4,352,144, m3.bin 266,684, Data.msc 645,753 and twenty-nine bdwlan.e01..e25 + bdwlan.elf at 57,932 each. The device was reset out of EDL afterwards and came back on its normal console."
 
 [[area.evidence]]
 kind = "device"
-reference = "tools/console-m10b.log"
+reference = "docs/wireless-research-2026-11-24.md"
 command = "usbipd attach --wsl --busid 2-1; fastboot flash preload /root/payloads/f43e1155.img; fastboot reboot; powershell -ExecutionPolicy Bypass -File tools/catch-console.ps1 -Minutes 8 -Log tools/console-m10b.log"
 revision = "a0a455b1c876f35e8105703536b60526e0b0ca64"
 result = "the M6c block reads: m6c image/qca6390/amss20.bin bytes=4352144 copied=4352144 pa=14a12a000; bhi exec=00000000 status=00000000 ee=0 err=00000000 waited=300000us; bhi did not take the image; stage=10 rc=8. The image was read exactly (4352144 bytes matches the EDL dump on this host) and the arena address is reported; the boot host interface moved nothing, consistent with MHI_CTRL reading 0 in the same boot."
