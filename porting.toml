@@ -967,6 +967,13 @@ kind = "source"
 reference = "patches/xnu/series"
 result = "native-smp-secondary and native-smp-type-clusters are applied by the sm8250 feed at its new pin a6e7e36, so this series keeps only sheng-platform-power plus the device-local rows; patches/xnu/series-audio adds zzyd-sheng-audio-addon-mount.patch, the 0xa00 bindfs entry that presents the staged /private/var/ngpu/audio as /System/Library/Audio/Plug-Ins/HAL behind the sheng-gpu-addon=1 boot argument"
 
+[[area.evidence]]
+kind = "source"
+reference = ".github/workflows/package.yml"
+command = "GitHub Actions workflow_dispatch run 45843837616 (package.yml, macos-15, ipados-17.7.11-21H461, init_data=false)"
+revision = "4bbaed0af1d8369f18a4d9f4e96c2523f32871e8"
+result = "The run completed as cancelled before any workflow step started because GitHub did not assign a hosted runner; the package job has no runner name or step output. No kernel or payload was produced. Installation-seed artifact 15107593055 from run 45796042471 was recovered to the Git-ignored .cache/unit-recovery/run-457960/ before expiry: data.dbr is 1,073,280 bytes, SHA-256 d044042c1f2eb7f721396da1ab7cddebcd5e547e88ce7a5df5e14409e4cc2c4f, with volume UUID B415F419-BD11-4332-A026-86DA4C1B2D2A. This differs from the tracked defconfig UUID 2138CDAC-F86A-4DED-9EF1-09F27363DB2A and is preserved for recovery only, not as a shipping input. No device was flashed or observed."
+
 [[area]]
 id = "diagnostics"
 status = "device-verified"

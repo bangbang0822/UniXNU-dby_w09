@@ -43,10 +43,19 @@ one-day build-input artifacts with the resulting hashes. Run `45822828154` on `m
 the IPSW extraction and verified the OS and SystemOS image hashes, then stopped because the pinned
 core did not contain `build-owner-systemos-policy.py`; it produced no kernel or payload. The pinned
 helper is now supplied from the reviewed upstream commit above. The local repository check passes
-all 467 checks. Corrected runs `45829828436`, `45832346714`, `45834952200`, `45838105298`, and
-`45840910709` ended before any step started because GitHub did not assign a hosted runner; the job
-records have no runner name. The Actions status page reported operational during the checks. No
-kernel or payload was produced by those attempts; a hosted runner is still required to continue.
+all 469 checks after the recovery record was added. Corrected runs `45829828436`, `45832346714`,
+`45834952200`, `45838105298`, `45840910709`, and `45843837616` ended before any workflow step
+started because GitHub did not assign a hosted runner; each job has an empty runner name and no
+step output. The Actions status page reported operational during the earlier checks. No kernel or
+payload was produced by these attempts; a hosted runner is still required to continue.
+
+Before its one-day expiry, installation-seed artifact `15107593055` from run `45796042471` was
+saved under the Git-ignored `.cache/unit-recovery/run-457960/`. Its `data.dbr` is 1,073,280 bytes,
+SHA-256 `d044042c1f2eb7f721396da1ab7cddebcd5e547e88ce7a5df5e14409e4cc2c4f`; the accompanying
+manifest records Data volume UUID `B415F419-BD11-4332-A026-86DA4C1B2D2A`. This does not match the
+tracked defconfig UUID `2138CDAC-F86A-4DED-9EF1-09F27363DB2A`, so the recovered seed is preserved
+for recovery only and is not an input to the current shipping build. No Apple restore-image member,
+Data seed, or owner private key was added to Git.
 
 ## What to observe on the tablet
 
