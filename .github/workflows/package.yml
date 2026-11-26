@@ -260,35 +260,21 @@ jobs:
           ./unixnu defconfig dby_w09_bootstrap_defconfig -D ../device
           ./unixnu tree -D ../device
           shipping_tree="$GITHUB_WORKSPACE/UniXNU/out/dby-w09/$OS_PROFILE/dby_w09/tree"
+          bootstrap_tree="$GITHUB_WORKSPACE/UniXNU/out/dby-w09/$OS_PROFILE/dby_w09_bootstrap/tree"
           bootstrap_work="$GITHUB_WORKSPACE/UniXNU/out/dby-w09/$OS_PROFILE/dby_w09_bootstrap"
           shipping_work="$GITHUB_WORKSPACE/UniXNU/out/dby-w09/$OS_PROFILE/dby_w09"
           shipping_seed="$shipping_work/runtime/data.dbr"
+          # Reuse the verified signed policies and per-run owner key in this separate tree.
+          # The UFS and Virtio archives then link against the same dual-policy inputs as shipping.
+          mkdir -p "$bootstrap_tree/build"
+          for input in verified-root-host verified-root-os verified-root-systemos; do
+            [ -d "$shipping_tree/build/$input" ] || { echo "::error::missing signed input $input"; exit 1; }
+            cp -R "$shipping_tree/build/$input" "$bootstrap_tree/build/"
+          done
           if [ ! -f "$shipping_seed" ] && [ "$INIT_DATA" != "true" ]; then
             echo '::error::No preserved Data seed; set init_data=true for a first-install seed.'
             exit 1
           fi
-          # The board archive plan is shared by both passes. The verified-root probe and its
-          # multi-policy transport need shipping compile inputs, so omit exactly those three entries
-          # for the candidate pass, then restore the original board file even if the build fails.
-          cp ../device/board.toml "$RUNNER_TEMP/board.toml.shipping"
-          restore_board() { cp "$RUNNER_TEMP/board.toml.shipping" ../device/board.toml; }
-          trap restore_board EXIT
-          python3 - <<'DROP'
-          import pathlib
-          path = pathlib.Path('../device/board.toml')
-          kept, dropped = [], []
-          for line in path.read_text().splitlines(keepends=True):
-              entry = line.strip()
-              if entry.startswith('"') and entry.endswith('",') and ('verified-root' in entry or 'verified-bundle' in entry):
-                  dropped.append(entry)
-                  continue
-              kept.append(line)
-          if len(dropped) != 3:
-              raise SystemExit(f'expected to stand down three verified-root recipes, found {len(dropped)}')
-          path.write_text(''.join(kept))
-          print('bootstrap-only omissions:')
-          print('\\n'.join('  ' + entry for entry in dropped))
-          DROP
           args=(build kernel runtime -D ../device)
           if [ -f "$shipping_seed" ]; then
             args+=(--data-ramdisk "$shipping_seed")
@@ -296,8 +282,6 @@ jobs:
             args+=(--init-data)
           fi
           ./unixnu "${args[@]}"
-          restore_board
-          trap - EXIT
 
           data_uuid=$(sed -n 's/^CONFIG_XNU_OWNER_DATA_VOLUME_UUID="\([0-9A-Fa-f-]*\)"$/\1/p' "$bootstrap_work/.config")
           if ! [[ "$data_uuid" =~ ^[0-9A-Fa-f]{8}-([0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}$ ]]; then

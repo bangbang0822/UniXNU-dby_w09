@@ -3,22 +3,31 @@
 ## What changes
 
 The packaging workflow now starts from a clean output tree by building an intermediate kernel
-without the dual-policy root verifier. That kernel becomes the reference image for the HID and
-legacy-display binding steps. The workflow then restores the shipping board configuration and
-builds the dual-policy inputs from the checksum-pinned iPadOS 17.7.11 / 21H461 IPSW. The display
+in a separate output directory with the dual-policy root verifier enabled. That kernel becomes the
+reference image for the HID and legacy-display binding steps. The workflow first builds the
+dual-policy inputs from the checksum-pinned iPadOS 17.7.11 / 21H461 IPSW, then copies those verified
+inputs into the intermediate tree. The display
 builder emits only three temporary callback stubs while no candidate exists; the shipping build
 replaces them with the audited backend. The bootstrap image is retained as build evidence and is
 never packaged or flashed. The pinned dby-w09 core lacks the SystemOS policy signer, so the workflow
 fetches that official UniXNU helper from a fixed upstream commit, checks its SHA-256, and places it
 in the assembled tree before signing the SystemOS volume with the same per-run owner key as OS.
+The bootstrap defconfig matches the shipping authenticated-root options. The owner key and signed
+OS/SystemOS policy inputs are copied from the verified shipping tree before the bootstrap build;
+the Data seed UUID is bound through the normal runtime preparation path.
+The first-pass display stub archive writes the build report the kernel gate requires, binding the
+exact archive hash to the generated stub source hash and marking it as first-pass-only.
 
 ## What can break
 
-The temporary config disables the verified-root probe, root audit/trust, cache mount, boot manifest,
-Data mount, and SystemOS union, and points NativeVirtioBlock at the plain archive. This keeps the
-temporary kernel within the core build script's rule that Data mount requires the authenticated
-owner boot manifest. The workflow removes exactly
-the three verified-root archive recipes for that pass and restores `board.toml` with an exit trap.
+The bootstrap build uses the audited UFS, VerifiedRoot, Virtio, and boot-progress archives. An
+earlier attempt disabled those root inputs and failed at link with unresolved VerifiedRoot and RPMh
+symbols, so the workflow now carries the owner key and signed policies into the separate tree and
+keeps the complete archive plan. These generated inputs stay in the ephemeral runner workspace; the
+owner private key is not uploaded or committed. The display preflight checks its temporary archive
+and generated source against the report; it does not treat the stubs as an initialized or presented
+display backend. The shipping tree rebuilds this archive after the candidate kernel has been copied
+in.
 The final `release` invocation selects `dby_w09_defconfig`, uses the saved Data seed, GPU addon and
 matching owner trust bundle, and runs the full archive plan. A failed restore or missing candidate
 must fail the job before packaging. On a cache miss with `init_data=true`, runtime preparation
@@ -57,9 +66,11 @@ Before its one-day expiry, installation-seed artifact `15107593055` from run `45
 saved under the Git-ignored `.cache/unit-recovery/run-457960/`. Its `data.dbr` is 1,073,280 bytes,
 SHA-256 `d044042c1f2eb7f721396da1ab7cddebcd5e547e88ce7a5df5e14409e4cc2c4f`; the accompanying
 manifest records Data volume UUID `B415F419-BD11-4332-A026-86DA4C1B2D2A`. This does not match the
-tracked defconfig UUID `2138CDAC-F86A-4DED-9EF1-09F27363DB2A`, so the recovered seed is preserved
-for recovery only and is not an input to the current shipping build. No Apple restore-image member,
-Data seed, or owner private key was added to Git.
+tracked defconfig UUID `2138CDAC-F86A-4DED-9EF1-09F27363DB2A`. This is not a build blocker: the
+kernel-build runtime reads the seed's APFS UUID and binds it into the temporary bootstrap config;
+the workflow then carries that value into the shipping defconfig for packaging and restores the
+tracked file. The seed is therefore a valid build input when restored from this workflow's
+platform-seed cache. No Apple restore-image member, Data seed, or owner private key was added to Git.
 
 ## What to observe on the tablet
 

@@ -1,4 +1,6 @@
 # Intermediate cold-build configuration derived from dby_w09_defconfig.
+# Keep the authenticated-root settings aligned with shipping; the workflow copies the signed
+# policy inputs into this separate output tree before running the kernel build.
 
 # Used only to generate a prelink candidate; this configuration is not for flashing.
 
@@ -12,19 +14,19 @@ CONFIG_XNU_TRUST_CACHE_RUNTIME=y
 CONFIG_XNU_NATIVE_CS_HASH_CACHE=y
 CONFIG_XNU_SOURCE_CORECRYPTO14=y
 CONFIG_XNU_SOURCE_PTHREAD=y
-# CONFIG_XNU_VERIFIED_ROOT_PROBE is not set
+CONFIG_XNU_VERIFIED_ROOT_PROBE=y
 CONFIG_XNU_NATIVE_VIRTIO_BLOCK=y
-# CONFIG_XNU_OWNER_ROOT_AUDIT is not set
-# CONFIG_XNU_OWNER_ROOT_TRUST is not set
-# CONFIG_XNU_OWNER_CACHE_MOUNT is not set
-# CONFIG_XNU_OWNER_CACHE_STARTUP is not set
-# CONFIG_XNU_OWNER_BOOT_MANIFEST is not set
-# CONFIG_XNU_OWNER_UNION_SYSTEMOS is not set
+CONFIG_XNU_OWNER_ROOT_AUDIT=y
+CONFIG_XNU_OWNER_ROOT_TRUST=y
+CONFIG_XNU_OWNER_CACHE_MOUNT=y
+CONFIG_XNU_OWNER_CACHE_STARTUP=y
+CONFIG_XNU_OWNER_BOOT_MANIFEST=y
+CONFIG_XNU_OWNER_UNION_SYSTEMOS=y
 CONFIG_XNU_SHENG_PMGR=y
 CONFIG_XNU_NATIVE_RAM_BLOCK=y
-# CONFIG_XNU_OWNER_DATA_MOUNT is not set
-CONFIG_XNU_VERIFIED_ROOT_ARCHIVE=""
-CONFIG_XNU_NATIVE_VIRTIO_BLOCK_ARCHIVE="{tree}/build/virtio-mmio-block/libVirtioMmioBlock.a"
+CONFIG_XNU_OWNER_DATA_MOUNT=y
+CONFIG_XNU_VERIFIED_ROOT_ARCHIVE="{tree}/build/verified-root-os-xnu-bundle/libVerifiedRootProbe.a"
+CONFIG_XNU_NATIVE_VIRTIO_BLOCK_ARCHIVE="{tree}/build/virtio-mmio-block-verified-bundle/libVirtioMmioBlock.a"
 CONFIG_XNU_BOOT_PROGRESS=y
 CONFIG_XNU_QCOM_USB_DEBUG=y
 CONFIG_XNU_DT_PANIC_REGION=y
@@ -38,4 +40,4 @@ CONFIG_XNU_NATIVE_ADRENO=y
 CONFIG_XNU_NATIVE_ADRENO_ARCHIVE="{tree}/build/adreno740/libAdreno740.a"
 # CONFIG_XNU_SOURCE_MOCKFS is not set
 
-# The dual-policy archive and authenticated root transport are generated only in the shipping pass.
+# The workflow copies signed policy inputs from the verified shipping tree into this tree.
