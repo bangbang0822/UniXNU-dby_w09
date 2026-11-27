@@ -69,7 +69,7 @@ jobs:
           # every runner is somewhere else in GitHub's network. The mirror is a plain push of that line.
           git clone --branch dby-w09 https://github.com/bangbang0822/UniXNU-core-dby-w09.git UniXNU
           git -C UniXNU fetch origin refs/heads/codex/rebuild-macos-2026-11-26
-          git -C UniXNU checkout --detach 973f86d6bb7e336e255204b0cf5171b759de1c03
+          git -C UniXNU checkout --detach 086d5372ca70f9c2cc4f1f1ec302dd48ddbc30e6
           git -C UniXNU submodule update --init --recursive
           # This core pin predates the matching SystemOS policy signer. Add the official helper to
           # the core source before tree assembly so every subsequent tree refresh preserves it.
@@ -218,9 +218,6 @@ jobs:
           detach_os
           trap - EXIT
           rm -f "$volumes/044-76040-038.dmg" "$volumes/044-76034-038.dmg" "$ipsw"
-          # The official probe reuses bsd_init.o's compile arguments before the kernel export tree
-          # is complete; its source does not include libsa headers, so the directory only needs to exist.
-          mkdir -p "$tree/build/xnu/ios-obj/EXPORT_HDRS/libsa"
           ls -l "$tree/build/verified-root-os" "$tree/build/verified-root-systemos" | head -20
       - name: bootstrap kernel and prelinked candidate
         working-directory: UniXNU
