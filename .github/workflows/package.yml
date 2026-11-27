@@ -69,7 +69,7 @@ jobs:
           # every runner is somewhere else in GitHub's network. The mirror is a plain push of that line.
           git clone --branch dby-w09 https://github.com/bangbang0822/UniXNU-core-dby-w09.git UniXNU
           git -C UniXNU fetch origin refs/heads/codex/rebuild-macos-2026-11-26
-          git -C UniXNU checkout --detach 6fde121ca52667a0f3c3bbf55cf2ccd1efb218a2
+          git -C UniXNU checkout --detach 973f86d6bb7e336e255204b0cf5171b759de1c03
           git -C UniXNU submodule update --init --recursive
           # This core pin predates the matching SystemOS policy signer. Add the official helper to
           # the core source before tree assembly so every subsequent tree refresh preserves it.
