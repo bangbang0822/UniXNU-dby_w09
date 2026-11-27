@@ -32,6 +32,6 @@ Choose an ath11k-capable reusable driver source, pin it as a component/feed, and
 
 ## Build and device discipline
 
-Build the kernel from a clean resolved tree and inspect the archive provider and final linked symbols. Record source pins, firmware hashes, kernel/payload SHA-256 and the last booted rollback payload. Review every code and boot-argument change with the four questions in `AGENTS.md`, update `porting.toml` wireless/network areas in the same push, and flash one variable at a time only after owner approval. The existing `wireless` record's `limits` and `next_action` still describe M1 even though its findings reach BHI; reconcile those fields before using the record as a gate.
+Build the kernel from a clean resolved tree and inspect the archive provider and final linked symbols. Record source pins, firmware hashes, kernel/payload SHA-256 and the last booted rollback payload. Review every code and boot-argument change with the four questions in `AGENTS.md`, update `porting.toml` wireless/network areas in the same push, and flash one variable at a time only after owner approval. The current wireless record uses the BHI rejection as its checkpoint.
 
 References: [Wi-Fi adaptation](https://unixnu.com/porting/network), [j716f QCA6390 record](https://unixnu.com/devices/j716f), [component catalog](https://unixnu.com/reference/components), `docs/wireless-research-2026-11-24.md`, `porting.toml` wireless area.

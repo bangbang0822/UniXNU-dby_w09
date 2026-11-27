@@ -13,7 +13,7 @@ The frontend has moved substantially. Public UniXNU pins `UniXNU/metal2vulkan` r
 - `docs/gpu-8250-approach-survey-2026-11-21.md` compares the A650 forks; `docs/gpu-120fps-spec-2026-11-24.md` records a roughly 60 Hz panel, 42.26 ms mean submit, about 23% fence timeouts, no working vsync and a null `clock.idle`. Those are historical observations; bind any new measurement to its running payload hash.
 - `drivers/Adreno740/` and `drivers/AdrenoMetal/` are board-vendored forks (92 and 71 tracked files). `scripts/build-adreno650.py` builds A650 code into the legacy `libAdreno740.a` path. The path name is a build contract, not the GPU generation.
 - `feeds.toml` already pins shared SM8250 support, including `kits/Sm8250Platform`; `package/Sm8250Platform/` keeps another copy of the A650 GMU operations. Compare exact revisions and move identical shared code only after a stable build.
-- `porting.toml` still marks `gpu` planned despite recorded GPU bring-up. Correct its status and current limits from revision-bound evidence in a separate record change.
+- `porting.toml` marks `gpu` implemented based on the recorded bring-up. The current S0a/S0b instrumentation still needs a device run tied to the payload hash.
 
 ## Execution sequence
 
