@@ -1020,6 +1020,13 @@ command = "GitHub Actions workflow_dispatch run 45888888658 (package.yml, macos-
 revision = "39035014cd7b4298be3bfbb4a8384d31ae330e18"
 result = "A hosted runner was assigned. Checkout, tool installation, source fetch and signed root input preparation passed. The first compile-record link reported board archive imports and continued; the build stopped when ArmDTPlatform's Apple Clang rejected -Wno-unnecessary-virtual-specifier under -Werror. No bootstrap kernel or payload was produced. The workflow now pins core 973f86d6bb7e336e255204b0cf5171b759de1c03, which probes optional warning flags with the XNU target before adding them. That fix has host syntax and diff checks only; the next macOS run must confirm compilation and report kernel and payload hashes or the next blocking step. No device was flashed or observed."
 
+[[area.evidence]]
+kind = "host"
+reference = "docs/reviews/2026-11-26-cold-build.md"
+command = "WSL host replay of package.yml preserve generated Data seed step using run 45888888658 artifact 15151879542"
+revision = "e7cc050d697719a06d4c6e429b280ebbd2aa8baf"
+result = "The artifact's bootstrap data.dbr is 1,073,280 bytes, SHA-256 0721c8788b7834289d163c0cf7fdccda88a1cc706d4b5514a98e9c74161957a6, and matches inputs.json. The exact workflow step copied the valid seed and report to the cache path; changing one seed byte made it fail without creating a cache entry. This closes the local failure path that let a post-runtime archive error discard the only reusable Data seed. CI cache save and next-run restore are still unverified; no device was flashed or observed."
+
 [[area]]
 id = "diagnostics"
 status = "device-verified"

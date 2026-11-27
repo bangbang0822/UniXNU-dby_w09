@@ -94,6 +94,27 @@ the core checkout; the board's repository and record checks passed before dispat
 run must show `ArmDTPlatform` compiling and must identify the next archive or link failure, or produce
 the bootstrap and shipping kernel hashes. There is no tablet observation for this build-only change.
 
+## Failed-bootstrap Data seed retention review
+
+Run `45888888658` produced a validated first-install seed in the bootstrap runtime directory but
+failed before copying it to the shipping runtime directory. `actions/cache/save` then reported that
+its configured path did not exist. Its one-day installation-seed artifact `15151879542` was saved
+locally under Git-ignored `.cache/unit-recovery/run-458888/`: `data.dbr` is 1,073,280 bytes with
+SHA-256 `0721c8788b7834289d163c0cf7fdccda88a1cc706d4b5514a98e9c74161957a6` and Data
+volume UUID `730D857D-9E75-46EF-9355-A814634DDBE5`. The hash matches `inputs.json` in that artifact.
+
+The workflow now copies a generated bootstrap seed and its runtime input report to the configured
+cache path even when a later bootstrap archive fails. It verifies the seed against the report before
+copying, and refuses an existing shipping seed with different bytes. This touches only the retained
+build input; it does not change the seed generator or kernel configuration. A corrupt or incomplete
+seed could otherwise poison later runs, so missing reports are skipped and hash mismatches fail.
+The actual YAML step was executed on the saved artifact in WSL: the valid seed was cached with its
+report, while a one-byte modification was rejected without creating a cache entry. The next CI run
+must show a cache save after any post-runtime failure and the following run must restore the same
+seed SHA-256. No tablet observation applies to this retention change.
+
+## Linux continuation
+
 On 2026-11-27, the WSL continuation used the saved bootstrap tree and the Linux `llvm-objcopy`
 shim documented in the GPU handover. The DbyTorch archive completed at 524,888 bytes with SHA-256
 `c09522a7f6a6811e77dea62e8028f39c7fd7e6be33b29ac912c914529b91c307`. The display first-pass
@@ -103,6 +124,8 @@ with undefined VerifiedRoot and RPMh symbols because that attempted bootstrap co
 signed root inputs and boot-progress providers. It produced no `kernel.macho` or payload. The
 reviewed workflow now carries the verified policies into the bootstrap tree and uses the same
 authenticated-root config as shipping; that path still needs a macOS runner to confirm it.
+
+## Earlier installation seed recovery
 
 Before its one-day expiry, installation-seed artifact `15107593055` from run `45796042471` was
 saved under the Git-ignored `.cache/unit-recovery/run-457960/`. Its `data.dbr` is 1,073,280 bytes,
