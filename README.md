@@ -201,7 +201,7 @@ dual-policy archive. The first-pass stubs are replaced by the audited archives i
 | --- | --- | --- |
 | `tree/build/xnu-prelink/*-candidate.macho` and `.json` | `scripts/build-sheng-hid-input.py`, `scripts/build-gop-legacy-display.py` | generated from the bootstrap kernel during a clean macOS workflow. The first pass emits temporary HID/display stubs; the shipping pass rebuilds both audited archives against these candidates. |
 | `tree/build/display-analysis/mobile-graphics-legacy-abi.json` | `scripts/audit-mobile-graphics-legacy.py` | seeded with the previously recorded `runtime_metadata_checkpoint_sha256`, then regenerated from the new candidate. This reuses recorded QEMU provenance; it does not claim a new hardware observation. |
-| `tree/build/verified-root-os-xnu-bundle/libVerifiedRootProbe.a` | `scripts/build-verified-root-probe.py --component os --include-systemos` | built in the shipping archive plan from the verified 21H461 OS/SystemOS policy inputs and the kernel compile record. The bootstrap config omits this archive because its compile inputs are produced by that first pass. |
+| `tree/build/verified-root-os-xnu-bundle/libVerifiedRootProbe.a` | `scripts/build-verified-root-probe.py --component os --include-systemos` | built in both the bootstrap and shipping archive plans from the verified 21H461 OS/SystemOS policy inputs. Each plan generates its XNU compile record before compiling the archive. |
 
 ## Flash
 
