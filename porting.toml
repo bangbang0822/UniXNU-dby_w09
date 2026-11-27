@@ -1018,7 +1018,7 @@ kind = "host"
 reference = "docs/reviews/2026-11-26-cold-build.md"
 command = "GitHub Actions workflow_dispatch run 45888888658 (package.yml, macos-15, ipados-17.7.11-21H461, init_data=true)"
 revision = "39035014cd7b4298be3bfbb4a8384d31ae330e18"
-result = "A hosted runner was assigned. Checkout, tool installation, source fetch and signed root input preparation passed. The first compile-record link reported board archive imports and continued; the build stopped when ArmDTPlatform's Apple Clang rejected -Wno-unnecessary-virtual-specifier under -Werror. No bootstrap kernel or payload was produced. The workflow now pins core 6fde121ca52667a0f3c3bbf55cf2ccd1efb218a2, which probes optional warning flags before adding them. That fix has host syntax and diff checks only; the next macOS run must confirm compilation and report kernel and payload hashes or the next blocking step. No device was flashed or observed."
+result = "A hosted runner was assigned. Checkout, tool installation, source fetch and signed root input preparation passed. The first compile-record link reported board archive imports and continued; the build stopped when ArmDTPlatform's Apple Clang rejected -Wno-unnecessary-virtual-specifier under -Werror. No bootstrap kernel or payload was produced. The workflow now pins core 973f86d6bb7e336e255204b0cf5171b759de1c03, which probes optional warning flags with the XNU target before adding them. That fix has host syntax and diff checks only; the next macOS run must confirm compilation and report kernel and payload hashes or the next blocking step. No device was flashed or observed."
 
 [[area]]
 id = "diagnostics"

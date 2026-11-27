@@ -82,13 +82,15 @@ the actual stopping error was `ArmDTPlatform` compilation: Apple Clang on this r
 ## macos-15 compiler compatibility review
 
 The core commit `6fde121ca52667a0f3c3bbf55cf2ccd1efb218a2` probes each optional warning
-suppression with the compiler named by the XNU compile record. It retains supported flags and omits
-only flags that the compiler reports as unknown; any other probe failure stops the build. The board
-workflow pins that exact commit. The change affects the warning policy of all components built by
+suppression with the compiler named by the XNU compile record. Follow-up core commit
+`973f86d6bb7e336e255204b0cf5171b759de1c03` also passes the recorded target to each probe,
+because cross Clang may have no default target. It retains supported flags and omits only flags
+that the compiler reports as unknown; any other probe failure stops the build. The board workflow
+pins the follow-up commit. The change affects the warning policy of all components built by
 `build-arm-driver.py`, so a previously suppressed source warning may surface on an older compiler
 and stop under `-Werror`; it does not change driver source, kernel arguments or hardware state.
-Host checks: `python -m py_compile scripts/build-arm-driver.py` and `git diff --check` passed in the
-core checkout; the board's repository and record checks must pass before dispatch. The next macOS
+Host checks: WSL `python3 -m py_compile scripts/build-arm-driver.py` and `git diff --check` passed in
+the core checkout; the board's repository and record checks passed before dispatch. The next macOS
 run must show `ArmDTPlatform` compiling and must identify the next archive or link failure, or produce
 the bootstrap and shipping kernel hashes. There is no tablet observation for this build-only change.
 
