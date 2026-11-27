@@ -391,6 +391,27 @@ jobs:
             echo "=== ${f} (tail)"
             tail -150 "$f"
           done
+      - name: preserve generated Data seed
+        if: always() && steps.data-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          source="UniXNU/out/dby-w09/$OS_PROFILE/dby_w09_bootstrap/runtime"
+          target="UniXNU/out/dby-w09/$OS_PROFILE/dby_w09/runtime"
+          if [ ! -f "$source/data.dbr" ] || [ ! -f "$source/inputs.json" ]; then exit 0; fi
+          python3 - "$source/data.dbr" "$source/inputs.json" <<'PY'
+          import hashlib, json, pathlib, sys
+          seed, report = map(pathlib.Path, sys.argv[1:])
+          expected = json.loads(report.read_text())['inputs']['data_ramdisk']['sha256']
+          if hashlib.sha256(seed.read_bytes()).hexdigest() != expected:
+              raise SystemExit('generated Data seed differs from its runtime input hash')
+          PY
+          mkdir -p "$target"
+          if [ -f "$target/data.dbr" ]; then
+            cmp "$source/data.dbr" "$target/data.dbr"
+          else
+            cp "$source/data.dbr" "$target/data.dbr"
+          fi
+          cp "$source/inputs.json" "$target/inputs.json"
       - uses: actions/cache/save@v4
         if: always() && steps.data-cache.outputs.cache-hit != 'true'
         with:
