@@ -1034,6 +1034,13 @@ command = "GitHub Actions workflow_dispatch run 46026133847 (package.yml, macos-
 revision = "c42bc991590ef929cca87ef9f560617b5f3a7056"
 result = "The hosted runner passed ArmDTPlatform and reached the VerifiedRoot archive in the bootstrap kernel. Its compile-record replay failed because EXPORT_HDRS/libsa did not exist in the bootstrap tree; no bootstrap kernel or payload was produced. Core 086d5372ca70f9c2cc4f1f1ec302dd48ddbc30e6 now omits only absent generated EXPORT_HDRS include directories and uses an explicit warning policy. WSL syntax, diff and include-boundary checks passed; a clean macOS run must still confirm archive compilation and produce hashes or expose the next blocker. The run produced an installation-seed artifact, but the older workflow revision did not cache it after failure. No tablet was flashed or observed."
 
+[[area.evidence]]
+kind = "host"
+reference = "docs/upstream-code-review-2026-11-28.md"
+command = "python3 -m unittest discover -s tests/build -p test_payload_pending.py -v (WSL, isolated core branch)"
+revision = "50e94c2d8c2e7f6d3e916bbabec9a1e13fe6fb1b"
+result = "Six upstream tests passed. An incomplete payload rebuild keeps the previous image and marks the managed output pending. Boot packaging rejects that output until a successful rebuild clears the marker. An explicit empty ramdisk remains available. CI run 67 continues on its existing baseline pin."
+
 [[area]]
 id = "diagnostics"
 status = "device-verified"

@@ -31,3 +31,14 @@ R1 and R2 are confirmed defects in the reproducible-build/record workflow. R3 is
 4. Prepare an isolated core/frontend migration. Compare `status --json`, component pins, patch order, Adreno ABI header, addon manifest and iPadOS 17 build target before any device experiment.
 
 Primary references: [UniXNU porting](https://unixnu.com/porting/), [device repository](https://unixnu.com/porting/device-repository), [component catalog](https://unixnu.com/reference/components), [GPU](https://unixnu.com/porting/gpu), [Wi-Fi](https://unixnu.com/porting/network), [Bluetooth](https://unixnu.com/porting/bluetooth), [power](https://unixnu.com/porting/power), [j716f device record](https://unixnu.com/devices/j716f).
+
+## Follow-up against public main `fdf81ea`
+
+Public UniXNU advanced by 16 commits from the review snapshot, while Gitee device `main` remained at `a77eda8`. The current build core `086d537` and public main have 397 and 649 unique commits respectively. The new range updates shared component pins, including AdrenoMetal from `b25e48e` to `85832c3`. The translator pin remains at `87a869f` and the selected iPadOS 17 profile has no changes in this range. Use the new catalog as the starting point for the compatibility review. [Upstream changes](https://github.com/UniXNU/UniXNU/compare/e7bddb9...fdf81ea)
+
+| Upstream change | DBY-W09 action |
+| --- | --- |
+| [Reject packaging after an incomplete rebuild](https://github.com/UniXNU/UniXNU/commit/d4d689e8f61ff325a58a443e00d51893880991b5) | Backported as core `50e94c2` on `codex/upstream-payload-guard`. All six upstream tests pass under WSL. The change preserves the old output and prevents `bootimg` from consuming it as the managed payload until a retry succeeds. Keep this available for integration after the baseline run. |
+| [Validate archive providers and root policy inputs early](https://github.com/UniXNU/UniXNU/commit/969079c) | Review the provider check separately. Compare the upstream policy directory layout and full verifier requirements against the two signed inputs in each DBY-W09 build tree before adopting its policy preparation path. |
+| [Deterministic archive timestamps](https://github.com/UniXNU/UniXNU/commit/1c79f03) | The local core already sets `ZERO_AR_DATE=1`. Compare build hashes with the same firmware, toolchain, Data seed and signing inputs. The workflow's owner key is currently generated per run. |
+| [Runtime v2 integration](https://github.com/UniXNU/UniXNU/commit/d73e814) and [Adreno ABI validation](https://github.com/UniXNU/UniXNU/commit/241dadc) | Evaluate the translator, bridge, Turnip and A650 ABI together after the baseline. The upstream CLI checks the ABI for a source-built addon, while DBY-W09 CI passes an explicit `--gpu-addon` from bootstrap. Add a provenance check for that path when integrating the guard. Compare the runtime's recorded ABI header hash to the shipping kernel report, and cover both matching and mismatched pairs before a tablet build. |
