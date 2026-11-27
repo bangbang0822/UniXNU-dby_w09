@@ -71,8 +71,26 @@ tool installation, source verification, and root-input preparation, then failed 
 `prepare-xnu-source.py` queried the GitHub API: HTTP 403, rate limit exceeded. The bootstrap kernel
 was not produced and no Data seed was cached. The script already accepts `GITHUB_TOKEN`; the
 packaging workflow now passes the built-in read-only token to its bootstrap step, matching the core
-macOS workflow. The corrected run still needs to verify the authenticated fetch and complete the
-kernel and image builds.
+macOS workflow. Run `45888888658` (`macos-15`, `init_data=true`, board SHA
+`39035014cd7b4298be3bfbb4a8384d31ae330e18`) was assigned a hosted runner and passed checkout,
+tools, platform seed, shipping-tree preparation and signed root inputs. It reached the bootstrap
+archive plan, confirming the authenticated source fetch passed the previous rate-limit point. The
+first compile-record link reported missing board archive symbols and the build continued as designed;
+the actual stopping error was `ArmDTPlatform` compilation: Apple Clang on this runner rejected
+`-Wno-unnecessary-virtual-specifier` under `-Werror`. No bootstrap kernel or payload was produced.
+
+## macos-15 compiler compatibility review
+
+The core commit `6fde121ca52667a0f3c3bbf55cf2ccd1efb218a2` probes each optional warning
+suppression with the compiler named by the XNU compile record. It retains supported flags and omits
+only flags that the compiler reports as unknown; any other probe failure stops the build. The board
+workflow pins that exact commit. The change affects the warning policy of all components built by
+`build-arm-driver.py`, so a previously suppressed source warning may surface on an older compiler
+and stop under `-Werror`; it does not change driver source, kernel arguments or hardware state.
+Host checks: `python -m py_compile scripts/build-arm-driver.py` and `git diff --check` passed in the
+core checkout; the board's repository and record checks must pass before dispatch. The next macOS
+run must show `ArmDTPlatform` compiling and must identify the next archive or link failure, or produce
+the bootstrap and shipping kernel hashes. There is no tablet observation for this build-only change.
 
 On 2026-11-27, the WSL continuation used the saved bootstrap tree and the Linux `llvm-objcopy`
 shim documented in the GPU handover. The DbyTorch archive completed at 524,888 bytes with SHA-256

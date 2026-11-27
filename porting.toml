@@ -1013,6 +1013,13 @@ command = "GitHub Actions workflow_dispatch run 45851668299 (package.yml, macos-
 revision = "5dcbc7e0b5691369ed6cbdd9a7924e188be7f88a"
 result = "The run remained queued for about 15 minutes, then failed before any workflow step started because GitHub did not assign a hosted runner. The package job is cancelled and has an empty runner name; it produced no kernel or payload. This is a runner allocation failure, not a compile result. No device was flashed or observed."
 
+[[area.evidence]]
+kind = "host"
+reference = "docs/reviews/2026-11-26-cold-build.md"
+command = "GitHub Actions workflow_dispatch run 45888888658 (package.yml, macos-15, ipados-17.7.11-21H461, init_data=true)"
+revision = "39035014cd7b4298be3bfbb4a8384d31ae330e18"
+result = "A hosted runner was assigned. Checkout, tool installation, source fetch and signed root input preparation passed. The first compile-record link reported board archive imports and continued; the build stopped when ArmDTPlatform's Apple Clang rejected -Wno-unnecessary-virtual-specifier under -Werror. No bootstrap kernel or payload was produced. The workflow now pins core 6fde121ca52667a0f3c3bbf55cf2ccd1efb218a2, which probes optional warning flags before adding them. That fix has host syntax and diff checks only; the next macOS run must confirm compilation and report kernel and payload hashes or the next blocking step. No device was flashed or observed."
+
 [[area]]
 id = "diagnostics"
 status = "device-verified"
