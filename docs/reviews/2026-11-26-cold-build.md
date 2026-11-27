@@ -113,6 +113,32 @@ report, while a one-byte modification was rejected without creating a cache entr
 must show a cache save after any post-runtime failure and the following run must restore the same
 seed SHA-256. No tablet observation applies to this retention change.
 
+## VerifiedRoot compile-record replay review
+
+Run `46026133847` used board revision `c42bc99` and core `6fde121` on macOS 15. It passed
+`ArmDTPlatform`, the previous compiler-warning blocker. The first XNU compile-record link lacked
+board archive symbols as expected and continued, but `build-verified-root-probe.py` then failed on
+`-Wmissing-include-dirs`: its replayed `bsd_init.o.json` command named the absent bootstrap-tree
+`build/xnu/ios-obj/EXPORT_HDRS/libsa` directory. The workflow had created that directory only in
+the shipping tree. No bootstrap kernel or payload was produced; the run did produce an installation
+seed artifact, but its older workflow did not save the seed to the cache path after failure.
+
+Core `086d5372ca70f9c2cc4f1f1ec302dd48ddbc30e6` now drops a replayed `-I` directory only
+when it is absent and resolves inside this generated `EXPORT_HDRS` subtree. It also replaces XNU's
+replayed warning switches with `-Wall -Wextra -Werror -Wno-unused-parameter`, matching the other
+standalone driver probe. The workflow pins that core revision and removes the ineffective
+shipping-tree directory placeholder. The signed OS/SystemOS policy hashes, manifest checks,
+trusted-key check, source inputs and archive output remain in place.
+
+Risk: a VerifiedRoot source could begin depending on a generated header that the replay omits, or
+the deliberate warning policy could surface a different source error. In either case compilation
+must stop; a missing include outside `EXPORT_HDRS` is not suppressed. WSL `py_compile`, `git diff
+--check`, and a host check of the include boundary (known generated path skipped, real include
+kept, path escaping through `..` rejected) passed. The next clean macOS run must show the
+VerifiedRoot archive compile and its dual-policy metadata, then report the next blocker or both
+kernel and payload hashes. This is a build-only change; there is no tablet observation or eligible
+flash image from the failed run.
+
 ## Linux continuation
 
 On 2026-11-27, the WSL continuation used the saved bootstrap tree and the Linux `llvm-objcopy`

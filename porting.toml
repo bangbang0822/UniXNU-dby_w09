@@ -1027,6 +1027,13 @@ command = "WSL host replay of package.yml preserve generated Data seed step usin
 revision = "e7cc050d697719a06d4c6e429b280ebbd2aa8baf"
 result = "The artifact's bootstrap data.dbr is 1,073,280 bytes, SHA-256 0721c8788b7834289d163c0cf7fdccda88a1cc706d4b5514a98e9c74161957a6, and matches inputs.json. The exact workflow step copied the valid seed and report to the cache path; changing one seed byte made it fail without creating a cache entry. This closes the local failure path that let a post-runtime archive error discard the only reusable Data seed. CI cache save and next-run restore are still unverified; no device was flashed or observed."
 
+[[area.evidence]]
+kind = "host"
+reference = "docs/reviews/2026-11-26-cold-build.md"
+command = "GitHub Actions workflow_dispatch run 46026133847 (package.yml, macos-15, ipados-17.7.11-21H461, init_data=true)"
+revision = "c42bc991590ef929cca87ef9f560617b5f3a7056"
+result = "The hosted runner passed ArmDTPlatform and reached the VerifiedRoot archive in the bootstrap kernel. Its compile-record replay failed because EXPORT_HDRS/libsa did not exist in the bootstrap tree; no bootstrap kernel or payload was produced. Core 086d5372ca70f9c2cc4f1f1ec302dd48ddbc30e6 now omits only absent generated EXPORT_HDRS include directories and uses an explicit warning policy. WSL syntax, diff and include-boundary checks passed; a clean macOS run must still confirm archive compilation and produce hashes or expose the next blocker. The run produced an installation-seed artifact, but the older workflow revision did not cache it after failure. No tablet was flashed or observed."
+
 [[area]]
 id = "diagnostics"
 status = "device-verified"
