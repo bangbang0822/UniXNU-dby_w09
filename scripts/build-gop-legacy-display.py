@@ -47,7 +47,21 @@ if not candidate.exists() and not any((ROOT/'build/xnu-prelink').glob('native-ow
                     ' * backend replaces this archive as soon as a candidate kernel exists. Weak definitions keep a\n'
                     ' * copied build directory from turning the same counters into a duplicate symbol. */\n'
                     'volatile unsigned int native_legacy_visible[272] __attribute__((weak));\n'
-                    'volatile unsigned long long native_legacy_visible_sum[2] __attribute__((weak));\n')
+                    'volatile unsigned long long native_legacy_visible_sum[2] __attribute__((weak));\n'
+                    'volatile unsigned int native_legacy_direct[9] __attribute__((weak));\n'
+                    'volatile unsigned int native_legacy_gop_gate[2] __attribute__((weak));\n'
+                    'void dby_dpu_probe(void) __attribute__((weak));\n'
+                    'void dby_dpu_probe(void) {}\n'
+                    'void dby_dpu_timeline(unsigned) __attribute__((weak));\n'
+                    'void dby_dpu_timeline(unsigned now) {(void)now;}\n'
+                    'int native_gop_handoff_call(unsigned, void *, const void *, unsigned long, void *, unsigned long) __attribute__((weak));\n'
+                    'int native_gop_handoff_call(unsigned op, void *task, const void *in, unsigned long inSize, void *out, unsigned long outSize) {(void)op;(void)task;(void)in;(void)inSize;(void)out;(void)outSize;return -1;}\n'
+                    'void *native_gop_handoff_memory(void) __attribute__((weak));\n'
+                    'void *native_gop_handoff_memory(void) {return (void *)0;}\n'
+                    'void native_legacy_display_probe(void) __attribute__((weak));\n'
+                    'void native_legacy_display_probe(void) {}\n'
+                    'void native_legacy_display_late_probe(void) __attribute__((weak));\n'
+                    'void native_legacy_display_late_probe(void) {}\n')
     run(['xcrun','--sdk','iphoneos','clang','-arch','arm64','-mkernel',
          '-miphoneos-version-min=17.0','-Os','-c',stub,'-o',OUT/'FirstPassStub.o'])
     first_objs=[OUT/'FirstPassStub.o']
@@ -81,7 +95,10 @@ if not candidate.exists() and not any((ROOT/'build/xnu-prelink').glob('native-ow
         run(['xcrun','ar','rcs',path,*map(str,first_objs)])
     report_sources={str(stub.relative_to(ROOT)):sha(stub)}
     provided=['_native_legacy_count_exec','_native_legacy_note_exit','_native_legacy_paint_userspace_band',
-              '_native_legacy_visible','_native_legacy_visible_sum']
+              '_native_legacy_visible','_native_legacy_visible_sum','_native_legacy_direct',
+              '_native_legacy_gop_gate','_dby_dpu_probe','_dby_dpu_timeline',
+              '_native_gop_handoff_call','_native_gop_handoff_memory',
+              '_native_legacy_display_probe','_native_legacy_display_late_probe']
     if any(p.name=='QcomRpmh.o' for p in first_objs):
         report_sources[str(rpmh_src.relative_to(ROOT))]=sha(rpmh_src)
         provided+=['_qcom_cmd_db_find','_qcom_rpmh_level_index','_qcom_rpmh_active_request',
