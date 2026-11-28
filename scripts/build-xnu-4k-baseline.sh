@@ -345,14 +345,9 @@ if [ "$SHENG_PMGR" = 1 ] && [ "${XNU_SOURCE_CORECRYPTO14:-0}" != 1 ]; then
   echo 'The sheng PMGR instrument requires the original-component kernel configuration' >&2
   exit 1
 fi
-SHENG_PMGR_STAMP=$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.sheng-pmgr-mode
-if [ "$(cat "$SHENG_PMGR_STAMP" 2>/dev/null || echo 0)" != "$SHENG_PMGR" ]; then
-  rm -f "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/bsd/DEVELOPMENT/bsd_init.o"
-  printf '%s\n' "$SHENG_PMGR" > "$SHENG_PMGR_STAMP"
-fi
 # QcomXnuUsbDebug is selected by this board's defconfig and its worker patch adds
-# unconditional bsd_init call sites. Keep the archive and per-object compile switch
-# enabled for a clean bootstrap unless an explicit caller disables the board console.
+# bsd_init call sites. The bootstrap pass runs before archive recipes, so compile
+# provider call sites only in the shipping pass; the later pass restores the board values.
 QCOM_USB_DEBUG=${XNU_QCOM_USB_DEBUG:-1}
 if [ "$QCOM_USB_DEBUG" != 0 ] && [ "$QCOM_USB_DEBUG" != 1 ]; then
   echo 'XNU_QCOM_USB_DEBUG must be 0 or 1' >&2
@@ -361,16 +356,31 @@ fi
 # The module is a catalog component since 2026-11-14 (components.toml QcomXnuUsbDebug), so it sits at
 # its declared path in the assembled tree -- the same path this block uses in the core tree.
 QCOM_USB_INCLUDE="-I$ROOT/drivers/QcomXnuUsbDebug/include"
-echo "build-xnu: QCOM_USB_DEBUG=$QCOM_USB_DEBUG (env=${XNU_QCOM_USB_DEBUG:-unset})" >&2
-EXTRA_MAKE_ARGS+=("bsd_init.o_CFLAGS_ADD=-DXNU_SHENG_PMGR=$SHENG_PMGR -DXNU_VERIFIED_ROOT_PROBE=$OWNER_ROOT_PROBE -DXNU_OWNER_ROOT_AUDIT=$OWNER_ROOT_AUDIT -DXNU_OWNER_ROOT_TRUST=$OWNER_ROOT_TRUST -DXNU_ADRENO_FIRMWARE_PROBE=$ADRENO_FIRMWARE_PROBE -DXNU_ADRENO_PM4_PROBE=$ADRENO_PM4_PROBE -DXNU_SMMU4K_PROBE=$SMMU4K_PROBE -DXNU_CONSTANT_UPLOADS_PROBE=$CONSTANT_UPLOADS_PROBE -DXNU_NATIVE_LEGACY_DISPLAY=${XNU_NATIVE_LEGACY_DISPLAY:-0} -DXNU_NATIVE_OFFLINE_GPU=$NATIVE_OFFLINE_GPU -DXNU_QCOM_USB_DEBUG=$QCOM_USB_DEBUG $QCOM_USB_INCLUDE")
-NATIVE_MOBILE_DISPLAY=${XNU_NATIVE_MOBILE_DISPLAY:-0}
-if [ "$NATIVE_MOBILE_DISPLAY" != 0 ] && [ "$NATIVE_MOBILE_DISPLAY" != 1 ]; then
-  echo 'XNU_NATIVE_MOBILE_DISPLAY must be 0 or 1' >&2
-  exit 1
-fi
 NATIVE_LEGACY_DISPLAY=${XNU_NATIVE_LEGACY_DISPLAY:-0}
 if [ "$NATIVE_LEGACY_DISPLAY" != 0 ] && [ "$NATIVE_LEGACY_DISPLAY" != 1 ]; then
   echo 'XNU_NATIVE_LEGACY_DISPLAY must be 0 or 1' >&2
+  exit 1
+fi
+# The bootstrap link deliberately precedes the archive recipes. Keep those provider call
+# sites out of its object files, then let the shipping pass restore the selected board values.
+if [ "$BOOTSTRAP" = 1 ]; then
+  OWNER_ROOT_PROBE=0
+  OWNER_ROOT_AUDIT=0
+  OWNER_ROOT_TRUST=0
+  SHENG_PMGR=0
+  QCOM_USB_DEBUG=0
+  NATIVE_LEGACY_DISPLAY=0
+fi
+SHENG_PMGR_STAMP=$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.sheng-pmgr-mode
+if [ "$(cat "$SHENG_PMGR_STAMP" 2>/dev/null || echo 0)" != "$SHENG_PMGR" ]; then
+  rm -f "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/bsd/DEVELOPMENT/bsd_init.o"
+  printf '%s\n' "$SHENG_PMGR" > "$SHENG_PMGR_STAMP"
+fi
+echo "build-xnu: QCOM_USB_DEBUG=$QCOM_USB_DEBUG (env=${XNU_QCOM_USB_DEBUG:-unset})" >&2
+EXTRA_MAKE_ARGS+=("bsd_init.o_CFLAGS_ADD=-DXNU_SHENG_PMGR=$SHENG_PMGR -DXNU_VERIFIED_ROOT_PROBE=$OWNER_ROOT_PROBE -DXNU_OWNER_ROOT_AUDIT=$OWNER_ROOT_AUDIT -DXNU_OWNER_ROOT_TRUST=$OWNER_ROOT_TRUST -DXNU_ADRENO_FIRMWARE_PROBE=$ADRENO_FIRMWARE_PROBE -DXNU_ADRENO_PM4_PROBE=$ADRENO_PM4_PROBE -DXNU_SMMU4K_PROBE=$SMMU4K_PROBE -DXNU_CONSTANT_UPLOADS_PROBE=$CONSTANT_UPLOADS_PROBE -DXNU_NATIVE_LEGACY_DISPLAY=$NATIVE_LEGACY_DISPLAY -DXNU_NATIVE_OFFLINE_GPU=$NATIVE_OFFLINE_GPU -DXNU_QCOM_USB_DEBUG=$QCOM_USB_DEBUG $QCOM_USB_INCLUDE")
+NATIVE_MOBILE_DISPLAY=${XNU_NATIVE_MOBILE_DISPLAY:-0}
+if [ "$NATIVE_MOBILE_DISPLAY" != 0 ] && [ "$NATIVE_MOBILE_DISPLAY" != 1 ]; then
+  echo 'XNU_NATIVE_MOBILE_DISPLAY must be 0 or 1' >&2
   exit 1
 fi
 EXTRA_MAKE_ARGS+=("IOUserClient.cpo_CFLAGS_ADD=-DXNU_NATIVE_MOBILE_DISPLAY=$NATIVE_MOBILE_DISPLAY -DXNU_NATIVE_LEGACY_DISPLAY=$NATIVE_LEGACY_DISPLAY")
