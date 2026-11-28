@@ -7,6 +7,7 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
+from adreno_archive_warnings import filter_virtual_specifier_warning
 ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'build/native-legacy-display';OUT.mkdir(parents=True,exist_ok=True)
 sys.path.insert(0,str(ROOT/'kits/XnuPrelink'))
 from native_prelink import macho,backed_offset,exports
@@ -246,6 +247,7 @@ while i<len(args):
     i+=1
 cmd+=['-Wall','-Wextra','-Werror','-Wno-unused-parameter','-Wno-unnecessary-virtual-specifier','-Wno-c99-designator','-Wno-reorder-init-list',
       '-Wno-deprecated-enum-enum-conversion','-I',str(ROOT/'.cache/xnu-work/osfmk')]
+cmd=filter_virtual_specifier_warning(cmd,r['directory'])
 run(cmd,cwd=r['directory'])
 probe=OUT/'LegacyDisplayProbe.o'
 TOUCH=OUT/'touch';TOUCH.mkdir(exist_ok=True)

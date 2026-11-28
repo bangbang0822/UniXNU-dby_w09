@@ -25,6 +25,7 @@ Usage (from the assembled tree, i.e. what `unixnu` does for an archive recipe):
   python3 scripts/build-adreno650-accelerator.py --tree <tree>
 """
 import argparse
+from adreno_archive_warnings import filter_virtual_specifier_warning
 import hashlib
 import json
 import os
@@ -125,7 +126,7 @@ def main():
     cmd += ['-Wno-unused-parameter', '-Wno-unnecessary-virtual-specifier', '-Wno-c99-designator',
             '-Wno-reorder-init-list', '-Wno-deprecated-enum-enum-conversion', '-Wno-overloaded-virtual',
             '-I', str(tree / '.cache/xnu-work/osfmk')]
-    subprocess.run(cmd, cwd=record['directory'], check=True)
+    subprocess.run(filter_virtual_specifier_warning(cmd, record['directory']), cwd=record['directory'], check=True)
 
     obj = out / 'NativeAdrenoAccelerator.o'
     raw = obj.read_bytes()

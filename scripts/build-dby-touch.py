@@ -42,6 +42,7 @@ import hashlib
 import json
 import os
 import subprocess
+from adreno_archive_warnings import filter_virtual_specifier_warning
 import sys
 from pathlib import Path
 
@@ -105,7 +106,8 @@ def build_command(record_path, source, obj, include_dirs):
         command += ['-I', str(directory)]
     if '-o' not in command:
         command += ['-o', str(obj)]
-    return command, record['directory'], skipped_includes
+    cwd = record['directory']
+    return filter_virtual_specifier_warning(command, cwd), cwd, skipped_includes
 
 
 def main():

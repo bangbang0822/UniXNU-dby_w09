@@ -148,6 +148,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from adreno_archive_warnings import filter_virtual_specifier_warning
 
 ROOT = Path(__file__).resolve().parents[1]
 ARCH = 'DEVELOPMENT_ARM64_BCM2837'
@@ -320,7 +321,7 @@ def command_from(recipe, source, obj, extra_includes):
             command += ['-I', str(include)]
         else:
             skipped.append(str(include))
-    return command, recipe['directory'], skipped
+    return filter_virtual_specifier_warning(command, recipe['directory']), recipe['directory'], skipped
 
 
 def find_tool(name, compiler, fallbacks):

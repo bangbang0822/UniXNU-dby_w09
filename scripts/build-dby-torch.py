@@ -42,6 +42,7 @@ import os
 import shutil
 import struct
 import subprocess
+from adreno_archive_warnings import filter_virtual_specifier_warning
 import sys
 from pathlib import Path
 
@@ -173,6 +174,7 @@ def compile_one(record, source, obj, extra):
     obj.parent.mkdir(parents=True, exist_ok=True)
     obj.unlink(missing_ok=True)
     arguments, skipped = command(record, source, obj, extra)
+    arguments = filter_virtual_specifier_warning(arguments, record['directory'])
     (obj.parent / f'compile-command-{obj.stem}.json').write_text(json.dumps(arguments, indent=2) + '\n')
     result = subprocess.run(arguments, cwd=record['directory'], capture_output=True, text=True, timeout=900)
     output = (result.stdout + result.stderr).strip()
