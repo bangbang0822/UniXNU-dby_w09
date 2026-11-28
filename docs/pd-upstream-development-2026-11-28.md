@@ -10,6 +10,28 @@ The [UniXNU power guide](https://unixnu.com/porting/power) says firmware ownersh
 
 ## Execution sequence
 
+### First milestone: sustained battery charging
+
+Give this milestone priority over GPU or radio bring-up. A prior USB host capture showed
+net discharge with the cable attached, despite an asserted charging flag. If the device is
+already low, recover charge with the original charger in the stock OS or while powered off.
+Confirm that the battery level rises before resuming UniXNU testing.
+
+Use a known good charger and cable and a safe state of charge for the first comparison.
+Match screen load and temperature between runs. Capture external VBUS and input current,
+battery voltage and signed net current, SOC, input suspend, charge enable, temperature
+and faults over at least ten minutes at idle, then repeat at normal screen load. Keep the
+running payload hash. Charge acceptance requires sustained positive battery net current
+and a rising SOC trend, including after reconnect. Repeat longer if the SOC display is too
+coarse for ten minutes. An attach flag, a single current sample, and a charger icon are
+insufficient. Use existing read-only telemetry where possible. Capture the external
+charger interval directly because a previous charger-to-PC cable swap lost its CDC logs.
+
+Use the 5 V path to establish a fallback before adding a higher-voltage request. If the
+5 V test fails, compare the stock and UniXNU input suspend, current-limit readbacks and
+battery current on the same source. Verify the charger classification and confirmed input
+limit before changing the current policy.
+
 ### P0. Identify the PD owner and limits
 
 Inspect this tablet's stock DT/DTBO and official firmware for the Type-C/PD PHY, TCPM, IRQ, charger manager, sink PDO table and thermal policy. Compare the public DTS record's 5 V/2 A and 9 V/1.5 A sink PDOs with the running stock policy and Linux port's 9 V behavior. Do not infer a 22.5 W contract from the 10 V/2.25 A nameplate. Gate: one source-backed owner diagram from attach through Request/Accept/PS_RDY to SMB5 ICL, with a verified safe fallback.
@@ -28,6 +50,11 @@ Measure input voltage/current and battery net current simultaneously under a fix
 
 ## Build and flash gate
 
-The current cold build is still blocked before a shipping payload (run `46026133847`, verified-root compile-record failure). First restore one reproducible kernel/addon/Data-seed baseline. For each later PD change, review the register owner and other consumers, host checks, expected tablet rows and rollback payload with SHA-256. Update `porting.toml` power evidence in the same push; obtain owner approval before flashing. Never write logs to the tablet's `userdata` partition.
+Use an identified, previously booted image for read-only baseline measurements. A changed
+image needs the reproducible kernel/addon/Data-seed baseline first. Track it in the
+[cold build failure log](reviews/cold-build-failure-log.md). For each later PD change,
+review the register owner and other consumers, host checks, expected tablet rows and
+rollback payload with SHA-256. Update `porting.toml` power evidence in the same push.
+Obtain owner approval before flashing. Keep logs off the tablet's `userdata` partition.
 
 References: [UniXNU power adaptation](https://unixnu.com/porting/power), [component catalog](https://unixnu.com/reference/components), `docs/charging-usb-pd-spec-2026-11-26.md`, `docs/charging-baseline-2026-11-26.md`, `package/DbyBattery.cpp`.
