@@ -79,12 +79,52 @@ jobs:
           printf '%s  %s\n' \
             'a29a653da6812ed092bb548eb37c645b34677c57326047e19369d3bc46e7d700' \
             "$systemos_tool" | shasum -a 256 -c -
+      - name: platform seed
+        env:
+          seed: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+        run: |
+          if ! [[ "$seed" =~ ^[0-9a-fA-F]{8}$ ]]; then
+            echo 'Set the repository secret UNIXNU_UNIQUE_CHIP_ID: the platform seed of the device, 8 hex digits.' >&2
+            exit 1
+          fi
+      - name: seed cache identity
+        id: seed-key
+        env:
+          SEED: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, os
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('key=data-seed-v1-' + hashlib.sha256(os.environ['SEED'].encode()).hexdigest()[:16] + '\n')
+          PY
+      - uses: actions/cache/restore@v4
+        id: data-cache
+        with:
+          path: |
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/data.dbr
+            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/inputs.json
+          key: ${{ steps.seed-key.outputs.key }}-${{ inputs.os }}
+      - name: require the preserved Data seed
+        if: ${{ !inputs.init_data }}
+        run: |
+          seed="UniXNU/out/dby-w09/$OS_PROFILE/dby_w09/runtime/data.dbr"
+          if [ ! -f "$seed" ]; then
+            echo "No cached Data seed at $seed." >&2
+            echo "Restore the seed produced for this unit, or run with init_data=true to build one here (the runner has the macOS hdiutil that the seed tool needs)." >&2
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
           repository: WQSQW/uefi-dby_w09
           ref: 423e222159dfa159d788769554007455d34e6193
           path: uefi-dby_w09
           submodules: recursive
+      - name: check bootstrap firmware font
+        env:
+          UNIXNU_UEFI: ${{ github.workspace }}/uefi-dby_w09
+        run: |
+          font="$UNIXNU_UEFI/Silicon/Silicium/SiliciumPkg/Library/FrameBufferSerialPortLib/Font.h"
+          [ -r "$font" ] || { echo "::error::BootProgress firmware font missing: $font"; exit 1; }
       - name: tools
         run: |
           # glslang is what build-turnip-darwin.py asks for by name ("glslangValidator is required
@@ -122,40 +162,6 @@ jobs:
             command -v "$t" >/dev/null || { echo "missing tool: $t"; ok=0; }
           done
           [ "$ok" = 1 ]
-      - name: platform seed
-        env:
-          seed: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
-        run: |
-          if ! [[ "$seed" =~ ^[0-9a-fA-F]{8}$ ]]; then
-            echo 'Set the repository secret UNIXNU_UNIQUE_CHIP_ID: the platform seed of the device, 8 hex digits.' >&2
-            exit 1
-          fi
-      - name: seed cache identity
-        id: seed-key
-        env:
-          SEED: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
-        run: |
-          python3 - <<'PY'
-          import hashlib, os
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-              out.write('key=data-seed-v1-' + hashlib.sha256(os.environ['SEED'].encode()).hexdigest()[:16] + '\n')
-          PY
-      - uses: actions/cache/restore@v4
-        id: data-cache
-        with:
-          path: |
-            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/data.dbr
-            UniXNU/out/dby-w09/${{ inputs.os }}/dby_w09/runtime/inputs.json
-          key: ${{ steps.seed-key.outputs.key }}-${{ inputs.os }}
-      - name: require the preserved Data seed
-        if: ${{ !inputs.init_data }}
-        run: |
-          seed="UniXNU/out/dby-w09/$OS_PROFILE/dby_w09/runtime/data.dbr"
-          if [ ! -f "$seed" ]; then
-            echo "No cached Data seed at $seed." >&2
-            echo "Restore the seed produced for this unit, or run with init_data=true to build one here (the runner has the macOS hdiutil that the seed tool needs)." >&2
-            exit 1
-          fi
       # Assemble the shipping tree before the bootstrap pass. release repeats defconfig and build,
       # but the explicit sequence here gives the cold tree a chance to create its reference kernel.
       - name: prepare shipping tree
@@ -231,8 +237,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          font="$UNIXNU_UEFI/Silicon/Silicium/SiliciumPkg/Library/FrameBufferSerialPortLib/Font.h"
-          [ -r "$font" ] || { echo "::error::BootProgress firmware font missing: $font"; exit 1; }
           hid=scripts/build-sheng-hid-input.py
           if ! grep -q 'first-pass objects' "$hid"; then
             python3 - "$hid" <<'PATCH'
@@ -386,7 +390,7 @@ jobs:
           # which is exactly what the 2026-11-16 seed-data-grow failure looked like. Print the tools'
           # own logs so the next failure names its command. The mesa build log lives under .cache/ and
           # is the only place a compiler error inside Turnip is written down.
-          for f in UniXNU/out/dby-w09/*/*/logs/runtime.log UniXNU/out/dby-w09/*/*/logs/*.log \
+          for f in UniXNU/out/dby-w09/*/*/logs/*.log \
                    UniXNU/out/dby-w09/*/*/tree/.cache/mesa-*-build.log; do
             [ -f "$f" ] || continue
             echo "=== ${f} (tail)"
@@ -454,7 +458,8 @@ jobs:
         with:
           name: gpu-addon-${{ inputs.os }}
           retention-days: 7
-          if-no-files-found: error
+          # Preserve the primary error when the runtime stage never produced an addon.
+          if-no-files-found: ${{ job.status == 'success' && 'error' || 'warn' }}
           path: |
             UniXNU/out/dby-w09/*/*/runtime/gpuaddon.bin
             UniXNU/out/dby-w09/*/*/runtime/owner-trust.bundle
