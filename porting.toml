@@ -1062,6 +1062,13 @@ command = "GitHub Actions workflow_dispatch run 46095445433 (package.yml, macos-
 revision = "cb6370ba951055cf1ea7300d6985029b8f9b506a"
 result = "The saved Data seed was restored with the same hash as run 67. Archive 17 BootProgress passed. Archive 24 build-adreno650.py failed on an unsupported Apple Clang warning option. The board recipes now probe that option and preserve the rest of their warning policy. The final bootstrap kernel and shipping payload were not produced."
 
+[[area.evidence]]
+kind = "host"
+reference = "docs/reviews/cold-build-failure-log.md"
+command = "GitHub Actions workflow_dispatch run 46098728206 (package.yml, macos-15, ipados-17.7.11-21H461, init_data=false)"
+revision = "d766cff85d45174dc98143d4c573e8f0b911d0cf"
+result = "The Data seed, firmware font check, signed root inputs and BootProgress archive passed. A650 archives 24 and 25 also passed. Archive 26 failed because build-adreno650-accelerator.py dropped non-warning -Xclang tokens while retaining their operands, causing Apple Clang to reject seven vendor feature arguments. The source replay now preserves non-warning -Xclang pairs. No bootstrap kernel or payload was produced."
+
 [[area]]
 id = "diagnostics"
 status = "device-verified"
