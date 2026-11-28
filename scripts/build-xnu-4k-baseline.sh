@@ -85,6 +85,24 @@ if [ "$BOOT_PROGRESS" = 1 ]; then
   fi
   python3 scripts/build-boot-progress.py
 fi
+# The bootstrap link deliberately precedes the archive recipes: the archive list below is only
+# assembled when XNU_BOOTSTRAP=0. Remove every provider call site that needs one of those
+# archives by overriding the board's switches before they are read; the shipping pass keeps the
+# values the board selected and links the real archives.
+if [ "$BOOTSTRAP" = 1 ]; then
+  XNU_VERIFIED_ROOT_PROBE=0
+  XNU_OWNER_ROOT_AUDIT=0
+  XNU_OWNER_ROOT_TRUST=0
+  XNU_OWNER_CACHE_MOUNT=0
+  XNU_OWNER_CACHE_STARTUP=0
+  XNU_OWNER_BOOT_MANIFEST=0
+  XNU_OWNER_DATA_MOUNT=0
+  XNU_OWNER_CRYPTEX_FILES=0
+  XNU_OWNER_UNION_SYSTEMOS=0
+  XNU_SHENG_PMGR=0
+  XNU_QCOM_USB_DEBUG=0
+  XNU_NATIVE_LEGACY_DISPLAY=0
+fi
 python3 - "$BOOT_PROGRESS" <<'PY'
 from pathlib import Path
 import hashlib, sys
@@ -360,16 +378,6 @@ NATIVE_LEGACY_DISPLAY=${XNU_NATIVE_LEGACY_DISPLAY:-0}
 if [ "$NATIVE_LEGACY_DISPLAY" != 0 ] && [ "$NATIVE_LEGACY_DISPLAY" != 1 ]; then
   echo 'XNU_NATIVE_LEGACY_DISPLAY must be 0 or 1' >&2
   exit 1
-fi
-# The bootstrap link deliberately precedes the archive recipes. Keep those provider call
-# sites out of its object files, then let the shipping pass restore the selected board values.
-if [ "$BOOTSTRAP" = 1 ]; then
-  OWNER_ROOT_PROBE=0
-  OWNER_ROOT_AUDIT=0
-  OWNER_ROOT_TRUST=0
-  SHENG_PMGR=0
-  QCOM_USB_DEBUG=0
-  NATIVE_LEGACY_DISPLAY=0
 fi
 SHENG_PMGR_STAMP=$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.sheng-pmgr-mode
 if [ "$(cat "$SHENG_PMGR_STAMP" 2>/dev/null || echo 0)" != "$SHENG_PMGR" ]; then
