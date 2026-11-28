@@ -120,7 +120,12 @@ def main():
             i += 1
         elif v in ('-MF', '-MJ'):
             i += 1
-        elif not v.startswith('-W') and v not in ('-MD', '-MP', '-Xclang'):
+        elif v == '-Xclang' and i + 1 < len(record['arguments']):
+            next_value = record['arguments'][i + 1]
+            if not next_value.startswith('-W'):
+                cmd += [v, next_value]
+            i += 1
+        elif not v.startswith('-W') and v not in ('-MD', '-MP'):
             cmd.append(v)
         i += 1
     cmd += ['-Wno-unused-parameter', '-Wno-unnecessary-virtual-specifier', '-Wno-c99-designator',
