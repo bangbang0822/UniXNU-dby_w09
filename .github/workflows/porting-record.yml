@@ -7,4 +7,4 @@ permissions:
 
 jobs:
   porting-record:
-    uses: bangbang0822/UniXNU-core-dby-w09/.github/workflows/porting-record.yml@086d5372ca70f9c2cc4f1f1ec302dd48ddbc30e6
+    uses: bangbang0822/UniXNU-core-dby-w09/.github/workflows/porting-record.yml@f28ea590d6e0f4a912f256490c49300921a39032
