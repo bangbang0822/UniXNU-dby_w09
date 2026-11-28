@@ -144,7 +144,7 @@ CONFIG_XNU_DT_PANIC_REGION=y
 # 也必须 force_load，理由与上面 GPU SMMU 探针完全相同：BootProgress.c 里 dby_pcie_probe 是 weak_import
 # 引用，普通归档路径下没有未定义符号可拉，DbyPcie.o 不会进链接，探针静默不跑。
 # 回退 = 删掉本行末尾的 -Wl,-force_load,{tree}/build/dbypcie/libDbyPcie.a 这一个词。
-CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/link-stubs/libLinkStubs.a {tree}/build/dby-touch/libDbyTouch.a {tree}/build/dby-torch/libDbyTorch.a {tree}/build/dby-camera/libDbyCamera.a -Wl,-force_load,{tree}/build/gpusmmu/libDbyGpuSmmuProbe.a {tree}/build/gpupower/libDbyGpuPowerProbe.a {tree}/build/adreno-kits/libAdrenoKits.a {tree}/build/adreno740/libAdreno740.a -Wl,-force_load,{tree}/build/dbypcie/libDbyPcie.a"
+CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/link-stubs/libLinkStubs.a {tree}/build/dby-touch/libDbyTouch.a {tree}/build/dby-torch/libDbyTorch.a {tree}/build/dby-camera/libDbyCamera.a -Wl,-force_load,{tree}/build/gpusmmu/libDbyGpuSmmuProbe.a {tree}/build/gpupower/libDbyGpuPowerProbe.a {tree}/build/adreno-kits/libAdrenoKits.a {tree}/build/adreno740/libAdreno740.a -Wl,-force_load,{tree}/build/dbypcie/libDbyPcie.a -Wl,-force_load,{tree}/.cache/qcom-usb-debug/libQcomXnuUsbDebug.a"
 # DbyTouch 用普通归档路径（不 force_load）：BootProgress.c 强引用 dby_touch_probe_entry()，
 # 惰性拉取一定会发生；它内部的 stage 轮询线程由驱动自己起，不靠初始化函数被扫到。
 # The two sides each defined this key; the merge keeps one line - ours above, with

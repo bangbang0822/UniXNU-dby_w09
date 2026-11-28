@@ -30,7 +30,7 @@ CONFIG_XNU_NATIVE_VIRTIO_BLOCK_ARCHIVE="{tree}/build/virtio-mmio-block-verified-
 CONFIG_XNU_BOOT_PROGRESS=y
 CONFIG_XNU_QCOM_USB_DEBUG=y
 CONFIG_XNU_DT_PANIC_REGION=y
-CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/link-stubs/libLinkStubs.a {tree}/build/dby-touch/libDbyTouch.a {tree}/build/dby-torch/libDbyTorch.a {tree}/build/dby-camera/libDbyCamera.a -Wl,-force_load,{tree}/build/gpusmmu/libDbyGpuSmmuProbe.a {tree}/build/gpupower/libDbyGpuPowerProbe.a {tree}/build/adreno-kits/libAdrenoKits.a {tree}/build/adreno740/libAdreno740.a -Wl,-force_load,{tree}/build/dbypcie/libDbyPcie.a"
+CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/link-stubs/libLinkStubs.a {tree}/build/dby-touch/libDbyTouch.a {tree}/build/dby-torch/libDbyTorch.a {tree}/build/dby-camera/libDbyCamera.a -Wl,-force_load,{tree}/build/gpusmmu/libDbyGpuSmmuProbe.a {tree}/build/gpupower/libDbyGpuPowerProbe.a {tree}/build/adreno-kits/libAdrenoKits.a {tree}/build/adreno740/libAdreno740.a -Wl,-force_load,{tree}/build/dbypcie/libDbyPcie.a -Wl,-force_load,{tree}/.cache/qcom-usb-debug/libQcomXnuUsbDebug.a"
 CONFIG_XNU_CRYPTO_BOOTSTRAP="prelinked"
 CONFIG_XNU_OWNER_DATA_VOLUME_UUID="2138CDAC-F86A-4DED-9EF1-09F27363DB2A"
 # CONFIG_XNU_ARMVIRT_PLATFORM is not set
