@@ -321,6 +321,9 @@ jobs:
             > "$shipping_tree/build/display-analysis/mobile-graphics-legacy-abi.json"
           ./unixnu defconfig dby_w09_defconfig -D ../device
           ./unixnu tree -D ../device
+          # The bootstrap pass intentionally links before archive builders run. Build the shipping
+          # configuration after those archives and the prelink candidates are in place.
+          ./unixnu build kernel -D ../device
       - name: package
         working-directory: device
         env:
