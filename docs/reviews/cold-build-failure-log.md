@@ -1,0 +1,29 @@
+# DBY-W09 cold build failure log
+
+Scope: `package.yml` runs #36–#68. Run and job conclusions are from the GitHub Actions API. The first error that stopped the job is recorded below. A failure in artifact upload after an earlier failure is secondary. The initial compile-record pass can fail to link without board archives and continue to the archive recipes.
+
+| Runs | First blocking condition | Fix or next verification |
+| --- | --- | --- |
+| [#36](https://github.com/bangbang0822/UniXNU-dby_w09/actions/runs/45796042471) | `ShengHidInput` required a prelinked reference candidate that did not exist in a fresh tree. | Generate the reference with an intermediate kernel. Confirm the audited HID build uses it during shipping. |
+| [#38](https://github.com/bangbang0822/UniXNU-dby_w09/actions/runs/45822828154) | The core checkout did not include the SystemOS policy signer. | Fetch the signer from a fixed revision and verify its SHA-256. Later runs reached and passed signed policy preparation. |
+| [#56](https://github.com/bangbang0822/UniXNU-dby_w09/actions/runs/45866226409), [#57](https://github.com/bangbang0822/UniXNU-dby_w09/actions/runs/45871772311) | No preserved Data seed. The addon upload also reported no files after the job had already failed. | Use explicit first-install mode for an empty cache. Save the verified seed even if later compilation fails. Check the cache before installing tools. |
+| [#64](https://github.com/bangbang0822/UniXNU-dby_w09/actions/runs/45881593042) | The XNU source preparation request hit the anonymous GitHub API limit with HTTP 403. | Pass the workflow's read-only GitHub token. #65 passed source preparation. |
+| [#65](https://github.com/bangbang0822/UniXNU-dby_w09/actions/runs/45888888658) | Apple Clang rejected `-Wno-unnecessary-virtual-specifier` in ArmDTPlatform under `-Werror`. | Probe optional flags with the recorded compiler and target. #66 passed ArmDTPlatform. |
+| [#66](https://github.com/bangbang0822/UniXNU-dby_w09/actions/runs/46026133847) | VerifiedRoot compile replay treated absent generated `EXPORT_HDRS/libsa` as fatal. The older workflow also failed to save the generated seed to cache. | Scope the include-path omission to missing generated directories. #67 built the ARM64/iOS 17 probe and saved the seed. |
+| [#67](https://github.com/bangbang0822/UniXNU-dby_w09/actions/runs/46055634701) | Archive 17, BootProgress, fell back to an absent UEFI checkout because the bootstrap step did not set `UNIXNU_UEFI`. | Pass the pinned checkout and check `Font.h` before compilation. #68 verifies the fix and seed cache restore. |
+| [#68](https://github.com/bangbang0822/UniXNU-dby_w09/actions/runs/46095445433) | In progress at the time of this review. | Uses `init_data=false` to verify reuse of the saved Data seed. |
+
+Runs **#37, #39–#55, #58–#63** ended without an assigned runner or any executed build step. The API shows failure for #43–#46, #48, #49, #52, #54, #55, #58, #60, #61 and #63. It shows cancellation for the other runs in this group. These runs supply no compile evidence.
+
+## Measured iteration cost
+
+Run #67 took about 42 minutes from runner setup to the BootProgress failure. Firmware checkout took about 3 minutes, tool installation about 1 minute 20 seconds, and signed root input preparation about 4 minutes 27 seconds. From bootstrap start to completion of runtime inputs took about **27 minutes 25 seconds**, including about **25 minutes** in the runtime builder. XNU compile-record generation and the subsequent archive checks took about **5 minutes** before BootProgress failed. These timings describe one run.
+
+## Faster iteration
+
+1. Run the inexpensive checks first. The workflow now restores and checks the Data seed before firmware checkout or tool installation. It checks the firmware font immediately after firmware checkout. On an already failed job, a missing addon is reported as a warning so the upload step does not obscure the first error. On a successful job the addon is still required. WSL verified workflow ordering, shell syntax, missing-input failures and a successful font check against the local checkout. The next dispatch will exercise the reordered checks on macOS.
+2. For an archive or linker fix, prepare a separate diagnostic run with the preserved Data seed, GPU addon and matching owner trust bundle. The core already accepts all three as explicit runtime inputs. Use artifacts only when the iPadOS build, GPU sources and ABI match the diagnostic run. Record the source run, input hashes and Data UUID. Keep the original addon and trust bundle together. This is the largest measured saving to validate. No speedup has been measured for this path yet.
+3. For repeated archive failures on the same Mac or WSL toolchain, keep the assembled tree and its compile records on that host. The recipes consume absolute paths, generated headers and a specific compiler/SDK. Run the failing recipe with the same build environment before repeating the final link. Invalidate the records when the toolchain, XNU source, patches, generated headers or defconfig change. A fresh hosted runner still needs to generate its own records.
+4. Once the targeted check passes, use a clean macOS run for acceptance and record the final kernel, payload, addon and seed hashes. Driver changes still need the full device review and a verified rollback payload before a flash.
+
+For every new run, append the run link and pinned revisions, first fatal command or runner outcome, reusable inputs, fix, and the verification run. Record expected bootstrap link errors and secondary upload errors only if they make the primary failure hard to find. Keep full logs and restricted artifacts outside Git. Detailed reviews live in [the cold build review](2026-11-26-cold-build.md).
