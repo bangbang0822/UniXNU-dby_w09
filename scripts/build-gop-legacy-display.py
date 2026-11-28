@@ -41,17 +41,58 @@ if not candidate.exists() and not any((ROOT/'build/xnu-prelink').glob('native-ow
                     'void native_legacy_paint_userspace_band(void);\n'
                     'void native_legacy_count_exec(void) {}\n'
                     'void native_legacy_note_exit(void) {}\n'
-                    'void native_legacy_paint_userspace_band(void) {}\n')
+                    'void native_legacy_paint_userspace_band(void) {}\n'
+                    '/* BootLog reads these weak_import, and the force-loaded archive model still needs a definition\n'
+                    ' * for the first link. The first kernel never boots, so zero is the honest value; the audited\n'
+                    ' * backend replaces this archive as soon as a candidate kernel exists. Weak definitions keep a\n'
+                    ' * copied build directory from turning the same counters into a duplicate symbol. */\n'
+                    'volatile unsigned int native_legacy_visible[272] __attribute__((weak));\n'
+                    'volatile unsigned long long native_legacy_visible_sum[2] __attribute__((weak));\n')
     run(['xcrun','--sdk','iphoneos','clang','-arch','arm64','-mkernel',
          '-miphoneos-version-min=17.0','-Os','-c',stub,'-o',OUT/'FirstPassStub.o'])
+    first_objs=[OUT/'FirstPassStub.o']
+    # The camera and PCIe archives import the five QcomRpmh helpers, so the first link needs them too.
+    # QcomRpmh.c is self-contained, so compile the real helper with the kernel C record instead of
+    # inventing its ABI as no-ops.
+    rpmh_src=ROOT/'kits/dby_w09/QcomRpmh.c'
+    core_record=ROOT/'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/startup.o.json'
+    if rpmh_src.is_file() and core_record.is_file():
+        pr=json.loads(core_record.read_text().strip().rstrip(','))
+        rpmh_obj=OUT/'QcomRpmh.o'
+        args=pr['arguments'];j=0;cmd=[]
+        while j<len(args):
+            value=args[j]
+            if value==pr['file']:cmd.append(str(rpmh_src))
+            elif value in ('-o','-MF','-MT','-MJ'):
+                if value=='-o':cmd+=['-o',str(rpmh_obj)]
+                j+=1
+            elif value=='-Xclang' and args[j+1].startswith('-W'):j+=1
+            elif not value.startswith('-W'):cmd.append(value)
+            j+=1
+        cmd+=['-Wall','-Wextra','-Werror','-mgeneral-regs-only','-I',str(rpmh_src.parent),
+              '-I',str(ROOT/'.cache/xnu-work/osfmk')]
+        run(cmd,cwd=pr['directory'])
+        first_objs.append(rpmh_obj)
+    else:
+        print('legacy display: QcomRpmh.c or its compile record missing; first-pass archive cannot cover the RPMh imports')
     for archive in ('libNativeLegacyDisplay.late.a','libNativeLegacyDisplay.a'):
         path=OUT/archive
         path.unlink(missing_ok=True)
-        run(['xcrun','ar','rcs',path,OUT/'FirstPassStub.o'])
+        run(['xcrun','ar','rcs',path,*map(str,first_objs)])
+    report_sources={str(stub.relative_to(ROOT)):sha(stub)}
+    provided=['_native_legacy_count_exec','_native_legacy_note_exit','_native_legacy_paint_userspace_band',
+              '_native_legacy_visible','_native_legacy_visible_sum']
+    if any(p.name=='QcomRpmh.o' for p in first_objs):
+        report_sources[str(rpmh_src.relative_to(ROOT))]=sha(rpmh_src)
+        provided+=['_qcom_cmd_db_find','_qcom_rpmh_level_index','_qcom_rpmh_active_request',
+                   '_qcom_rpmh_finish','_qcom_rsc_layout']
+    rpmh_compiled=any(p.name=='QcomRpmh.o' for p in first_objs)
     (OUT/'build-report.json').write_text(json.dumps(dict(
         first_pass_stubs=True,
-        source_sha256={str(stub.relative_to(ROOT)):sha(stub)},
+        source_sha256=report_sources,
         archive_sha256=sha(OUT/'libNativeLegacyDisplay.late.a'),
+        provided_symbols=provided,
+        qcom_rpmh_compiled=rpmh_compiled,
         original_instructions_modified=False,driver_initialized=False,display_presented=False,
         hardware_execution=False),indent=2)+'\n')
     print('legacy display: no reference candidate yet; linked first-pass stubs; rebuild to bind the audited backend.')

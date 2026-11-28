@@ -66,3 +66,10 @@ A separate read-only review of `cd2d818` and `3d220f7` reached the same two bloc
 - The job then failed in archive-29 `build-dby-camera.py` with `<kernel> does not define 5 import(s): _qcom_cmd_db_find, _qcom_rpmh_active_request, _qcom_rpmh_finish, _qcom_rpmh_level_index, _qcom_rsc_layout`.
 - Cause: those five are supplied by the audio probe archive at the shipping link, while a bootstrap kernel links before every archive and therefore cannot define them. The camera recipe's kernel-symbol gate now exempts sibling-archive imports and records the deferral (`scripts/build-dby-camera.py:73`); the shipping link remains the proof.
 - The same run saved the Data seed cache on this branch (`11245356338`), so later dispatches can restore it instead of rebuilding the fixture.
+
+## Follow-up: run 46161581196
+
+- The camera gate fix held (`5e1354f`): archive-29 passed, and the step reached the final link in the bootstrap tree.
+- That link failed because archive-31 `build-gop-legacy-display.py` had no `build/xnu-prelink` candidate and emitted its documented `FirstPassStub`. The stub covered only three legacy entry points, while `BootLog.o` needs `_native_legacy_visible_sum` and `libDbyCamera.a` plus `libDbyPcie.a` need the five `QcomRpmh` helpers.
+- The cold branch now defines the two visible counters and compiles the real `QcomRpmh.c` from the kernel C record (`scripts/build-gop-legacy-display.py:48`, `:56`); the audited path still replaces the archive once a candidate kernel exists.
+- Seed cache restored on this run, so the dispatch cost is now dominated by compilation rather than fixture creation.
