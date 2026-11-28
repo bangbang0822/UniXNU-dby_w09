@@ -82,6 +82,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: WQSQW/uefi-dby_w09
+          ref: 423e222159dfa159d788769554007455d34e6193
           path: uefi-dby_w09
           submodules: recursive
       - name: tools
@@ -223,12 +224,15 @@ jobs:
         working-directory: UniXNU
         env:
           UNIXNU_UNIQUE_CHIP_ID: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+          UNIXNU_UEFI: ${{ github.workspace }}/uefi-dby_w09
           INIT_DATA: ${{ inputs.init_data }}
           # prepare-xnu-source.py and the Adreno source fetcher call the GitHub API; anonymous
           # requests from hosted runners exhaust the shared quota before the bootstrap build.
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          font="$UNIXNU_UEFI/Silicon/Silicium/SiliciumPkg/Library/FrameBufferSerialPortLib/Font.h"
+          [ -r "$font" ] || { echo "::error::BootProgress firmware font missing: $font"; exit 1; }
           hid=scripts/build-sheng-hid-input.py
           if ! grep -q 'first-pass objects' "$hid"; then
             python3 - "$hid" <<'PATCH'
