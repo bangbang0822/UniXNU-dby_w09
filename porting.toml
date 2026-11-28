@@ -1041,6 +1041,13 @@ command = "python3 -m unittest discover -s tests/build -p test_payload_pending.p
 revision = "50e94c2d8c2e7f6d3e916bbabec9a1e13fe6fb1b"
 result = "Six upstream tests passed. An incomplete payload rebuild keeps the previous image and marks the managed output pending. Boot packaging rejects that output until a successful rebuild clears the marker. An explicit empty ramdisk remains available. CI run 67 continues on its existing baseline pin."
 
+[[area.evidence]]
+kind = "host"
+reference = "docs/reviews/2026-11-26-cold-build.md"
+command = "GitHub Actions workflow_dispatch run 46055634701 (package.yml, macos-15, ipados-17.7.11-21H461, init_data=true)"
+revision = "0e8184bf0f90b2f6086a1ecd5c4b43b366ea20ae"
+result = "The ARM64 iOS 17 VerifiedRoot probe built successfully. BootProgress stopped at archive 17 because the bootstrap step had no UEFI checkout path. The GPU addon was uploaded and the generated Data seed was saved in the GitHub cache. No full bootstrap kernel or payload was produced. The workflow now gives bootstrap the pinned UEFI checkout and checks Font.h before compilation."
+
 [[area]]
 id = "diagnostics"
 status = "device-verified"

@@ -139,6 +139,23 @@ VerifiedRoot archive compile and its dual-policy metadata, then report the next 
 kernel and payload hashes. This is a build-only change; there is no tablet observation or eligible
 flash image from the failed run.
 
+## Bootstrap UEFI checkout review
+
+Run `46055634701` built the ARM64/iOS 17 VerifiedRoot probe and reached archive 17,
+`build-boot-progress.py`. The bootstrap step did not set `UNIXNU_UEFI`, so the script
+tried a default `uefi-sheng` directory next to the assembled tree and could not find
+`Font.h`. The job produced a GPU addon and cached the generated Data seed. It stopped
+before the final bootstrap link or payload packaging.
+
+The bootstrap step now receives the same absolute UEFI checkout path as the shipping step
+and checks the font before starting the build. The firmware checkout is pinned to
+`423e222159dfa159d788769554007455d34e6193`, the revision used by the failed run. The check
+could expose an incomplete firmware checkout sooner. It does not change the font, boot
+arguments, firmware behavior or driver code. The font exists in the pinned source revision
+and the local firmware checkout. Next, macOS CI must pass the font check and build archive 17.
+Tablet acceptance remains the shipping boot checkpoint below, with the panic-screen text
+available if a panic occurs.
+
 ## Linux continuation
 
 On 2026-11-27, the WSL continuation used the saved bootstrap tree and the Linux `llvm-objcopy`
