@@ -64,9 +64,14 @@ EXTRA_IMPORTS = {'_kprintf', '_proc_selfname', '_g_kernel_kmod_info', '_IOMalloc
                  '_IODelay', '_IOSleep', '_kernel_thread_start', '_thread_deallocate', '_thread_set_thread_name',
                  '_current_thread', '_KHEAP_DATA_BUFFERS',
                  # The RPMh helper (package/QcomRpmh.c) is linked into the kernel by the audio probe's archive, so
-                 # these five are already defined there - the same names AdspProbe.cpp and AudioProbe.cpp import.
+                 # the shipping kernel defines these five - the same names AdspProbe.cpp and AudioProbe.cpp import.
                  '_qcom_cmd_db_find', '_qcom_rpmh_level_index', '_qcom_rpmh_active_request', '_qcom_rpmh_finish',
                  '_qcom_rsc_layout'}
+# Those five are not kernel imports in a tree whose link predates the archive builders: the bootstrap pass links
+# before any archive exists, so its kernel image cannot define them. They stay legal imports, but the kernel-symbol
+# gate must not demand them from that kernel; the shipping link is what proves the audio archive supplies them.
+SIBLING_ARCHIVE_IMPORTS = {'_qcom_cmd_db_find', '_qcom_rpmh_level_index', '_qcom_rpmh_active_request',
+                           '_qcom_rpmh_finish', '_qcom_rsc_layout'}
 # What the plug-in's header must say, compared as the macro text itself: DBC_PROCESS is a string literal,
 # so the quotes are part of what the header says.
 EXPECT = {'DBC_PROCESS': '"mediaserverd"', 'DBC_LOG_SELECTOR': '0u', 'DbcLogMax': '96'}
@@ -172,10 +177,14 @@ def main():
         fail('archive symbol check failed:\n  ' + '\n  '.join(problems))
     kernel = tree / bt.KERNEL_IMAGE
     table = bt.kernel_symbols(kernel)
+    deferred = []
     if table is not None:
-        absent = sorted(name for name in undefined if name not in table)
+        absent = sorted(name for name in undefined if name not in table and name not in SIBLING_ARCHIVE_IMPORTS)
+        deferred = sorted(name for name in undefined if name in SIBLING_ARCHIVE_IMPORTS and name not in table)
         if absent:
             fail(f'{kernel} does not define {len(absent)} import(s): ' + ', '.join(absent[:12]))
+    if deferred:
+        print('note: sibling-archive imports deferred to the shipping link: ' + ', '.join(deferred))
     listed = [source / n for n in SOURCE_FILES + HEADERS] + [torch_source / 'DbyTorchText.h', Path(__file__).resolve()]
     report = {'tree': str(tree), 'source_dir': str(source), 'text_builder': str(torch_source), 'archive': str(archive),
               'archive_bytes': archive.stat().st_size, 'archive_sha256': bt.sha(archive), 'archive_index': index,
@@ -184,6 +193,8 @@ def main():
               'plugin_contract': contract, 'entry_points': REQUIRED, 'undefined': sorted(undefined),
               'warning_flags': bt.WARNINGS, 'skipped_include_dirs': skipped,
               'kernel_image': str(kernel), 'kernel_imports_checked_against_kernel': table is not None,
+              'sibling_archive_imports': sorted(SIBLING_ARCHIVE_IMPORTS & undefined),
+              'kernel_imports_deferred': deferred,
               'hardware_execution': False}
     (out / 'build-report.json').write_text(json.dumps(report, indent=2) + '\n')
     if skipped:

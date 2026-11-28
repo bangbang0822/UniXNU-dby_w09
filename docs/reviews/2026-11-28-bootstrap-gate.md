@@ -59,3 +59,10 @@ A separate read-only review of `cd2d818` and `3d220f7` reached the same two bloc
 - `cd2d818` gated six switches only. The owner cache, manifest and Data chain still reached `kern_exec.o` and `IOKitBSDInit.cpo`, whose call sites reference the verified-root providers that the bootstrap link does not have.
 - `3d220f7` satisfies the gate's ROOT, glob and base rules (`scripts/porting-record.py:14` resolves ROOT to the `tools` checkout, and the checker's `fnmatchcase` matches the literal `porting.toml` path), so no defect was found in the record gate itself.
 - The reviewer's recommendation was the same whole-chain environment gate that `548b003` implements; a narrow fix that only preserves the trust value would let the build proceed but still leave owner-chain symbols unresolved at the bootstrap link.
+
+## Follow-up: run 46156668323
+
+- The bootstrap link passed for the first time on `548b003`: the bootstrap script ran 15:35:06Z–15:39:36Z and produced no undefined-symbol output, and the job proceeded to the archive recipes.
+- The job then failed in archive-29 `build-dby-camera.py` with `<kernel> does not define 5 import(s): _qcom_cmd_db_find, _qcom_rpmh_active_request, _qcom_rpmh_finish, _qcom_rpmh_level_index, _qcom_rsc_layout`.
+- Cause: those five are supplied by the audio probe archive at the shipping link, while a bootstrap kernel links before every archive and therefore cannot define them. The camera recipe's kernel-symbol gate now exempts sibling-archive imports and records the deferral (`scripts/build-dby-camera.py:73`); the shipping link remains the proof.
+- The same run saved the Data seed cache on this branch (`11245356338`), so later dispatches can restore it instead of rebuilding the fixture.
