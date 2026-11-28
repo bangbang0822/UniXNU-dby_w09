@@ -156,6 +156,23 @@ and the local firmware checkout. Next, macOS CI must pass the font check and bui
 Tablet acceptance remains the shipping boot checkpoint below, with the panic-screen text
 available if a panic occurs.
 
+## A650 archive compiler review
+
+Run `46095445433` restored the same Data seed as #67, SHA-256
+`5b06ed89f78f9cd1414ea2401088760b6ea389fba82d8d5570c59466fa91fe64`, and
+passed archive 17 (BootProgress). Archive 24 stopped at a compiler option rejected
+by Apple Clang. The remaining bootstrap archives, final link and shipping build did not run.
+
+The board archive recipes that supplied this option unconditionally now probe it with the
+compiler and target from the original compile record. The probe retains the option on a
+compiler that accepts it. It drops the option only if Clang reports it as unknown and the
+same probe without the option succeeds. Real compile warnings remain subject to the original
+warning policy. Shared users of this check include display, PCIe, touch and torch. Each can still
+stop on a real warning in its source or headers. The WSL check uses real Clang for an
+unsupported flag and an invalid target. CI must build past the A650 archive and complete the
+bootstrap link. Any later tablet run must use a reviewed shipping image and show the original
+boot checkpoints and responsive display and input.
+
 ## Linux continuation
 
 On 2026-11-27, the WSL continuation used the saved bootstrap tree and the Linux `llvm-objcopy`

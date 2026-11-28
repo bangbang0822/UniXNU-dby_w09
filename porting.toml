@@ -1054,6 +1054,13 @@ kind = "source"
 reference = "docs/reviews/cold-build-failure-log.md"
 result = "CI attempts 36 through 68 are indexed by primary failure and verification run. Run 67 spent about 27 minutes preparing runtime inputs and about 5 minutes on XNU compile record generation and archives before the boot progress failure. The early workflow checks shorten missing input failures. Reusing proven runtime inputs for a diagnostic build has not been timed."
 
+[[area.evidence]]
+kind = "host"
+reference = "docs/reviews/cold-build-failure-log.md"
+command = "GitHub Actions workflow_dispatch run 46095445433 (package.yml, macos-15, ipados-17.7.11-21H461, init_data=false)"
+revision = "cb6370ba951055cf1ea7300d6985029b8f9b506a"
+result = "The saved Data seed was restored with the same hash as run 67. Archive 17 BootProgress passed. Archive 24 build-adreno650.py failed on an unsupported Apple Clang warning option. The board recipes now probe that option and preserve the rest of their warning policy. The final bootstrap kernel and shipping payload were not produced."
+
 [[area]]
 id = "diagnostics"
 status = "device-verified"
