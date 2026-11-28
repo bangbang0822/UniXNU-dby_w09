@@ -50,3 +50,12 @@ The gate has to be environment level, for two reasons that were both measured by
 - The shipping link has never succeeded. Its remaining undefined set (`_native_legacy_visible`, `_native_legacy_visible_sum`, `_qcom_cmd_db_find`, `_qcom_rpmh_active_request`, `_qcom_rpmh_finish`, `_qcom_rpmh_level_index`, `_qcom_rsc_layout`) points at archive injection for the legacy display and RPMh recipes, not at the bootstrap gate.
 - No weak stub was added for any SoC or board provider, and none should be.
 - The bootstrap kernel is also the prelink reference candidate; changing what it compiles is safe only while the archive audits that consume it accept the reduced symbol set. That has not yet been proven by a hosted run.
+
+## Independent read-only review
+
+A separate read-only review of `cd2d818` and `3d220f7` reached the same two blocking conclusions, and made no repository change (`git status --porcelain` was empty):
+
+- In `cd2d818` the bootstrap block did apply only when `XNU_BOOTSTRAP=1` and was not overwritten later, but it lowered the trust switch while the bootstrap defconfig still selects `CONFIG_XNU_OWNER_CACHE_MOUNT=y`. In the current script those reads are `scripts/build-xnu-4k-baseline.sh:303` and `:405`, and the conflicting dependency guard is `:411`, so a fresh bootstrap pass exited before compiling anything.
+- `cd2d818` gated six switches only. The owner cache, manifest and Data chain still reached `kern_exec.o` and `IOKitBSDInit.cpo`, whose call sites reference the verified-root providers that the bootstrap link does not have.
+- `3d220f7` satisfies the gate's ROOT, glob and base rules (`scripts/porting-record.py:14` resolves ROOT to the `tools` checkout, and the checker's `fnmatchcase` matches the literal `porting.toml` path), so no defect was found in the record gate itself.
+- The reviewer's recommendation was the same whole-chain environment gate that `548b003` implements; a narrow fix that only preserves the trust value would let the build proceed but still leave owner-chain symbols unresolved at the bootstrap link.
